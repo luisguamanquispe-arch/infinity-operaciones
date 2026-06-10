@@ -1,0 +1,2 @@
+# Deploy to PostgreSQL provider
+provider = "postgresql"

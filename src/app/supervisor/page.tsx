@@ -1,0 +1,211 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
+import { Loader2, AlertTriangle, CheckCircle, Clock, Users, Plus, FileText } from "lucide-react";
+import Link from "next/link";
+import { AppHeader } from "@/components/AppHeader";
+import { StatCard } from "@/components/StatCard";
+import { ESTADO_LABELS, ESTADO_TECNICO_LABELS, PRIORIDAD_LABELS } from "@/lib/utils";
+
+const MapInner = dynamic(() => import("@/components/MapInner"), {
+  ssr: false,
+  loading: () => <div className="h-64 bg-slate-100 animate-pulse rounded-xl" />,
+});
+
+interface DashboardData {
+  kpis: {
+    abiertos: number;
+    cerrados: number;
+    vencidos: number;
+    tiempoPromedioMin: number;
+    primeraVisitaPct: number;
+  };
+  tecnicos: {
+    id: string;
+    nombre: string;
+    estado: string;
+    lat: number | null;
+    lng: number | null;
+  }[];
+  tickets: {
+    id: string;
+    codigo: string;
+    prioridad: string;
+    estado: string;
+    cliente: { nombre: string; sector: string };
+    tecnico: { usuario: { nombre: string } } | null;
+  }[];
+}
+
+export default function SupervisorDashboard() {
+  const [data, setData] = useState<DashboardData | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/supervisor/dashboard")
+      .then((r) => r.json())
+      .then(setData)
+      .finally(() => setLoading(false));
+
+    const interval = setInterval(() => {
+      fetch("/api/supervisor/dashboard")
+        .then((r) => r.json())
+        .then(setData);
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  if (loading || !data) {
+    return (
+      <div className="min-h-dvh flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-infinity-600" />
+      </div>
+    );
+  }
+
+  const mapPoints = data.tecnicos
+    .filter((t) => t.lat && t.lng)
+    .map((t) => ({
+      lat: t.lat!,
+      lng: t.lng!,
+      label: `${t.nombre} (${ESTADO_TECNICO_LABELS[t.estado]})`,
+      type: "tecnico" as const,
+    }));
+
+  return (
+    <div className="min-h-dvh bg-slate-50">
+      <AppHeader title="Panel Supervisor" subtitle="Monitoreo en tiempo real" />
+
+      <main className="max-w-6xl mx-auto p-4 space-y-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <Link
+            href="/supervisor/tickets/nuevo"
+            className="flex items-center justify-center gap-2 py-3 bg-infinity-600 hover:bg-infinity-700 text-white font-semibold rounded-xl transition"
+          >
+            <Plus className="w-5 h-5" />
+            Nuevo ticket de soporte
+          </Link>
+          <Link
+            href="/reportes"
+            className="flex items-center justify-center gap-2 py-3 border border-infinity-600 text-infinity-600 font-semibold rounded-xl hover:bg-infinity-50 transition"
+          >
+            <FileText className="w-5 h-5" />
+            Reportes finalizados
+          </Link>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+          <StatCard label="Abiertos" value={data.kpis.abiertos} color="blue" />
+          <StatCard label="Cerrados hoy" value={data.kpis.cerrados} color="green" />
+          <StatCard label="Vencidos" value={data.kpis.vencidos} color="red" />
+          <StatCard
+            label="Tiempo prom."
+            value={`${data.kpis.tiempoPromedioMin}m`}
+            icon={Clock}
+            color="slate"
+          />
+          <StatCard
+            label="1ra visita"
+            value={`${data.kpis.primeraVisitaPct}%`}
+            icon={CheckCircle}
+            color="green"
+          />
+        </div>
+
+        {/* Mapa técnicos */}
+        <section>
+          <h2 className="font-semibold mb-3 flex items-center gap-2">
+            <Users className="w-4 h-4" />
+            Técnicos en campo
+          </h2>
+
+          {mapPoints.length > 0 && (
+            <div className="h-64 rounded-xl overflow-hidden border mb-4">
+              <MapInner points={mapPoints} />
+            </div>
+          )}
+
+          <div className="bg-white rounded-xl border overflow-hidden">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50">
+                <tr>
+                  <th className="text-left p-3">Técnico</th>
+                  <th className="text-left p-3">Estado</th>
+                  <th className="text-left p-3 hidden sm:table-cell">Ubicación</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.tecnicos.map((t) => (
+                  <tr key={t.id} className="border-t">
+                    <td className="p-3 font-medium">{t.nombre}</td>
+                    <td className="p-3">
+                      <span
+                        className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                          t.estado === "TRABAJANDO"
+                            ? "bg-blue-100 text-blue-800"
+                            : t.estado === "DISPONIBLE"
+                              ? "bg-emerald-100 text-emerald-800"
+                              : "bg-slate-100 text-slate-600"
+                        }`}
+                      >
+                        {ESTADO_TECNICO_LABELS[t.estado]}
+                      </span>
+                    </td>
+                    <td className="p-3 hidden sm:table-cell text-slate-500 text-xs">
+                      {t.lat && t.lng ? `${t.lat.toFixed(4)}, ${t.lng.toFixed(4)}` : "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        {/* Tickets activos */}
+        <section>
+          <h2 className="font-semibold mb-3 flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4" />
+            Tickets activos
+          </h2>
+          <div className="bg-white rounded-xl border overflow-hidden">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50">
+                <tr>
+                  <th className="text-left p-3">Ticket</th>
+                  <th className="text-left p-3">Cliente</th>
+                  <th className="text-left p-3 hidden sm:table-cell">Técnico</th>
+                  <th className="text-left p-3">Prioridad</th>
+                  <th className="text-left p-3">Estado</th>
+                  <th className="text-left p-3"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.tickets.map((t) => (
+                  <tr key={t.id} className="border-t">
+                    <td className="p-3 font-semibold text-infinity-600">{t.codigo}</td>
+                    <td className="p-3">{t.cliente.nombre}</td>
+                    <td className="p-3 hidden sm:table-cell">
+                      {t.tecnico?.usuario.nombre || "Sin asignar"}
+                    </td>
+                    <td className="p-3">{PRIORIDAD_LABELS[t.prioridad]}</td>
+                    <td className="p-3">{ESTADO_LABELS[t.estado]}</td>
+                    <td className="p-3">
+                      <Link
+                        href={`/supervisor/tickets/${t.id}/editar`}
+                        className="text-xs font-medium text-infinity-600 hover:underline whitespace-nowrap"
+                      >
+                        Editar →
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </main>
+    </div>
+  );
+}

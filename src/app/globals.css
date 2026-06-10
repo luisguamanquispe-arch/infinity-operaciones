@@ -1,0 +1,52 @@
+@import "tailwindcss";
+
+@theme {
+  --color-infinity-50: #eff6ff;
+  --color-infinity-100: #dbeafe;
+  --color-infinity-200: #bfdbfe;
+  --color-infinity-500: #3b82f6;
+  --color-infinity-600: #2563eb;
+  --color-infinity-700: #1d4ed8;
+  --color-infinity-800: #1e40af;
+  --color-infinity-900: #1e3a8a;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  @apply bg-slate-50 text-slate-900 antialiased;
+  min-height: 100dvh;
+}
+
+.leaflet-container {
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.7; transform: scale(1.1); }
+}
+
+.pulse-dot {
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+@media print {
+  header, nav, .print\\:hidden {
+    display: none !important;
+  }
+  body {
+    background: white;
+  }
+  main {
+    max-width: 100%;
+  }
+}

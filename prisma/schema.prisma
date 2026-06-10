@@ -1,0 +1,240 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Rol {
+  TECNICO
+  SUPERVISOR
+  ADMIN
+}
+
+enum EstadoTecnico {
+  DISPONIBLE
+  TRABAJANDO
+  DESCANSO
+  OFFLINE
+}
+
+enum TipoTrabajo {
+  INSTALACION
+  SOPORTE
+  MIGRACION
+  RECONEXION
+  RETIRO
+  CORTE
+}
+
+enum Prioridad {
+  ALTA
+  MEDIA
+  BAJA
+}
+
+enum EstadoTicket {
+  PENDIENTE
+  EN_PROCESO
+  FINALIZADO
+  CERRADO
+  CANCELADO
+}
+
+enum TipoFoto {
+  FACHADA
+  POSTE
+  NAP
+  TRABAJO
+  EMPALME
+  CAJA_TERMINAL
+  ONU
+  SPEEDTEST
+  CLIENTE_CONFORME
+}
+
+model Usuario {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  nombre       String
+  rol          Rol
+  activo       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  tecnico      Tecnico?
+  eventos      EventoTicket[]
+}
+
+model Tecnico {
+  id           String        @id @default(cuid())
+  usuarioId    String        @unique
+  telefono     String?
+  vehiculo     String?
+  estadoActual EstadoTecnico @default(DISPONIBLE)
+  lat          Float?
+  lng          Float?
+  updatedAt    DateTime      @updatedAt
+  usuario      Usuario       @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  tickets      Ticket[]
+  ubicaciones  UbicacionGps[]
+}
+
+model Cliente {
+  id        String   @id @default(cuid())
+  cedula    String   @unique
+  nombre    String
+  telefono  String
+  plan      String
+  direccion String
+  sector    String
+  referencia String?
+  lat       Float?
+  lng       Float?
+  nodo      String?
+  cajaNap   String?
+  puerto    String?
+  onuSerial String?
+  potencia  Float?
+  activo    Boolean  @default(true)
+  tickets   Ticket[]
+}
+
+model Ticket {
+  id          String       @id @default(cuid())
+  codigo      String       @unique
+  clienteId   String
+  tecnicoId   String?
+  tipo        TipoTrabajo
+  prioridad   Prioridad    @default(MEDIA)
+  estado      EstadoTicket @default(PENDIENTE)
+  motivo      String?
+  descripcion String?
+  slaHoras    Int          @default(8)
+  slaVenceEn  DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  cliente     Cliente      @relation(fields: [clienteId], references: [id])
+  tecnico     Tecnico?     @relation(fields: [tecnicoId], references: [id])
+  orden       OrdenServicio?
+  eventos     EventoTicket[]
+}
+
+model OrdenServicio {
+  id              String              @id @default(cuid())
+  ticketId        String              @unique
+  iniciadoEn      DateTime?
+  finalizadoEn    DateTime?
+  latInicio       Float?
+  lngInicio       Float?
+  latFin          Float?
+  lngFin          Float?
+  servicioOk      Boolean             @default(false)
+  potenciaOk      Boolean             @default(false)
+  fotosOk         Boolean             @default(false)
+  clienteConforme Boolean             @default(false)
+  firmaOk         Boolean             @default(false)
+  whatsappEnviado Boolean             @default(false)
+  ticket          Ticket              @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  cronometro      Cronometro?
+  medicion        Medicion?
+  fotografias     Fotografia[]
+  firma           Firma?
+  materiales      MaterialUtilizado[]
+}
+
+model Cronometro {
+  id              String        @id @default(cuid())
+  ordenId         String        @unique
+  inicio          DateTime?
+  fin             DateTime?
+  pausasJson      String        @default("[]")
+  duracionSegundos Int          @default(0)
+  activo          Boolean       @default(false)
+  pausado         Boolean       @default(false)
+  orden           OrdenServicio @relation(fields: [ordenId], references: [id], onDelete: Cascade)
+}
+
+model UbicacionGps {
+  id        String   @id @default(cuid())
+  tecnicoId String
+  lat       Float
+  lng       Float
+  precision Float?
+  timestamp DateTime @default(now())
+  tecnico   Tecnico  @relation(fields: [tecnicoId], references: [id], onDelete: Cascade)
+}
+
+model Medicion {
+  id           String        @id @default(cuid())
+  ordenId      String        @unique
+  rxDbm        Float
+  txDbm        Float
+  pingMs       Float?
+  downloadMbps Float
+  uploadMbps   Float
+  registradoEn DateTime      @default(now())
+  orden        OrdenServicio @relation(fields: [ordenId], references: [id], onDelete: Cascade)
+}
+
+model Fotografia {
+  id       String        @id @default(cuid())
+  ordenId  String
+  tipo     TipoFoto
+  url      String
+  lat      Float?
+  lng      Float?
+  tomadaEn DateTime      @default(now())
+  orden    OrdenServicio @relation(fields: [ordenId], references: [id], onDelete: Cascade)
+}
+
+model Firma {
+  id            String        @id @default(cuid())
+  ordenId       String        @unique
+  nombreCliente String
+  cedula        String
+  imagenUrl     String
+  lat           Float?
+  lng           Float?
+  firmadoEn     DateTime      @default(now())
+  orden         OrdenServicio @relation(fields: [ordenId], references: [id], onDelete: Cascade)
+}
+
+model Inventario {
+  id         String   @id @default(cuid())
+  nombre     String   @unique
+  unidad     String   @default("unidad")
+  stock      Float    @default(0)
+  stockMin   Float    @default(5)
+  createdAt  DateTime @default(now())
+  materiales MaterialUtilizado[]
+}
+
+model MaterialUtilizado {
+  id           String        @id @default(cuid())
+  ordenId      String
+  inventarioId String
+  cantidad     Float
+  orden        OrdenServicio @relation(fields: [ordenId], references: [id], onDelete: Cascade)
+  inventario   Inventario    @relation(fields: [inventarioId], references: [id])
+}
+
+model EvaluacionCliente {
+  id          String   @id @default(cuid())
+  ticketCodigo String
+  calificacion Int
+  comentario  String?
+  createdAt   DateTime @default(now())
+}
+
+model EventoTicket {
+  id        String   @id @default(cuid())
+  ticketId  String
+  usuarioId String?
+  accion    String
+  metadata  String?
+  createdAt DateTime @default(now())
+  ticket    Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  usuario   Usuario? @relation(fields: [usuarioId], references: [id])
+}

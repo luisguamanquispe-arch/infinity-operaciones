@@ -1,0 +1,18 @@
+{
+  "name": "LGB Operaciones",
+  "short_name": "LGB Ops",
+  "description": "Dashboard operativo para técnicos ISP - LGB Sistemas",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1e40af",
+  "theme_color": "#1e40af",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
