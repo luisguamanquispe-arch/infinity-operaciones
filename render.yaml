@@ -29,6 +29,8 @@ services:
         value: production
       - key: JWT_SECRET
         generateValue: true
+      - key: SETUP_TOKEN
+        generateValue: true
       - key: UPLOAD_STORAGE
         value: local
       - key: WHATSAPP_ENABLED
