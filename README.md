@@ -111,7 +111,9 @@ prisma/
 
 ## Producción
 
-Ver guía completa en **[DEPLOY.md](./DEPLOY.md)**.
+**Guía sencilla (recomendada):** **[PUBLICAR-SIMPLE.md](./PUBLICAR-SIMPLE.md)** — Render + subdominio `ops.lgbsistemas.ec`
+
+Guía completa Railway/Hostinger: **[PUBLICAR-LGB.md](./PUBLICAR-LGB.md)** · **[DEPLOY.md](./DEPLOY.md)**
 
 ### Resumen rápido
 

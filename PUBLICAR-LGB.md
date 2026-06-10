@@ -36,9 +36,28 @@ git push -u origin main
 
 1. [railway.app](https://railway.app) → login con GitHub.
 2. **New Project** → **Deploy from GitHub** → selecciona el repo.
-3. **+ New** → **Database** → **PostgreSQL**.
-4. En el servicio **web** → **Variables** → referencia `DATABASE_URL` desde PostgreSQL.
-5. Agrega estas variables:
+3. **+ New** → **Database** → **PostgreSQL** (espera a que quede **Active**).
+
+### Conectar PostgreSQL (obligatorio — sin esto el deploy falla)
+
+El comando de inicio ejecuta `prisma migrate deploy` y **necesita `DATABASE_URL`**. Si no está configurada, el servicio cae y el healthcheck en `/login` responde *service unavailable*.
+
+1. Abre el servicio **web** (tu app Next.js), **no** el de PostgreSQL.
+2. Pestaña **Variables**.
+3. **+ New Variable** → **Add Reference** (o **Reference Variable**).
+4. Servicio: **PostgreSQL** → variable: **`DATABASE_URL`**.
+5. Guarda. Railway redeploya automáticamente.
+
+Debe quedar una variable `DATABASE_URL` cuyo valor es una referencia (no vacía), por ejemplo:
+`${{Postgres.DATABASE_URL}}`
+
+**Alternativa manual:** en Variables del servicio web, crea:
+
+| Variable | Valor |
+|----------|-------|
+| `DATABASE_URL` | Copiar el valor desde PostgreSQL → Variables → `DATABASE_URL` |
+
+6. Agrega también estas variables en el **servicio web**:
 
 ```env
 NODE_ENV=production
