@@ -26,13 +26,22 @@ Cuando termine, tendrás una URL tipo:
 
 Prueba: `https://TU-URL.onrender.com/login`
 
-### 2. Datos iniciales (una sola vez)
+### 2. Datos iniciales (usuarios de prueba)
 
-En Render → servicio **infinity-operaciones** → **Shell**:
+Render **Free no incluye Shell**. Usa una de estas opciones:
 
-```bash
-npm run db:seed
+**Opción A — Desde tu PC (ahora mismo):**
+
+1. Render → **`infinity-db`** → **Connect** → copia **External Database URL**
+2. PowerShell:
+
+```powershell
+cd C:\Users\MONITOREO-INFINITY\infinity-operaciones
+$env:DATABASE_URL="postgresql://..."   # pegar URL de Render
+& "C:\Program Files\nodejs\npm.cmd" run db:seed
 ```
+
+**Opción B — Automático:** tras push + redeploy, la app crea usuarios si la BD está vacía.
 
 Usuarios de prueba (cámbialos después en `/gerencia/usuarios`):
 

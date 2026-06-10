@@ -17,6 +17,9 @@ fi
 echo "Running database migrations..."
 npx prisma migrate deploy
 
+echo "Ensuring initial users exist..."
+node scripts/ensure-seed.cjs
+
 echo "Starting application..."
 if [ -f server.js ]; then
   exec node server.js
