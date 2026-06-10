@@ -18,8 +18,7 @@ services:
     region: oregon
     branch: main
     buildCommand: npm install && npx prisma generate && npm run build
-    preDeployCommand: npx prisma migrate deploy
-    startCommand: npm run start
+    startCommand: npm run start:railway
     healthCheckPath: /login
     envVars:
       - key: DATABASE_URL
