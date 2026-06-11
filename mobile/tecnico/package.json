@@ -1,0 +1,30 @@
+{
+  "name": "lgb-tecnico-mobile",
+  "version": "1.0.0",
+  "private": true,
+  "description": "App Android/iOS para técnicos de campo — LGB Operaciones",
+  "scripts": {
+    "icons": "npx @capacitor/assets generate --iconBackgroundColor \"#1e40af\" --splashBackgroundColor \"#1e40af\"",
+    "sync": "npx cap sync",
+    "open:android": "npx cap open android",
+    "open:ios": "npx cap open ios",
+    "run:android": "npx cap run android",
+    "run:ios": "npx cap run ios",
+    "add:android": "npx cap add android",
+    "add:ios": "npx cap add ios"
+  },
+  "dependencies": {
+    "@capacitor/android": "^6.2.0",
+    "@capacitor/app": "^6.0.2",
+    "@capacitor/core": "^6.2.0",
+    "@capacitor/geolocation": "^6.1.0",
+    "@capacitor/ios": "^6.2.0",
+    "@capacitor/splash-screen": "^6.0.3",
+    "@capacitor/status-bar": "^6.0.2"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^6.2.0",
+    "typescript": "^5.8.3"
+  }
+}

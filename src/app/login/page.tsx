@@ -1,13 +1,16 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { Wifi } from "lucide-react";
+import { useState, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Smartphone, Wifi } from "lucide-react";
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
-  const [email, setEmail] = useState("juan@infinity.ec");
-  const [password, setPassword] = useState("tecnico123");
+  const searchParams = useSearchParams();
+  const esAppTecnico = searchParams.get("app") === "tecnico";
+
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -29,24 +32,40 @@ export default function LoginPage() {
         return;
       }
 
+      if (esAppTecnico && data.user?.rol && data.user.rol !== "TECNICO") {
+        setError("Esta app es solo para técnicos de campo.");
+        await fetch("/api/auth/logout", { method: "POST" });
+        return;
+      }
+
       router.push(data.redirect);
       router.refresh();
     } catch {
-      setError("Error de conexión");
+      setError("Error de conexión. Verifique internet.");
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <div className="min-h-dvh flex flex-col items-center justify-center p-4 bg-gradient-to-br from-infinity-800 to-infinity-900">
+    <div className="min-h-dvh flex flex-col items-center justify-center p-4 bg-gradient-to-br from-infinity-800 to-infinity-900 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-white/10 mb-4">
-            <Wifi className="w-8 h-8 text-white" />
+            {esAppTecnico ? (
+              <Smartphone className="w-8 h-8 text-white" />
+            ) : (
+              <Wifi className="w-8 h-8 text-white" />
+            )}
           </div>
-          <h1 className="text-2xl font-bold text-white">Infinity Operaciones</h1>
-          <p className="text-infinity-200 mt-1">Dashboard ISP - Campo</p>
+          <h1 className="text-2xl font-bold text-white">
+            {esAppTecnico ? "LGB Técnicos" : "LGB Operaciones"}
+          </h1>
+          <p className="text-infinity-200 mt-1">
+            {esAppTecnico
+              ? "App de campo — soporte e instalaciones"
+              : "Panel operativo ISP"}
+          </p>
         </div>
 
         <form
@@ -65,7 +84,8 @@ export default function LoginPage() {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-infinity-500"
+              autoComplete="email"
+              className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-infinity-500 text-base"
               required
             />
           </div>
@@ -78,7 +98,8 @@ export default function LoginPage() {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-infinity-500"
+              autoComplete="current-password"
+              className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-infinity-500 text-base"
               required
             />
           </div>
@@ -86,17 +107,39 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 bg-infinity-600 hover:bg-infinity-700 text-white font-semibold rounded-xl transition disabled:opacity-50"
+            className="w-full py-3 bg-infinity-600 hover:bg-infinity-700 text-white font-semibold rounded-xl transition disabled:opacity-50 text-base"
           >
             {loading ? "Ingresando..." : "Iniciar sesión"}
           </button>
 
-          <div className="text-xs text-slate-500 pt-2 border-t space-y-1">
-            <p><strong>Supervisor:</strong> supervisor@infinity.ec / super123</p>
-            <p><strong>Gerencia:</strong> admin@infinity.ec / admin123</p>
-          </div>
+          {!esAppTecnico && (
+            <div className="text-xs text-slate-500 pt-2 border-t space-y-1">
+              <p><strong>Supervisor:</strong> supervisor@infinity.ec / super123</p>
+              <p><strong>Gerencia:</strong> admin@infinity.ec / admin123</p>
+            </div>
+          )}
+
+          {esAppTecnico && (
+            <p className="text-xs text-slate-500 text-center pt-2">
+              Use las credenciales de técnico asignadas por gerencia.
+            </p>
+          )}
         </form>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-dvh flex items-center justify-center bg-infinity-800 text-white">
+          Cargando...
+        </div>
+      }
+    >
+      <LoginForm />
+    </Suspense>
   );
 }
