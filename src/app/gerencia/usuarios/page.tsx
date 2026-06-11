@@ -222,7 +222,7 @@ export default function UsuariosPage() {
           <ul className="space-y-0.5 text-xs">
             <li>Admin: admin@infinity.ec</li>
             <li>Supervisor: supervisor@infinity.ec</li>
-            <li>Técnico: juan@infinity.ec / carlos@infinity.ec</li>
+            <li>Cree técnicos en /gerencia/tecnicos/nuevo</li>
           </ul>
         </div>
       </main>

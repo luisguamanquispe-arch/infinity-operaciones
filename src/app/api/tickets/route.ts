@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getFullSession } from "@/lib/auth";
 import { generarCodigoTicket, slaHorasPorPrioridad } from "@/lib/tickets";
 import { parseProgramadoEn } from "@/lib/calendario";
+import { notificarTecnicoAsignacion } from "@/lib/notificaciones-tecnico";
 import type { Prioridad, TipoTrabajo } from "@prisma/client";
 
 const TIPOS_VALIDOS: TipoTrabajo[] = [
@@ -135,6 +136,10 @@ export async function POST(request: Request) {
       metadata: JSON.stringify({ codigo, tipo, prioridad, tecnicoId }),
     },
   });
+
+  if (ticket.tecnicoId && ticket.programadoEn) {
+    await notificarTecnicoAsignacion(ticket);
+  }
 
   return NextResponse.json({ ticket }, { status: 201 });
 }

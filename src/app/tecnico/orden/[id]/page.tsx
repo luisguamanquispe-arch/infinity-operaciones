@@ -3,11 +3,11 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Loader2, Phone, MapPin } from "lucide-react";
+import { ArrowLeft, Loader2, Phone, MapPin, CalendarClock } from "lucide-react";
 import { Cronometro } from "@/components/Cronometro";
 import { PhotoCapture } from "@/components/PhotoCapture";
 import { SignatureCapture } from "@/components/SignatureCapture";
-import { TIPO_LABELS, ESTADO_LABELS } from "@/lib/utils";
+import { TIPO_LABELS, ESTADO_LABELS, formatDateTime } from "@/lib/utils";
 
 interface OrdenData {
   ticket: {
@@ -17,6 +17,7 @@ interface OrdenData {
     estado: string;
     motivo: string | null;
     descripcion: string | null;
+    programadoEn: string | null;
     cliente: {
       nombre: string;
       cedula: string;
@@ -189,6 +190,21 @@ export default function OrdenPage() {
       </header>
 
       <main className="max-w-3xl mx-auto p-4 space-y-4">
+        {ticket.programadoEn && !cerrado && (
+          <section className="bg-infinity-50 border border-infinity-200 rounded-xl p-4 flex gap-3">
+            <CalendarClock className="w-6 h-6 text-infinity-600 shrink-0" />
+            <div>
+              <p className="font-semibold text-infinity-900">Reparación programada</p>
+              <p className="text-lg font-bold text-infinity-700">
+                {formatDateTime(ticket.programadoEn)}
+              </p>
+              <p className="text-sm text-infinity-800 mt-1">
+                Inicie la reparación en la fecha y hora indicadas por el supervisor.
+              </p>
+            </div>
+          </section>
+        )}
+
         {/* Datos del cliente */}
         <section className="bg-white rounded-xl border p-4 space-y-2">
           <h2 className="font-semibold text-lg">{ticket.cliente.nombre}</h2>

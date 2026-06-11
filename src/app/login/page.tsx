@@ -92,7 +92,6 @@ export default function LoginPage() {
           </button>
 
           <div className="text-xs text-slate-500 pt-2 border-t space-y-1">
-            <p><strong>Técnico:</strong> juan@infinity.ec / tecnico123</p>
             <p><strong>Supervisor:</strong> supervisor@infinity.ec / super123</p>
             <p><strong>Gerencia:</strong> admin@infinity.ec / admin123</p>
           </div>

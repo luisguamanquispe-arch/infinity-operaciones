@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getFullSession } from "@/lib/auth";
 import { getOrCreateOrden, calcularDuracionCronometro, slaHorasPorPrioridad } from "@/lib/tickets";
 import { parseProgramadoEn } from "@/lib/calendario";
+import { notificarTecnicoAsignacion } from "@/lib/notificaciones-tecnico";
 
 export async function GET(
   _request: Request,
@@ -118,6 +119,11 @@ export async function PATCH(
       metadata: JSON.stringify(updateData),
     },
   });
+
+  const programado = updateData.tecnicoId !== undefined || updateData.programadoEn !== undefined;
+  if (programado && updated.tecnicoId && updated.programadoEn) {
+    await notificarTecnicoAsignacion(updated);
+  }
 
   return NextResponse.json({ ticket: updated });
 }

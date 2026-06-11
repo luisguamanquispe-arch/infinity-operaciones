@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getFullSession } from "@/lib/auth";
 import { cuposDisponibles, diaKey, parseProgramadoEn } from "@/lib/calendario";
+import { notificarTecnicoAsignacion } from "@/lib/notificaciones-tecnico";
 import {
   startOfWeek,
   endOfWeek,
@@ -181,6 +182,10 @@ export async function PATCH(request: Request) {
       metadata: JSON.stringify(updateData),
     },
   });
+
+  if (updated.tecnicoId && updated.programadoEn) {
+    await notificarTecnicoAsignacion(updated);
+  }
 
   return NextResponse.json({ ticket: updated });
 }

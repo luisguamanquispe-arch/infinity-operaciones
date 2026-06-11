@@ -70,6 +70,7 @@ export function TicketList({ tickets, filtro, onFiltroChange }: TicketListProps)
             <thead className="bg-slate-50 text-slate-600">
               <tr>
                 <th className="text-left p-3 font-medium">Ticket</th>
+                <th className="text-left p-3 font-medium">Programado</th>
                 <th className="text-left p-3 font-medium">Cliente</th>
                 <th className="text-left p-3 font-medium hidden sm:table-cell">Sector</th>
                 <th className="text-left p-3 font-medium">Prioridad</th>
@@ -79,7 +80,7 @@ export function TicketList({ tickets, filtro, onFiltroChange }: TicketListProps)
             <tbody>
               {tickets.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="p-6 text-center text-slate-400">
+                  <td colSpan={6} className="p-6 text-center text-slate-400">
                     No hay órdenes con este filtro
                   </td>
                 </tr>
@@ -96,10 +97,14 @@ export function TicketList({ tickets, filtro, onFiltroChange }: TicketListProps)
                       <p className="text-xs text-slate-400 sm:hidden">
                         {TIPO_LABELS[t.tipo]}
                       </p>
-                      {t.programadoEn && (
-                        <p className="text-xs text-infinity-600 mt-0.5">
-                          📅 {formatDateTime(t.programadoEn)}
-                        </p>
+                    </td>
+                    <td className="p-3">
+                      {t.programadoEn ? (
+                        <span className="text-sm font-medium text-infinity-700">
+                          {formatDateTime(t.programadoEn)}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-slate-400">Sin programar</span>
                       )}
                     </td>
                     <td className="p-3">{t.cliente.nombre}</td>

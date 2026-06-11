@@ -13,22 +13,36 @@ import { AppHeader } from "@/components/AppHeader";
 import { StatCard } from "@/components/StatCard";
 import { WorkMap } from "@/components/WorkMap";
 import { TicketList } from "@/components/TicketList";
+import { TecnicoAgenda } from "@/components/TecnicoAgenda";
 import { formatDate } from "@/lib/utils";
 
 interface Resumen {
   fecha: string;
   tecnico: string;
   ubicacion: { lat: number; lng: number } | null;
-  asignadas: number;
+  programadasHoy: number;
   pendientes: number;
   enProceso: number;
   finalizadas: number;
   tiempoPromedioMin: number;
 }
 
+interface AgendaTicket {
+  id: string;
+  codigo: string;
+  tipo: string;
+  prioridad: string;
+  estado: string;
+  programadoEn: string;
+  motivo?: string | null;
+  cliente: { nombre: string; sector: string; direccion: string };
+}
+
 export default function TecnicoDashboard() {
   const [resumen, setResumen] = useState<Resumen | null>(null);
   const [tickets, setTickets] = useState<Parameters<typeof TicketList>[0]["tickets"]>([]);
+  const [agenda, setAgenda] = useState<AgendaTicket[]>([]);
+  const [proximaOrden, setProximaOrden] = useState<AgendaTicket | null>(null);
   const [filtro, setFiltro] = useState("todos");
   const [loading, setLoading] = useState(true);
 
@@ -37,6 +51,8 @@ export default function TecnicoDashboard() {
     const data = await res.json();
     setResumen(data.resumen);
     setTickets(data.tickets);
+    setAgenda(data.agenda ?? []);
+    setProximaOrden(data.proximaOrden ?? null);
     setLoading(false);
   }, [filtro]);
 
@@ -94,15 +110,17 @@ export default function TecnicoDashboard() {
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <StatCard
-            label="Asignadas"
-            value={resumen?.asignadas ?? 0}
+            label="Programadas hoy"
+            value={resumen?.programadasHoy ?? 0}
             icon={ClipboardList}
             color="blue"
           />
           <StatCard label="Pendientes" value={resumen?.pendientes ?? 0} color="yellow" />
           <StatCard label="En proceso" value={resumen?.enProceso ?? 0} color="blue" />
-          <StatCard label="Finalizadas" value={resumen?.finalizadas ?? 0} color="green" />
+          <StatCard label="Finalizadas hoy" value={resumen?.finalizadas ?? 0} color="green" />
         </div>
+
+        <TecnicoAgenda tickets={agenda} proximaOrden={proximaOrden} />
 
         <div className="flex items-center gap-2 text-sm text-slate-600 bg-white rounded-xl border p-3">
           <Clock className="w-4 h-4" />

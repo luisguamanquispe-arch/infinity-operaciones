@@ -15,6 +15,7 @@
     "db:migrate": "prisma migrate deploy",
     "db:migrate:dev": "prisma migrate dev",
     "db:seed": "tsx prisma/seed.ts",
+    "db:limpiar": "tsx scripts/limpiar-datos.ts",
     "db:setup": "prisma migrate deploy && tsx prisma/seed.ts",
     "db:setup:dev": "prisma db push && tsx prisma/seed.ts",
     "start:railway": "sh scripts/railway-start.sh",
