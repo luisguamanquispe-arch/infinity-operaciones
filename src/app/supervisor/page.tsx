@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
-import { Loader2, AlertTriangle, CheckCircle, Clock, Users, Plus, FileText } from "lucide-react";
+import { Loader2, AlertTriangle, CheckCircle, Clock, Users, Plus, FileText, CalendarDays } from "lucide-react";
 import Link from "next/link";
 import { AppHeader } from "@/components/AppHeader";
 import { StatCard } from "@/components/StatCard";
@@ -79,13 +79,20 @@ export default function SupervisorDashboard() {
       <AppHeader title="Panel Supervisor" subtitle="Monitoreo en tiempo real" />
 
       <main className="max-w-6xl mx-auto p-4 space-y-6">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <Link
             href="/supervisor/tickets/nuevo"
             className="flex items-center justify-center gap-2 py-3 bg-infinity-600 hover:bg-infinity-700 text-white font-semibold rounded-xl transition"
           >
             <Plus className="w-5 h-5" />
             Nuevo ticket de soporte
+          </Link>
+          <Link
+            href="/supervisor/calendario"
+            className="flex items-center justify-center gap-2 py-3 bg-white border-2 border-infinity-600 text-infinity-600 font-semibold rounded-xl hover:bg-infinity-50 transition"
+          >
+            <CalendarDays className="w-5 h-5" />
+            Calendario de soporte
           </Link>
           <Link
             href="/reportes"

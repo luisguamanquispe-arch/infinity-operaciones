@@ -27,7 +27,7 @@ export async function GET(request: Request) {
       cliente: true,
       orden: { include: { cronometro: true } },
     },
-    orderBy: [{ prioridad: "asc" }, { createdAt: "asc" }],
+    orderBy: [{ programadoEn: "asc" }, { prioridad: "asc" }, { createdAt: "asc" }],
   });
 
   const hoy = new Date();

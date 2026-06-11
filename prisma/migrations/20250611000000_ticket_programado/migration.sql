@@ -1,0 +1,1 @@
+ALTER TABLE "Ticket" ADD COLUMN IF NOT EXISTS "programadoEn" TIMESTAMP(3);

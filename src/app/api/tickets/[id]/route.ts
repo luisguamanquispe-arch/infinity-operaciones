@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getFullSession } from "@/lib/auth";
 import { getOrCreateOrden, calcularDuracionCronometro, slaHorasPorPrioridad } from "@/lib/tickets";
+import { parseProgramadoEn } from "@/lib/calendario";
 
 export async function GET(
   _request: Request,
@@ -83,6 +84,9 @@ export async function PATCH(
   if (body.estado && ESTADOS_VALIDOS.includes(body.estado)) updateData.estado = body.estado;
   if (body.motivo !== undefined) updateData.motivo = body.motivo || null;
   if (body.descripcion !== undefined) updateData.descripcion = body.descripcion || null;
+  if (body.programadoEn !== undefined) {
+    updateData.programadoEn = body.programadoEn ? parseProgramadoEn(body.programadoEn) : null;
+  }
   if (body.tecnicoId !== undefined) {
     updateData.tecnicoId = body.tecnicoId || null;
     if (body.tecnicoId) {

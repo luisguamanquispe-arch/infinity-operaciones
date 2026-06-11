@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-import { ESTADO_LABELS, PRIORIDAD_LABELS, TIPO_LABELS } from "@/lib/utils";
+import { ESTADO_LABELS, PRIORIDAD_LABELS, TIPO_LABELS, formatDateTime } from "@/lib/utils";
 
 interface Ticket {
   id: string;
@@ -10,6 +10,7 @@ interface Ticket {
   tipo: string;
   prioridad: string;
   estado: string;
+  programadoEn?: string | null;
   cliente: { nombre: string; sector: string };
 }
 
@@ -95,6 +96,11 @@ export function TicketList({ tickets, filtro, onFiltroChange }: TicketListProps)
                       <p className="text-xs text-slate-400 sm:hidden">
                         {TIPO_LABELS[t.tipo]}
                       </p>
+                      {t.programadoEn && (
+                        <p className="text-xs text-infinity-600 mt-0.5">
+                          📅 {formatDateTime(t.programadoEn)}
+                        </p>
+                      )}
                     </td>
                     <td className="p-3">{t.cliente.nombre}</td>
                     <td className="p-3 hidden sm:table-cell">{t.cliente.sector}</td>

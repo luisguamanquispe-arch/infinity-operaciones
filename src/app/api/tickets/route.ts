@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getFullSession } from "@/lib/auth";
 import { generarCodigoTicket, slaHorasPorPrioridad } from "@/lib/tickets";
+import { parseProgramadoEn } from "@/lib/calendario";
 import type { Prioridad, TipoTrabajo } from "@prisma/client";
 
 const TIPOS_VALIDOS: TipoTrabajo[] = [
@@ -37,6 +38,7 @@ export async function POST(request: Request) {
     motivo,
     descripcion,
     tecnicoId,
+    programadoEn,
   } = body;
 
   if (!tipo || !TIPOS_VALIDOS.includes(tipo)) {
@@ -117,6 +119,7 @@ export async function POST(request: Request) {
       descripcion: descripcion || null,
       slaHoras,
       slaVenceEn,
+      programadoEn: parseProgramadoEn(programadoEn),
     },
     include: {
       cliente: true,

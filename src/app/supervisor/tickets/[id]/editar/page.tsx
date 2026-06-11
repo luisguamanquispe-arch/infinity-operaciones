@@ -6,6 +6,7 @@ import Link from "next/link";
 import { ArrowLeft, Loader2, CheckCircle } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
 import { TIPO_LABELS, ESTADO_LABELS, ESTADO_TECNICO_LABELS, PRIORIDAD_LABELS } from "@/lib/utils";
+import { toDatetimeLocalValue } from "@/lib/calendario";
 
 interface Tecnico {
   id: string;
@@ -34,6 +35,7 @@ export default function EditarTicketPage() {
     motivo: "",
     descripcion: "",
     tecnicoId: "",
+    programadoEn: "",
   });
 
   useEffect(() => {
@@ -56,6 +58,7 @@ export default function EditarTicketPage() {
         motivo: t.motivo || "",
         descripcion: t.descripcion || "",
         tecnicoId: t.tecnicoId || "",
+        programadoEn: toDatetimeLocalValue(t.programadoEn),
       });
       setTecnicos(tecData.tecnicos);
       setLoading(false);
@@ -74,6 +77,7 @@ export default function EditarTicketPage() {
       body: JSON.stringify({
         ...form,
         tecnicoId: form.tecnicoId || null,
+        programadoEn: form.programadoEn || null,
       }),
     });
 
@@ -178,6 +182,16 @@ export default function EditarTicketPage() {
                 </option>
               ))}
             </select>
+          </div>
+
+          <div>
+            <label className="text-xs text-slate-500">Fecha y hora programada</label>
+            <input
+              type="datetime-local"
+              value={form.programadoEn}
+              onChange={(e) => setForm({ ...form, programadoEn: e.target.value })}
+              className="w-full px-3 py-2 border rounded-lg text-sm mt-0.5"
+            />
           </div>
 
           <div>

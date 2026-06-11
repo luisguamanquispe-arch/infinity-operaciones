@@ -55,6 +55,7 @@ export default function NuevoTicketPage() {
     motivo: "",
     descripcion: "",
     tecnicoId: "",
+    programadoEn: "",
   });
 
   useEffect(() => {
@@ -106,6 +107,7 @@ export default function NuevoTicketPage() {
         ...cliente,
         ...ticket,
         tecnicoId: ticket.tecnicoId || null,
+        programadoEn: ticket.programadoEn || null,
       }),
     });
 
@@ -308,7 +310,23 @@ export default function NuevoTicketPage() {
 
           {/* Asignación */}
           <section className="bg-white rounded-xl border p-4 space-y-3">
-            <h2 className="font-semibold">3. Asignar técnico</h2>
+            <h2 className="font-semibold">3. Programar y asignar</h2>
+
+            <div>
+              <label className="text-xs text-slate-500">Fecha y hora de visita</label>
+              <input
+                type="datetime-local"
+                value={ticket.programadoEn}
+                onChange={(e) =>
+                  setTicket({ ...ticket, programadoEn: e.target.value })
+                }
+                className="w-full px-3 py-2 border rounded-lg text-sm mt-0.5"
+              />
+              <p className="text-xs text-slate-400 mt-1">
+                Aparecerá en el calendario de soporte
+              </p>
+            </div>
+
             <select
               value={ticket.tecnicoId}
               onChange={(e) => setTicket({ ...ticket, tecnicoId: e.target.value })}

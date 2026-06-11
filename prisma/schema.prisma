@@ -113,6 +113,7 @@ model Ticket {
   descripcion String?
   slaHoras    Int          @default(8)
   slaVenceEn  DateTime?
+  programadoEn DateTime?
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
   cliente     Cliente      @relation(fields: [clienteId], references: [id])
