@@ -1,0 +1,1 @@
+ALTER TABLE "Firma" ADD COLUMN IF NOT EXISTS "imagenData" TEXT;

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getFullSession } from "@/lib/auth";
 import { calcularDuracionCronometro } from "@/lib/tickets";
+import { firmaParaReporte } from "@/lib/firma-image";
 
 export async function GET(
   _request: Request,
@@ -60,9 +61,18 @@ export async function GET(
   const fotosFinal = ["ONU", "SPEEDTEST", "CLIENTE_CONFORME"];
 
   const fotografias = orden?.fotografias ?? [];
+  const firma = await firmaParaReporte(orden?.firma ?? null);
 
   return NextResponse.json({
-    ticket,
+    ticket: {
+      ...ticket,
+      orden: orden
+        ? {
+            ...orden,
+            firma,
+          }
+        : null,
+    },
     duracionSegundos,
     evidencia: {
       antes: fotografias.filter((f) => fotosAntes.includes(f.tipo)),

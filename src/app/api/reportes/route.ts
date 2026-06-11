@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getFullSession } from "@/lib/auth";
+import { firmaImagenSrcRapida } from "@/lib/firma-image";
 
 export async function GET(request: Request) {
   const session = await getFullSession();
@@ -99,6 +100,7 @@ export async function GET(request: Request) {
       : null,
     totalFotos: t.orden?.fotografias.length ?? 0,
     tieneFirma: !!t.orden?.firma,
+    firmaSrc: firmaImagenSrcRapida(t.orden?.firma ?? null),
     tieneMedicion: !!t.orden?.medicion,
   }));
 

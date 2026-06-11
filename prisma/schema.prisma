@@ -195,6 +195,7 @@ model Firma {
   nombreCliente String
   cedula        String
   imagenUrl     String
+  imagenData    String?       @db.Text
   lat           Float?
   lng           Float?
   firmadoEn     DateTime      @default(now())

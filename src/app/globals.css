@@ -49,4 +49,9 @@ body {
   main {
     max-width: 100%;
   }
+  img {
+    max-width: 100%;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
 }

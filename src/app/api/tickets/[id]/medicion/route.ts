@@ -77,10 +77,12 @@ export async function PUT(
         nombreCliente,
         cedula,
         imagenUrl,
+        imagenData: imagen,
         lat,
         lng,
       },
-      update: { nombreCliente, cedula, imagenUrl, lat, lng },    });
+      update: { nombreCliente, cedula, imagenUrl, imagenData: imagen, lat, lng },
+    });
 
     return NextResponse.json({ firma });
   }

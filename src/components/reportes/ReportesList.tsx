@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
 import { StatCard } from "@/components/StatCard";
+import { FirmaMiniatura } from "./FirmaMiniatura";
 import {
   TIPO_LABELS,
   ESTADO_LABELS,
@@ -31,6 +32,7 @@ interface ReporteItem {
   duracionMin: number | null;
   totalFotos: number;
   tieneFirma: boolean;
+  firmaSrc: string | null;
   tieneMedicion: boolean;
 }
 
@@ -216,6 +218,7 @@ export function ReportesList({
                     <th className="text-left p-3 hidden sm:table-cell">Técnico</th>
                     <th className="text-left p-3 hidden md:table-cell">Tipo</th>
                     <th className="text-left p-3">Cerrado</th>
+                    <th className="text-left p-3">Firma</th>
                     <th className="text-left p-3">Evidencia</th>
                     <th className="text-left p-3"></th>
                   </tr>
@@ -223,7 +226,7 @@ export function ReportesList({
                 <tbody>
                   {!data?.items.length ? (
                     <tr>
-                      <td colSpan={7} className="p-8 text-center text-slate-400">
+                      <td colSpan={8} className="p-8 text-center text-slate-400">
                         No hay órdenes finalizadas con estos filtros
                       </td>
                     </tr>
@@ -247,15 +250,16 @@ export function ReportesList({
                           )}
                         </td>
                         <td className="p-3">
+                          <FirmaMiniatura
+                            src={item.firmaSrc}
+                            nombre={item.cliente.nombre}
+                          />
+                        </td>
+                        <td className="p-3">
                           <div className="flex gap-1 flex-wrap">
                             {item.totalFotos > 0 && (
                               <span className="px-1.5 py-0.5 bg-emerald-100 text-emerald-700 rounded text-xs">
                                 📷 {item.totalFotos}
-                              </span>
-                            )}
-                            {item.tieneFirma && (
-                              <span className="px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded text-xs">
-                                ✍️
                               </span>
                             )}
                             {item.tieneMedicion && (

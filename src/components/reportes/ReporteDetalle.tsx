@@ -14,6 +14,7 @@ import {
   Wrench,
 } from "lucide-react";
 import { PhotoGallery } from "./PhotoGallery";
+import { FirmaReporte } from "./FirmaReporte";
 import {
   TIPO_LABELS,
   ESTADO_LABELS,
@@ -65,7 +66,10 @@ interface ReporteData {
         nombreCliente: string;
         cedula: string;
         imagenUrl: string;
+        imagenSrc: string;
         firmadoEn: string;
+        lat?: number | null;
+        lng?: number | null;
       } | null;
       materiales: {
         id: string;
@@ -253,6 +257,8 @@ export function ReporteDetalle({ backHref, backLabel }: ReporteDetalleProps) {
           </div>
         )}
 
+        {orden?.firma && <FirmaReporte firma={orden.firma} />}
+
         <div className="bg-white rounded-xl border p-4 space-y-6">
           <h3 className="font-semibold text-lg">Evidencia fotográfica</h3>
           <PhotoGallery titulo="Antes de iniciar" fotos={evidencia.antes} />
@@ -288,23 +294,6 @@ export function ReporteDetalle({ backHref, backLabel }: ReporteDetalleProps) {
                 ))}
               </tbody>
             </table>
-          </div>
-        )}
-
-        {orden?.firma && (
-          <div className="bg-white rounded-xl border p-4">
-            <h3 className="font-semibold mb-3">Firma del cliente</h3>
-            <p className="text-sm text-slate-600 mb-2">
-              {orden.firma.nombreCliente} — Cédula: {orden.firma.cedula}
-            </p>
-            <p className="text-xs text-slate-400 mb-3">
-              Firmado: {formatDateTime(orden.firma.firmadoEn)}
-            </p>
-            <img
-              src={orden.firma.imagenUrl}
-              alt="Firma del cliente"
-              className="max-h-32 border rounded-lg"
-            />
           </div>
         )}
 
