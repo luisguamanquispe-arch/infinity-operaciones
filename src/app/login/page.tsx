@@ -1,13 +1,21 @@
 "use client";
 
-import { useState, Suspense } from "react";
+import { useState, Suspense, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Smartphone, Wifi } from "lucide-react";
+import { fetchWithRetry } from "@/lib/compress-image";
 
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const esAppTecnico = searchParams.get("app") === "tecnico";
+
+  useEffect(() => {
+    if (esAppTecnico) {
+      router.prefetch("/tecnico");
+      fetch("/api/health", { cache: "no-store" }).catch(() => {});
+    }
+  }, [esAppTecnico, router]);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -20,11 +28,15 @@ function LoginForm() {
     setError("");
 
     try {
-      const res = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
+      const res = await fetchWithRetry(
+        "/api/auth/login",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password }),
+        },
+        2
+      );
 
       const data = await res.json();
       if (!res.ok) {
@@ -41,7 +53,7 @@ function LoginForm() {
       router.push(data.redirect);
       router.refresh();
     } catch {
-      setError("Error de conexión. Verifique internet.");
+      setError("El servidor está iniciando. Espere unos segundos e intente de nuevo.");
     } finally {
       setLoading(false);
     }

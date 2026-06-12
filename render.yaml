@@ -19,7 +19,7 @@ services:
     branch: main
     buildCommand: npm install --include=dev && npx prisma generate && npm run build
     startCommand: npm run start:railway
-    healthCheckPath: /login
+    healthCheckPath: /api/health
     envVars:
       - key: DATABASE_URL
         fromDatabase:

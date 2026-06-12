@@ -7,12 +7,17 @@
       content="width=device-width, initial-scale=1, viewport-fit=cover"
     />
     <meta name="theme-color" content="#1e40af" />
+    <meta name="background-color" content="#1e40af" />
     <title>LGB Técnicos</title>
     <style>
       * {
         box-sizing: border-box;
         margin: 0;
         padding: 0;
+      }
+      html,
+      body {
+        background: #1e40af;
       }
       body {
         min-height: 100dvh;
@@ -44,7 +49,12 @@
         opacity: 0.85;
         text-align: center;
         line-height: 1.5;
-        max-width: 280px;
+        max-width: 300px;
+      }
+      .hint {
+        margin-top: 12px;
+        font-size: 0.8rem;
+        opacity: 0.7;
       }
       .spinner {
         width: 32px;
@@ -65,14 +75,39 @@
   <body>
     <div class="logo">📡</div>
     <h1>LGB Técnicos</h1>
-    <p>Conectando con el servidor de operaciones…</p>
+    <p id="msg">Conectando con el servidor…</p>
+    <p class="hint">La primera carga puede tardar unos segundos</p>
     <div class="spinner" aria-hidden="true"></div>
     <script>
-      // Respaldo si Capacitor no inyecta server.url
-      setTimeout(function () {
-        window.location.href =
+      (function () {
+        var server =
           "https://infinity-operaciones.onrender.com/login?app=tecnico";
-      }, 4000);
+        var msg = document.getElementById("msg");
+        var tries = 0;
+        function go() {
+          window.location.replace(server);
+        }
+        function ping() {
+          tries++;
+          fetch("https://infinity-operaciones.onrender.com/api/health", {
+            cache: "no-store",
+          })
+            .then(function (r) {
+              if (r.ok) go();
+              else if (tries < 8) retry();
+              else go();
+            })
+            .catch(function () {
+              if (tries < 8) retry();
+              else go();
+            });
+        }
+        function retry() {
+          if (msg) msg.textContent = "Despertando servidor… (" + tries + "/8)";
+          setTimeout(ping, 2000);
+        }
+        ping();
+      })();
     </script>
   </body>
 </html>

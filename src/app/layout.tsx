@@ -17,12 +17,13 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   themeColor: "#1e40af",
+  colorScheme: "light",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="es">
-      <body>{children}</body>
+    <html lang="es" className="bg-infinity-800">
+      <body className="bg-slate-50">{children}</body>
     </html>
   );
 }

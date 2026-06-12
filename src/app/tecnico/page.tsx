@@ -1,20 +1,34 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import dynamic from "next/dynamic";
 import {
   Calendar,
   User,
   MapPin,
   ClipboardList,
   Clock,
-  Loader2,
+  RefreshCw,
 } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
 import { StatCard } from "@/components/StatCard";
-import { WorkMap } from "@/components/WorkMap";
 import { TicketList } from "@/components/TicketList";
 import { TecnicoAgenda } from "@/components/TecnicoAgenda";
+import { TecnicoDashboardSkeleton } from "@/components/tecnico/TecnicoDashboardSkeleton";
 import { formatDate } from "@/lib/utils";
+import { fetchWithRetry } from "@/lib/compress-image";
+
+const WorkMap = dynamic(
+  () => import("@/components/WorkMap").then((m) => m.WorkMap),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-64 bg-slate-100 rounded-xl animate-pulse flex items-center justify-center text-slate-400 text-sm">
+        Cargando mapa…
+      </div>
+    ),
+  }
+);
 
 interface Resumen {
   fecha: string;
@@ -45,50 +59,94 @@ export default function TecnicoDashboard() {
   const [proximaOrden, setProximaOrden] = useState<AgendaTicket | null>(null);
   const [filtro, setFiltro] = useState("todos");
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [showMap, setShowMap] = useState(false);
 
   const cargar = useCallback(async () => {
-    const res = await fetch(`/api/tecnico/dashboard?filtro=${filtro}`);
-    const data = await res.json();
-    setResumen(data.resumen);
-    setTickets(data.tickets);
-    setAgenda(data.agenda ?? []);
-    setProximaOrden(data.proximaOrden ?? null);
-    setLoading(false);
+    setError("");
+    try {
+      const res = await fetchWithRetry(
+        `/api/tecnico/dashboard?filtro=${filtro}`,
+        { method: "GET", cache: "no-store" },
+        3
+      );
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(
+          res.status === 503
+            ? "El servidor está iniciando. Espere unos segundos e intente de nuevo."
+            : data.error || "No se pudo cargar el panel"
+        );
+        return;
+      }
+      setResumen(data.resumen);
+      setTickets(data.tickets);
+      setAgenda(data.agenda ?? []);
+      setProximaOrden(data.proximaOrden ?? null);
+    } catch {
+      setError("Sin conexión. Verifique internet e intente de nuevo.");
+    } finally {
+      setLoading(false);
+    }
   }, [filtro]);
 
   useEffect(() => {
+    setLoading(true);
     cargar();
   }, [cargar]);
 
   useEffect(() => {
-    if (!navigator.geolocation) return;
-
-    navigator.geolocation.getCurrentPosition(async (pos) => {
-      await fetch("/api/tecnico/dashboard", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          lat: pos.coords.latitude,
-          lng: pos.coords.longitude,
-        }),
-      });
-    });
+    const t = window.setTimeout(() => setShowMap(true), 400);
+    return () => window.clearTimeout(t);
   }, []);
 
-  if (loading) {
-    return (
-      <div className="min-h-dvh flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-infinity-600" />
-      </div>
-    );
+  useEffect(() => {
+    const t = window.setTimeout(() => {
+      if (!navigator.geolocation) return;
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          fetch("/api/tecnico/dashboard", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              lat: pos.coords.latitude,
+              lng: pos.coords.longitude,
+            }),
+          }).catch(() => {});
+        },
+        undefined,
+        { timeout: 8000, maximumAge: 120000 }
+      );
+    }, 2500);
+    return () => window.clearTimeout(t);
+  }, []);
+
+  if (loading && !resumen) {
+    return <TecnicoDashboardSkeleton />;
   }
 
   return (
     <div className="min-h-dvh bg-slate-50">
-      <AppHeader title="Infinity Operaciones" subtitle="Panel del Técnico" />
+      <AppHeader title="LGB Técnicos" subtitle="Panel del Técnico" />
 
       <main className="max-w-6xl mx-auto p-4 space-y-6">
-        {/* Resumen del día */}
+        {error && (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+            <p className="text-sm text-amber-900 flex-1">{error}</p>
+            <button
+              type="button"
+              onClick={() => {
+                setLoading(true);
+                cargar();
+              }}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-infinity-600 text-white rounded-lg text-sm font-medium shrink-0"
+            >
+              <RefreshCw className="w-4 h-4" />
+              Reintentar
+            </button>
+          </div>
+        )}
+
         <section className="bg-white rounded-xl border p-4 space-y-3">
           <div className="flex items-center gap-2 text-sm text-slate-600">
             <Calendar className="w-4 h-4" />
@@ -130,23 +188,23 @@ export default function TecnicoDashboard() {
           </span>
         </div>
 
-        {/* Mapa */}
-        <section>
-          <h2 className="font-semibold mb-3">Mapa de trabajos</h2>
-          <WorkMap
-            tecnicoLocation={resumen?.ubicacion}
-            clientes={tickets
-              .filter((t) => t.estado !== "CERRADO")
-              .map((t) => ({
-                lat: (t.cliente as { lat?: number | null }).lat ?? null,
-                lng: (t.cliente as { lng?: number | null }).lng ?? null,
-                nombre: t.cliente.nombre,
-                codigo: t.codigo,
-              }))}
-          />
-        </section>
+        {showMap && (
+          <section>
+            <h2 className="font-semibold mb-3">Mapa de trabajos</h2>
+            <WorkMap
+              tecnicoLocation={resumen?.ubicacion}
+              clientes={tickets
+                .filter((t) => t.estado !== "CERRADO")
+                .map((t) => ({
+                  lat: (t.cliente as { lat?: number | null }).lat ?? null,
+                  lng: (t.cliente as { lng?: number | null }).lng ?? null,
+                  nombre: t.cliente.nombre,
+                  codigo: t.codigo,
+                }))}
+            />
+          </section>
+        )}
 
-        {/* Órdenes */}
         <section>
           <h2 className="font-semibold mb-3">Mis órdenes de trabajo</h2>
           <TicketList tickets={tickets} filtro={filtro} onFiltroChange={setFiltro} />
