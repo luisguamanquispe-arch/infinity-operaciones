@@ -2,6 +2,7 @@
 
 import { useRef, useEffect, useState } from "react";
 import SignaturePad from "signature_pad";
+import { fetchWithRetry } from "@/lib/compress-image";
 
 interface SignatureCaptureProps {
   ticketId: string;
@@ -23,6 +24,7 @@ export function SignatureCapture({
   const [nombre, setNombre] = useState(clienteNombre);
   const [cedula, setCedula] = useState(clienteCedula);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     if (!canvasRef.current || existing) return;
@@ -54,6 +56,7 @@ export function SignatureCapture({
     }
 
     setLoading(true);
+    setError("");
     const imagen = padRef.current.toDataURL("image/png");
 
     let lat = -1.2491;
@@ -66,18 +69,26 @@ export function SignatureCapture({
             lng = pos.coords.longitude;
             resolve();
           },
-          () => resolve()
+          () => resolve(),
+          { timeout: 8000, maximumAge: 60000 }
         );
       });
     }
 
-    await fetch(`/api/tickets/${ticketId}/medicion`, {
+    const res = await fetchWithRetry(`/api/tickets/${ticketId}/medicion`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         firma: { nombreCliente: nombre, cedula, imagen, lat, lng },
       }),
     });
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setError(data.error || "No se pudo guardar la firma");
+      setLoading(false);
+      return;
+    }
 
     setLoading(false);
     onSaved();
@@ -138,6 +149,7 @@ export function SignatureCapture({
           {loading ? "Guardando..." : "Guardar firma"}
         </button>
       </div>
+      {error && <p className="text-xs text-red-600">{error}</p>}
     </div>
   );
 }

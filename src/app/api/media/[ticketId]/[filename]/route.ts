@@ -45,10 +45,24 @@ export async function GET(
   }
 
   const uploadPath = `/uploads/${ticketId}/${filename}`;
-  const foto = ticket.orden?.fotografias.find((f) => f.url === uploadPath || f.url.endsWith(`/${filename}`));
+  const apiPath = `/api/media/${ticketId}/${filename}`;
+  const foto = ticket.orden?.fotografias.find(
+    (f) =>
+      f.url === uploadPath ||
+      f.url === apiPath ||
+      f.url.endsWith(`/${filename}`)
+  );
 
-  if (foto?.imagenData) {
-    const match = foto.imagenData.match(/^data:([^;]+);base64,(.+)$/);
+  const firmaMatch =
+    ticket.orden?.firma &&
+    (ticket.orden.firma.imagenUrl === uploadPath ||
+      ticket.orden.firma.imagenUrl === apiPath ||
+      ticket.orden.firma.imagenUrl.endsWith(`/${filename}`));
+
+  const imagenData = foto?.imagenData || (firmaMatch ? ticket.orden!.firma!.imagenData : null);
+
+  if (imagenData) {
+    const match = imagenData.match(/^data:([^;]+);base64,(.+)$/);
     if (match) {
       const buffer = Buffer.from(match[2], "base64");
       return new NextResponse(buffer, {
