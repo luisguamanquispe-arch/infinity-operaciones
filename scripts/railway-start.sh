@@ -21,7 +21,12 @@ echo "Ensuring initial users exist..."
 node scripts/ensure-seed.cjs
 
 echo "Starting application..."
-if [ -f server.js ]; then
+export NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=384}"
+
+if [ -f .next/standalone/server.js ]; then
+  cd .next/standalone
+  exec node server.js
+elif [ -f server.js ]; then
   exec node server.js
 else
   exec npm run start

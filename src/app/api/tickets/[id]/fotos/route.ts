@@ -8,7 +8,7 @@ import type { TipoFoto } from "@prisma/client";
 export const maxDuration = 60;
 export const runtime = "nodejs";
 
-const MAX_IMAGE_CHARS = 2_500_000; // ~1.8 MB en base64
+const MAX_IMAGE_CHARS = 900_000;
 
 type Body = {
   tipo?: string;

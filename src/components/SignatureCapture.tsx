@@ -6,7 +6,7 @@ import { fetchWithRetry } from "@/lib/compress-image";
 
 interface SignatureCaptureProps {
   ticketId: string;
-  existing?: { imagenUrl: string; nombreCliente: string; cedula: string } | null;
+  existing?: { imagenUrl: string; imagenSrc?: string; nombreCliente: string; cedula: string } | null;
   clienteNombre: string;
   clienteCedula: string;
   onSaved: () => void;
@@ -102,7 +102,7 @@ export function SignatureCapture({
           {existing.nombreCliente} — {existing.cedula}
         </p>
         <img
-          src={existing.imagenUrl}
+          src={existing.imagenSrc || existing.imagenUrl}
           alt="Firma"
           className="border rounded-lg max-h-32"
         />

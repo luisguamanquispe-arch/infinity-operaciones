@@ -1,8 +1,10 @@
+import { NextResponse } from "next/server";
 import { readFile } from "fs/promises";
 import path from "path";
-import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getFullSession } from "@/lib/auth";
+
+export const runtime = "nodejs";
 
 export async function GET(
   _request: Request,
@@ -21,14 +23,7 @@ export async function GET(
 
   const ticket = await prisma.ticket.findUnique({
     where: { id: ticketId },
-    include: {
-      orden: {
-        include: {
-          fotografias: true,
-          firma: true,
-        },
-      },
-    },
+    select: { tecnicoId: true },
   });
 
   if (!ticket) {
@@ -44,31 +39,46 @@ export async function GET(
     return NextResponse.json({ error: "No autorizado" }, { status: 403 });
   }
 
-  const uploadPath = `/uploads/${ticketId}/${filename}`;
   const apiPath = `/api/media/${ticketId}/${filename}`;
-  const foto = ticket.orden?.fotografias.find(
-    (f) =>
-      f.url === uploadPath ||
-      f.url === apiPath ||
-      f.url.endsWith(`/${filename}`)
-  );
+  const uploadPath = `/uploads/${ticketId}/${filename}`;
 
-  const firmaMatch =
-    ticket.orden?.firma &&
-    (ticket.orden.firma.imagenUrl === uploadPath ||
-      ticket.orden.firma.imagenUrl === apiPath ||
-      ticket.orden.firma.imagenUrl.endsWith(`/${filename}`));
+  const foto = await prisma.fotografia.findFirst({
+    where: {
+      orden: { ticketId },
+      OR: [{ url: apiPath }, { url: uploadPath }, { url: { endsWith: `/${filename}` } }],
+    },
+    select: { imagenData: true },
+  });
 
-  const imagenData = foto?.imagenData || (firmaMatch ? ticket.orden!.firma!.imagenData : null);
-
-  if (imagenData) {
-    const match = imagenData.match(/^data:([^;]+);base64,(.+)$/);
+  if (foto?.imagenData) {
+    const match = foto.imagenData.match(/^data:([^;]+);base64,(.+)$/);
     if (match) {
       const buffer = Buffer.from(match[2], "base64");
       return new NextResponse(buffer, {
         headers: {
           "Content-Type": match[1],
-          "Cache-Control": "private, max-age=3600",
+          "Cache-Control": "private, max-age=86400",
+        },
+      });
+    }
+  }
+
+  const firma = await prisma.firma.findFirst({
+    where: {
+      orden: { ticketId },
+      OR: [{ imagenUrl: apiPath }, { imagenUrl: uploadPath }, { imagenUrl: { endsWith: `/${filename}` } }],
+    },
+    select: { imagenData: true },
+  });
+
+  if (firma?.imagenData) {
+    const match = firma.imagenData.match(/^data:([^;]+);base64,(.+)$/);
+    if (match) {
+      const buffer = Buffer.from(match[2], "base64");
+      return new NextResponse(buffer, {
+        headers: {
+          "Content-Type": match[1],
+          "Cache-Control": "private, max-age=86400",
         },
       });
     }

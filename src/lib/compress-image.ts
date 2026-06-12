@@ -1,8 +1,8 @@
 /** Comprime fotos de cámara móvil antes de subir (evita timeout/503 en Render). */
 export async function compressImageFile(
   file: File,
-  maxWidth = 1280,
-  quality = 0.72
+  maxWidth = 960,
+  quality = 0.62
 ): Promise<string> {
   if (typeof createImageBitmap !== "undefined") {
     try {

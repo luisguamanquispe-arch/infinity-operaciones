@@ -27,6 +27,8 @@ services:
           property: connectionString
       - key: NODE_ENV
         value: production
+      - key: NODE_OPTIONS
+        value: --max-old-space-size=384
       - key: JWT_SECRET
         generateValue: true
       - key: SETUP_TOKEN

@@ -45,24 +45,27 @@ export async function GET(request: Request) {
   const tickets = await prisma.ticket.findMany({
     where,
     include: {
-      cliente: true,
-      tecnico: { include: { usuario: true } },
+      cliente: {
+        select: { nombre: true, cedula: true, sector: true },
+      },
+      tecnico: { include: { usuario: { select: { nombre: true } } } },
       orden: {
-        include: {
-          cronometro: true,
-          fotografias: true,
-          medicion: true,
-          firma: true,
+        select: {
+          finalizadoEn: true,
+          cronometro: { select: { duracionSegundos: true } },
+          medicion: { select: { id: true } },
+          firma: { select: { imagenUrl: true } },
+          _count: { select: { fotografias: true } },
         },
       },
     },
     orderBy: { updatedAt: "desc" },
-    take: 100,
+    take: 50,
   });
 
   const resumen = {
     total: tickets.length,
-    conFotos: tickets.filter((t) => (t.orden?.fotografias.length ?? 0) > 0).length,
+    conFotos: tickets.filter((t) => (t.orden?._count.fotografias ?? 0) > 0).length,
     conFirma: tickets.filter((t) => t.orden?.firma).length,
     conMedicion: tickets.filter((t) => t.orden?.medicion).length,
     tiempoPromedioMin:
@@ -98,7 +101,7 @@ export async function GET(request: Request) {
     duracionMin: t.orden?.cronometro?.duracionSegundos
       ? Math.round(t.orden.cronometro.duracionSegundos / 60)
       : null,
-    totalFotos: t.orden?.fotografias.length ?? 0,
+    totalFotos: t.orden?._count.fotografias ?? 0,
     tieneFirma: !!t.orden?.firma,
     firmaSrc: firmaImagenSrcRapida(t.orden?.firma ?? null),
     tieneMedicion: !!t.orden?.medicion,

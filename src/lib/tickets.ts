@@ -3,13 +3,25 @@ import type { TipoFoto } from "@prisma/client";
 import { FOTOS_OBLIGATORIAS } from "./utils";
 import { enviarWhatsAppTicketCerrado } from "./whatsapp";
 export async function getOrCreateOrden(ticketId: string) {
+  const fotoLite = {
+    select: { id: true, tipo: true, url: true, lat: true, lng: true },
+  } as const;
+
+  const firmaLite = {
+    select: {
+      nombreCliente: true,
+      cedula: true,
+      imagenUrl: true,
+    },
+  } as const;
+
   let orden = await prisma.ordenServicio.findUnique({
     where: { ticketId },
     include: {
       cronometro: true,
       medicion: true,
-      fotografias: true,
-      firma: true,
+      fotografias: fotoLite,
+      firma: firmaLite,
       materiales: { include: { inventario: true } },
     },
   });
@@ -23,8 +35,8 @@ export async function getOrCreateOrden(ticketId: string) {
       include: {
         cronometro: true,
         medicion: true,
-        fotografias: true,
-        firma: true,
+        fotografias: fotoLite,
+        firma: firmaLite,
         materiales: { include: { inventario: true } },
       },
     });

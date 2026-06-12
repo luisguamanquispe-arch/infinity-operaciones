@@ -5,6 +5,7 @@ import { getOrCreateOrden, calcularDuracionCronometro, slaHorasPorPrioridad } fr
 import { parseProgramadoEn } from "@/lib/calendario";
 import { notificarTecnicoAsignacion } from "@/lib/notificaciones-tecnico";
 import { fotoImagenSrcRapida } from "@/lib/foto-image";
+import { firmaImagenSrcRapida } from "@/lib/firma-image";
 
 export async function GET(
   _request: Request,
@@ -24,8 +25,16 @@ export async function GET(
         include: {
           cronometro: true,
           medicion: true,
-          fotografias: true,
-          firma: true,
+          fotografias: {
+            select: { id: true, tipo: true, url: true, lat: true, lng: true },
+          },
+          firma: {
+            select: {
+              nombreCliente: true,
+              cedula: true,
+              imagenUrl: true,
+            },
+          },
           materiales: { include: { inventario: true } },
         },
       },
@@ -56,6 +65,12 @@ export async function GET(
       ...f,
       imagenSrc: fotoImagenSrcRapida(f),
     })),
+    firma: orden.firma
+      ? {
+          ...orden.firma,
+          imagenSrc: firmaImagenSrcRapida(orden.firma) ?? orden.firma.imagenUrl,
+        }
+      : null,
   };
 
   return NextResponse.json({ ticket, orden: ordenConFotos, duracionSegundos, inventario });

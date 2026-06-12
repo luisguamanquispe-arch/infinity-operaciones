@@ -25,8 +25,27 @@ export async function GET(
         include: {
           cronometro: true,
           medicion: true,
-          fotografias: { orderBy: { tomadaEn: "asc" } },
-          firma: true,
+          fotografias: {
+            orderBy: { tomadaEn: "asc" },
+            select: {
+              id: true,
+              tipo: true,
+              url: true,
+              lat: true,
+              lng: true,
+              tomadaEn: true,
+            },
+          },
+          firma: {
+            select: {
+              nombreCliente: true,
+              cedula: true,
+              imagenUrl: true,
+              firmadoEn: true,
+              lat: true,
+              lng: true,
+            },
+          },
           materiales: { include: { inventario: true } },
         },
       },
@@ -62,8 +81,8 @@ export async function GET(
   const fotosFinal = ["ONU", "SPEEDTEST", "CLIENTE_CONFORME"];
 
   const fotografias = orden?.fotografias ?? [];
-  const firma = await firmaParaReporte(orden?.firma ?? null);
-  const fotosEnriquecidas = await fotosParaReporte(fotografias);
+  const firma = firmaParaReporte(orden?.firma ?? null);
+  const fotosEnriquecidas = fotosParaReporte(fotografias);
 
   return NextResponse.json({
     ticket: {
