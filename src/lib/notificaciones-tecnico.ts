@@ -1,27 +1,87 @@
-import { formatDateTime } from "@/lib/utils";
-import { enviarWhatsAppTexto } from "@/lib/whatsapp";
+import { formatDateTime, PRIORIDAD_LABELS, TIPO_LABELS } from "@/lib/utils";
+import { getEnv } from "@/lib/env";
+import { enviarWhatsAppTecnicoTicket } from "@/lib/whatsapp";
 
 type TicketAsignado = {
   codigo: string;
+  tipo: string;
+  prioridad: string;
   motivo: string | null;
+  descripcion?: string | null;
   programadoEn: Date | null;
   tecnico: { telefono: string | null; usuario: { nombre: string } } | null;
   cliente: { nombre: string; direccion: string; sector: string };
 };
 
-export async function notificarTecnicoAsignacion(ticket: TicketAsignado) {
-  if (!ticket.tecnico?.telefono || !ticket.programadoEn) return;
+function appUrlTecnico(): string {
+  const env = getEnv();
+  return (
+    env.PUBLIC_APP_URL?.replace(/\/$/, "") ||
+    "https://infinity-operaciones.onrender.com/login?app=tecnico"
+  );
+}
 
-  const fecha = formatDateTime(ticket.programadoEn);
+function construirMensaje(ticket: TicketAsignado, nombreTecnico: string): string {
+  const programacion = ticket.programadoEn
+    ? formatDateTime(ticket.programadoEn)
+    : "Por confirmar (revise la app)";
+
   const lineas = [
-    `Infinity Operaciones — Ticket ${ticket.codigo}`,
-    `Programado: ${fecha}`,
-    `Cliente: ${ticket.cliente.nombre}`,
-    `Sector: ${ticket.cliente.sector}`,
-    `Dirección: ${ticket.cliente.direccion}`,
+    `🔔 LGB Operaciones — Nuevo ticket`,
+    ``,
+    `Hola ${nombreTecnico},`,
+    `Se le asignó el ticket *${ticket.codigo}* para atender.`,
+    ``,
+    `📋 Tipo: ${TIPO_LABELS[ticket.tipo] || ticket.tipo}`,
+    `⚡ Prioridad: ${PRIORIDAD_LABELS[ticket.prioridad] || ticket.prioridad}`,
+    `📅 Programado: ${programacion}`,
+    ``,
+    `👤 Cliente: ${ticket.cliente.nombre}`,
+    `📍 Sector: ${ticket.cliente.sector}`,
+    `🏠 Dirección: ${ticket.cliente.direccion}`,
   ];
-  if (ticket.motivo) lineas.push(`Motivo: ${ticket.motivo}`);
-  lineas.push("", "Ingrese a la app para ver el detalle e iniciar la reparación.");
 
-  await enviarWhatsAppTexto(ticket.tecnico.telefono, lineas.join("\n"));
+  if (ticket.motivo) lineas.push(`🔧 Motivo: ${ticket.motivo}`);
+  if (ticket.descripcion) lineas.push(`📝 Detalle: ${ticket.descripcion}`);
+
+  lineas.push("", `Ingrese a la app: ${appUrlTecnico()}`);
+
+  return lineas.join("\n");
+}
+
+export async function notificarTecnicoAsignacion(ticket: TicketAsignado) {
+  const telefono = ticket.tecnico?.telefono?.trim();
+  if (!telefono) {
+    console.warn(`[WhatsApp técnico] Sin teléfono — ticket ${ticket.codigo}`);
+    return { enviado: false, error: "Técnico sin teléfono registrado" };
+  }
+
+  const nombreTecnico = ticket.tecnico!.usuario.nombre.split(" ")[0] || "Técnico";
+  const programacion = ticket.programadoEn
+    ? formatDateTime(ticket.programadoEn)
+    : "Por confirmar";
+
+  const mensajeTexto = construirMensaje(ticket, nombreTecnico);
+
+  const result = await enviarWhatsAppTecnicoTicket({
+    telefono,
+    codigo: ticket.codigo,
+    tecnicoNombre: nombreTecnico,
+    cliente: ticket.cliente.nombre,
+    sector: ticket.cliente.sector,
+    direccion: ticket.cliente.direccion,
+    tipo: TIPO_LABELS[ticket.tipo] || ticket.tipo,
+    prioridad: PRIORIDAD_LABELS[ticket.prioridad] || ticket.prioridad,
+    programacion,
+    motivo: ticket.motivo || "Soporte técnico",
+    mensajeTexto,
+  });
+
+  if (result.enviado) {
+    console.log(`[WhatsApp técnico] Alerta enviada — ${ticket.codigo} → ${telefono}`);
+  } else {
+    console.error(`[WhatsApp técnico] Falló — ${ticket.codigo}:`, result.error);
+  }
+
+  return result;
 }

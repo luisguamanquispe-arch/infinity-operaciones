@@ -183,7 +183,7 @@ export async function PATCH(request: Request) {
     },
   });
 
-  if (updated.tecnicoId && updated.programadoEn) {
+  if (updated.tecnicoId) {
     await notificarTecnicoAsignacion(updated);
   }
 

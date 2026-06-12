@@ -137,7 +137,7 @@ export async function POST(request: Request) {
     },
   });
 
-  if (ticket.tecnicoId && ticket.programadoEn) {
+  if (ticket.tecnicoId) {
     await notificarTecnicoAsignacion(ticket);
   }
 

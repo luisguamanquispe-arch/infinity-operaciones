@@ -39,5 +39,9 @@ services:
         value: "0995870168"
       - key: WHATSAPP_TEMPLATE_NAME
         value: ticket_cerrado
+      - key: WHATSAPP_TEMPLATE_TECNICO
+        value: ticket_asignado_tecnico
+      - key: PUBLIC_APP_URL
+        value: https://infinity-operaciones.onrender.com/login?app=tecnico
       - key: WHATSAPP_API_VERSION
         value: v21.0

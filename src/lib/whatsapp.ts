@@ -22,6 +22,106 @@ export interface WhatsAppResult {
   simulado?: boolean;
 }
 
+export async function enviarWhatsAppTemplate(
+  telefono: string,
+  templateName: string,
+  bodyParams: string[],
+  language = "es"
+): Promise<WhatsAppResult> {
+  const texto = bodyParams.join(" | ");
+
+  if (!isWhatsAppEnabled()) {
+    console.log(`[WhatsApp SIMULADO plantilla ${templateName}] ${telefono}: ${texto}`);
+    return { enviado: true, mensaje: texto, simulado: true };
+  }
+
+  const env = getEnv();
+  const token = env.WHATSAPP_API_TOKEN;
+  const phoneNumberId = env.WHATSAPP_PHONE_NUMBER_ID;
+
+  if (!token || !phoneNumberId) {
+    return { enviado: false, mensaje: texto, error: "Configuración WhatsApp incompleta" };
+  }
+
+  const to = formatPhoneEcuador(telefono);
+  const url = `https://graph.facebook.com/${env.WHATSAPP_API_VERSION}/${phoneNumberId}/messages`;
+
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        messaging_product: "whatsapp",
+        to,
+        type: "template",
+        template: {
+          name: templateName,
+          language: { code: language },
+          components: [
+            {
+              type: "body",
+              parameters: bodyParams.map((text) => ({ type: "text", text: text.slice(0, 1024) })),
+            },
+          ],
+        },
+      }),
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      console.error("[WhatsApp] Error plantilla:", data);
+      return {
+        enviado: false,
+        mensaje: texto,
+        error: data?.error?.message || `HTTP ${response.status}`,
+      };
+    }
+
+    return { enviado: true, mensaje: texto, messageId: data?.messages?.[0]?.id };
+  } catch (err) {
+    const error = err instanceof Error ? err.message : "Error desconocido";
+    return { enviado: false, mensaje: texto, error };
+  }
+}
+
+export interface AlertaTecnicoParams {
+  telefono: string;
+  codigo: string;
+  tecnicoNombre: string;
+  cliente: string;
+  sector: string;
+  direccion: string;
+  tipo: string;
+  prioridad: string;
+  programacion: string;
+  motivo: string;
+  mensajeTexto: string;
+}
+
+/** Alerta proactiva al técnico por ticket nuevo o reasignado. */
+export async function enviarWhatsAppTecnicoTicket(
+  params: AlertaTecnicoParams
+): Promise<WhatsAppResult> {
+  const env = getEnv();
+  const template = env.WHATSAPP_TEMPLATE_TECNICO;
+
+  if (template) {
+    return enviarWhatsAppTemplate(params.telefono, template, [
+      params.tecnicoNombre,
+      params.codigo,
+      params.cliente,
+      params.sector,
+      params.programacion,
+      params.motivo || "Soporte técnico",
+    ]);
+  }
+
+  return enviarWhatsAppTexto(params.telefono, params.mensajeTexto);
+}
+
 export async function enviarWhatsAppTexto(
   telefono: string,
   texto: string

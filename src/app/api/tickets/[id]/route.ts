@@ -129,8 +129,9 @@ export async function PATCH(
     },
   });
 
-  const programado = updateData.tecnicoId !== undefined || updateData.programadoEn !== undefined;
-  if (programado && updated.tecnicoId && updated.programadoEn) {
+  const programado =
+    updateData.tecnicoId !== undefined || updateData.programadoEn !== undefined;
+  if (programado && updated.tecnicoId) {
     await notificarTecnicoAsignacion(updated);
   }
 
