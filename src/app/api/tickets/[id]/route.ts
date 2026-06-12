@@ -4,6 +4,7 @@ import { getFullSession } from "@/lib/auth";
 import { getOrCreateOrden, calcularDuracionCronometro, slaHorasPorPrioridad } from "@/lib/tickets";
 import { parseProgramadoEn } from "@/lib/calendario";
 import { notificarTecnicoAsignacion } from "@/lib/notificaciones-tecnico";
+import { fotoImagenSrcRapida } from "@/lib/foto-image";
 
 export async function GET(
   _request: Request,
@@ -49,7 +50,15 @@ export async function GET(
 
   const inventario = await prisma.inventario.findMany({ orderBy: { nombre: "asc" } });
 
-  return NextResponse.json({ ticket, orden, duracionSegundos, inventario });
+  const ordenConFotos = {
+    ...orden,
+    fotografias: orden.fotografias.map((f) => ({
+      ...f,
+      imagenSrc: fotoImagenSrcRapida(f),
+    })),
+  };
+
+  return NextResponse.json({ ticket, orden: ordenConFotos, duracionSegundos, inventario });
 }
 
 const TIPOS_VALIDOS = ["INSTALACION", "SOPORTE", "MIGRACION", "RECONEXION", "RETIRO", "CORTE"];

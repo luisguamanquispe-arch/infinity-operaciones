@@ -7,7 +7,7 @@ import { FOTO_LABELS } from "@/lib/utils";
 interface PhotoCaptureProps {
   ticketId: string;
   tipo: string;
-  existing?: { url: string } | null;
+  existing?: { url: string; imagenSrc?: string } | null;
   onUploaded: () => void;
 }
 
@@ -70,7 +70,7 @@ export function PhotoCapture({ ticketId, tipo, existing, onUploaded }: PhotoCapt
 
       {existing ? (
         <a
-          href={existing.url}
+          href={existing.imagenSrc || existing.url}
           target="_blank"
           rel="noopener noreferrer"
           className="text-xs text-infinity-600 font-medium"

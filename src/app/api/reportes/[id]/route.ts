@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getFullSession } from "@/lib/auth";
 import { calcularDuracionCronometro } from "@/lib/tickets";
 import { firmaParaReporte } from "@/lib/firma-image";
+import { fotosParaReporte } from "@/lib/foto-image";
 
 export async function GET(
   _request: Request,
@@ -62,6 +63,7 @@ export async function GET(
 
   const fotografias = orden?.fotografias ?? [];
   const firma = await firmaParaReporte(orden?.firma ?? null);
+  const fotosEnriquecidas = await fotosParaReporte(fotografias);
 
   return NextResponse.json({
     ticket: {
@@ -75,10 +77,10 @@ export async function GET(
     },
     duracionSegundos,
     evidencia: {
-      antes: fotografias.filter((f) => fotosAntes.includes(f.tipo)),
-      durante: fotografias.filter((f) => fotosDurante.includes(f.tipo)),
-      final: fotografias.filter((f) => fotosFinal.includes(f.tipo)),
-      otras: fotografias.filter(
+      antes: fotosEnriquecidas.filter((f) => fotosAntes.includes(f.tipo)),
+      durante: fotosEnriquecidas.filter((f) => fotosDurante.includes(f.tipo)),
+      final: fotosEnriquecidas.filter((f) => fotosFinal.includes(f.tipo)),
+      otras: fotosEnriquecidas.filter(
         (f) =>
           ![...fotosAntes, ...fotosDurante, ...fotosFinal].includes(f.tipo)
       ),

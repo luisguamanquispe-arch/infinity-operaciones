@@ -38,7 +38,14 @@ export async function POST(
   const url = await saveUpload(buffer, id, filename);
 
   const foto = await prisma.fotografia.create({
-    data: { ordenId: orden.id, tipo, url, lat, lng },
+    data: {
+      ordenId: orden.id,
+      tipo,
+      url,
+      imagenData: imageData,
+      lat,
+      lng,
+    },
   });
 
   return NextResponse.json({ foto });

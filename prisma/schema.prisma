@@ -180,14 +180,15 @@ model Medicion {
 }
 
 model Fotografia {
-  id       String        @id @default(cuid())
-  ordenId  String
-  tipo     TipoFoto
-  url      String
-  lat      Float?
-  lng      Float?
-  tomadaEn DateTime      @default(now())
-  orden    OrdenServicio @relation(fields: [ordenId], references: [id], onDelete: Cascade)
+  id         String        @id @default(cuid())
+  ordenId    String
+  tipo       TipoFoto
+  url        String
+  imagenData String?       @db.Text
+  lat        Float?
+  lng        Float?
+  tomadaEn   DateTime      @default(now())
+  orden      OrdenServicio @relation(fields: [ordenId], references: [id], onDelete: Cascade)
 }
 
 model Firma {

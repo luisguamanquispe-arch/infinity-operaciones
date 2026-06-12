@@ -27,6 +27,7 @@ interface Foto {
   id: string;
   tipo: string;
   url: string;
+  imagenSrc?: string;
   lat: number | null;
   lng: number | null;
   tomadaEn: string;
