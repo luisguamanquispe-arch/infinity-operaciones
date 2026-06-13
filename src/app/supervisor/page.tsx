@@ -7,6 +7,7 @@ import Link from "next/link";
 import { AppHeader } from "@/components/AppHeader";
 import { StatCard } from "@/components/StatCard";
 import { ESTADO_LABELS, ESTADO_TECNICO_LABELS, PRIORIDAD_LABELS } from "@/lib/utils";
+import { fetchJson } from "@/lib/fetch-json-client";
 
 const MapInner = dynamic(() => import("@/components/MapInner"), {
   ssr: false,
@@ -41,26 +42,51 @@ interface DashboardData {
 export default function SupervisorDashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    fetch("/api/supervisor/dashboard")
-      .then((r) => r.json())
-      .then(setData)
-      .finally(() => setLoading(false));
+    async function load() {
+      const { data: json, error: err } = await fetchJson<DashboardData>(
+        "/api/supervisor/dashboard"
+      );
+      if (err || !json?.kpis) {
+        setError(err || "No se pudo cargar el panel");
+        setData(null);
+      } else {
+        setData(json);
+        setError("");
+      }
+      setLoading(false);
+    }
+    load();
 
-    const interval = setInterval(() => {
-      fetch("/api/supervisor/dashboard")
-        .then((r) => r.json())
-        .then(setData);
+    const interval = setInterval(async () => {
+      const { data: json } = await fetchJson<DashboardData>("/api/supervisor/dashboard");
+      if (json?.kpis) setData(json);
     }, 30000);
 
     return () => clearInterval(interval);
   }, []);
 
-  if (loading || !data) {
+  if (loading) {
     return (
       <div className="min-h-dvh flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-infinity-600" />
+      </div>
+    );
+  }
+
+  if (error || !data) {
+    return (
+      <div className="min-h-dvh flex flex-col items-center justify-center p-4 gap-3">
+        <p className="text-red-700 text-sm text-center">{error || "Error al cargar"}</p>
+        <button
+          type="button"
+          onClick={() => window.location.reload()}
+          className="text-infinity-600 text-sm font-medium hover:underline"
+        >
+          Reintentar
+        </button>
       </div>
     );
   }

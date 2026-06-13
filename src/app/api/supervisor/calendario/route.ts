@@ -54,6 +54,7 @@ function ticketResumen(t: {
 }
 
 export async function GET(request: Request) {
+  try {
   const session = await getFullSession();
   if (!session || !["SUPERVISOR", "ADMIN"].includes(session.rol)) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
@@ -153,6 +154,13 @@ export async function GET(request: Request) {
     sinAsignarPorDia,
     sinProgramar: sinProgramar.map(ticketResumen),
   });
+  } catch (err) {
+    console.error("[GET calendario]", err);
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "Error al cargar calendario" },
+      { status: 500 }
+    );
+  }
 }
 
 function parseTecnicoIds(body: {

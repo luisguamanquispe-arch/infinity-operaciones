@@ -19,6 +19,7 @@ import {
 } from "@/lib/utils";
 import { toDatetimeLocalValue } from "@/lib/calendario";
 import { TecnicoMultiSelect } from "@/components/TecnicoMultiSelect";
+import { fetchJson } from "@/lib/fetch-json-client";
 
 interface TicketCal {
   id: string;
@@ -66,6 +67,7 @@ export function CalendarioSoporte() {
   const [semana, setSemana] = useState(() => format(new Date(), "yyyy-MM-dd"));
   const [data, setData] = useState<CalendarioData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [modal, setModal] = useState<{
     ticket: TicketCal;
     tecnicoIds: string[];
@@ -75,9 +77,16 @@ export function CalendarioSoporte() {
 
   const cargar = useCallback(async () => {
     setLoading(true);
-    const res = await fetch(`/api/supervisor/calendario?semana=${semana}`);
-    const json = await res.json();
-    setData(json);
+    setError("");
+    const { data: json, error: err } = await fetchJson<CalendarioData>(
+      `/api/supervisor/calendario?semana=${semana}`
+    );
+    if (err || !json || !Array.isArray(json.dias)) {
+      setData(null);
+      setError(err || "No se pudo cargar el calendario");
+    } else {
+      setData(json);
+    }
     setLoading(false);
   }, [semana]);
 
@@ -124,10 +133,25 @@ export function CalendarioSoporte() {
     }
   }
 
-  if (loading || !data) {
+  if (loading) {
     return (
       <div className="flex justify-center py-16">
         <Loader2 className="w-8 h-8 animate-spin text-infinity-600" />
+      </div>
+    );
+  }
+
+  if (error || !data) {
+    return (
+      <div className="bg-red-50 border border-red-200 text-red-800 rounded-xl p-4 space-y-3">
+        <p className="text-sm">{error || "No se pudo cargar el calendario"}</p>
+        <button
+          type="button"
+          onClick={() => cargar()}
+          className="text-sm font-medium text-infinity-600 hover:underline"
+        >
+          Reintentar
+        </button>
       </div>
     );
   }

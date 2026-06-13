@@ -5,6 +5,7 @@ import { firmaImagenSrcRapida } from "@/lib/firma-image";
 import { nombresTecnicosTicket } from "@/lib/ticket-tecnicos";
 
 export async function GET(request: Request) {
+  try {
   const session = await getFullSession();
   if (!session || !["SUPERVISOR", "ADMIN"].includes(session.rol)) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
@@ -18,37 +19,37 @@ export async function GET(request: Request) {
   const sector = searchParams.get("sector");
   const q = searchParams.get("q")?.trim();
 
-  const where: Record<string, unknown> = {
-    estado: { in: ["CERRADO", "FINALIZADO"] },
-  };
+  const and: Record<string, unknown>[] = [{ estado: { in: ["CERRADO", "FINALIZADO"] } }];
 
   if (desde || hasta) {
-    where.updatedAt = {};
-    if (desde) (where.updatedAt as Record<string, Date>).gte = new Date(desde);
+    const updatedAt: Record<string, Date> = {};
+    if (desde) updatedAt.gte = new Date(desde);
     if (hasta) {
       const h = new Date(hasta);
       h.setHours(23, 59, 59, 999);
-      (where.updatedAt as Record<string, Date>).lte = h;
+      updatedAt.lte = h;
     }
+    and.push({ updatedAt });
   }
 
   if (tecnicoId) {
-    where.AND = [
-      ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
-      {
-        OR: [{ tecnicoId }, { tecnicos: { some: { tecnicoId } } }],
-      },
-    ];
+    and.push({
+      OR: [{ tecnicoId }, { tecnicos: { some: { tecnicoId } } }],
+    });
   }
-  if (tipo) where.tipo = tipo;
-  if (sector) where.cliente = { sector: { contains: sector } };
+  if (tipo) and.push({ tipo });
+  if (sector) and.push({ cliente: { sector: { contains: sector, mode: "insensitive" } } });
   if (q) {
-    where.OR = [
-      { codigo: { contains: q } },
-      { cliente: { nombre: { contains: q } } },
-      { cliente: { cedula: { contains: q } } },
-    ];
+    and.push({
+      OR: [
+        { codigo: { contains: q, mode: "insensitive" } },
+        { cliente: { nombre: { contains: q, mode: "insensitive" } } },
+        { cliente: { cedula: { contains: q } } },
+      ],
+    });
   }
+
+  const where = { AND: and };
 
   const tickets = await prisma.ticket.findMany({
     where,
@@ -137,4 +138,16 @@ export async function GET(request: Request) {
       sectores: sectores.map((s) => s.sector),
     },
   });
+  } catch (err) {
+    console.error("[GET reportes]", err);
+    return NextResponse.json(
+      {
+        error: err instanceof Error ? err.message : "Error al cargar reportes",
+        resumen: { total: 0, conFotos: 0, conFirma: 0, conMedicion: 0, tiempoPromedioMin: 0 },
+        items: [],
+        filtros: { tecnicos: [], sectores: [] },
+      },
+      { status: 500 }
+    );
+  }
 }

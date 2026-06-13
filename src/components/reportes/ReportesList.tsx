@@ -19,6 +19,7 @@ import {
   ESTADO_LABELS,
   formatDateShort,
 } from "@/lib/utils";
+import { fetchJson } from "@/lib/fetch-json-client";
 
 interface ReporteItem {
   id: string;
@@ -64,6 +65,7 @@ export function ReportesList({
 }: ReportesListProps) {
   const [data, setData] = useState<ReportesData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [filtros, setFiltros] = useState({
     desde: "",
     hasta: "",
@@ -75,13 +77,20 @@ export function ReportesList({
 
   const cargar = useCallback(async () => {
     setLoading(true);
+    setError("");
     const params = new URLSearchParams();
     Object.entries(filtros).forEach(([k, v]) => {
       if (v) params.set(k, v);
     });
-    const res = await fetch(`/api/reportes?${params}`);
-    const json = await res.json();
-    setData(json);
+    const { data: json, error: err } = await fetchJson<ReportesData>(
+      `/api/reportes?${params}`
+    );
+    if (err || !json || !Array.isArray(json.items)) {
+      setData(null);
+      setError(err || "No se pudieron cargar los reportes");
+    } else {
+      setData(json);
+    }
     setLoading(false);
   }, [filtros]);
 
@@ -201,6 +210,19 @@ export function ReportesList({
             </div>
           </div>
         </div>
+
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-800 rounded-xl p-4 flex flex-wrap items-center justify-between gap-2">
+            <p className="text-sm">{error}</p>
+            <button
+              type="button"
+              onClick={() => cargar()}
+              className="text-sm font-medium text-infinity-600 hover:underline shrink-0"
+            >
+              Reintentar
+            </button>
+          </div>
+        )}
 
         {/* Tabla */}
         {loading ? (
