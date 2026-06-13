@@ -41,8 +41,6 @@ services:
         value: ticket_cerrado
       - key: WHATSAPP_TEMPLATE_TECNICO
         value: ticket_asignado_tecnico
-      - key: PRISMA_MIGRATE_ON_START
-        value: "0"
       - key: PUBLIC_APP_URL
         value: https://infinity-operaciones.onrender.com/login?app=tecnico
       - key: WHATSAPP_API_VERSION

@@ -21,10 +21,14 @@ process.env.PORT = port;
 process.env.NODE_OPTIONS = process.env.NODE_OPTIONS || "--max-old-space-size=160";
 
 console.log(`[startup] NODE_OPTIONS=${process.env.NODE_OPTIONS}`);
+console.log(`[startup] GIT_SHA=${process.env.GIT_SHA || "unknown"}`);
+console.log(`[startup] prisma CLI presente=${fs.existsSync(path.join(root, "node_modules", "prisma", "build", "index.js"))}`);
 
 function runMigrateDeploy() {
-  if (process.env.PRISMA_MIGRATE_ON_START === "0") {
-    console.log("[startup] PRISMA_MIGRATE_ON_START=0 — omitiendo migrate deploy.");
+  if (process.env.PRISMA_MIGRATE_ON_START !== "1") {
+    console.log(
+      "[startup] migrate deploy deshabilitado (solo con PRISMA_MIGRATE_ON_START=1)."
+    );
     return;
   }
 
