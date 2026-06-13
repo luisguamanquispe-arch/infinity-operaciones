@@ -22,12 +22,23 @@ process.env.NODE_OPTIONS = process.env.NODE_OPTIONS || "--max-old-space-size=160
 
 console.log(`[startup] NODE_OPTIONS=${process.env.NODE_OPTIONS}`);
 
-try {
-  execSync("npx prisma migrate deploy", {
+function runMigrateDeploy() {
+  const prismaCli = path.join(root, "node_modules", "prisma", "build", "index.js");
+  if (!fs.existsSync(prismaCli)) {
+    console.warn("[startup] Prisma CLI no encontrado — omitiendo migrate deploy.");
+    return;
+  }
+  // Invocar el CLI real (prisma/build/index.js), no node_modules/.bin/prisma copiado
+  // como archivo: si se desreferencia el symlink, Prisma busca *.wasm en .bin/ y falla.
+  execSync(`"${process.execPath}" "${prismaCli}" migrate deploy`, {
     stdio: "inherit",
     cwd: root,
     env: { ...process.env, NODE_OPTIONS: "--max-old-space-size=128" },
   });
+}
+
+try {
+  runMigrateDeploy();
 } catch {
   console.warn("[startup] migrate deploy falló o prisma no disponible — continuando.");
 }
