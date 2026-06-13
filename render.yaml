@@ -17,7 +17,7 @@ services:
     plan: free
     region: oregon
     branch: main
-    buildCommand: npm install --include=dev && npx prisma generate && npx prisma migrate deploy && npm run build && sh scripts/prepare-standalone.sh
+    buildCommand: npm install --include=dev && npx prisma generate && npm run build
     startCommand: npm run start:railway
     healthCheckPath: /api/health
     envVars:
