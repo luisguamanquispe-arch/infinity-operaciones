@@ -18,10 +18,8 @@ ENV RENDER_LOW_MEMORY=1
 ENV GIT_SHA=$GIT_SHA
 RUN node scripts/prisma-run.cjs generate
 RUN npm run build
-# Solo deps de runtime; el CLI de Prisma no debe existir en la imagen final
-RUN npm prune --omit=dev && \
-    rm -rf node_modules/prisma && \
-    rm -f node_modules/.bin/prisma node_modules/.bin/prisma.cmd
+# Runtime: solo dependencias de producción (incluye prisma para migrate deploy al arrancar)
+RUN npm prune --omit=dev
 
 FROM base AS runner
 ARG GIT_SHA=unknown
@@ -36,6 +34,8 @@ COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
+COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/prisma.config.ts ./prisma.config.ts
 COPY --from=builder /app/scripts ./scripts
 
 RUN mkdir -p public/uploads && chown -R nextjs:nodejs /app

@@ -17,6 +17,7 @@ import {
   format,
 } from "date-fns";
 import { es } from "date-fns/locale";
+import { mensajeErrorPrisma } from "@/lib/prisma-errors";
 
 const ESTADOS_ACTIVOS = ["PENDIENTE", "EN_PROCESO"] as const;
 
@@ -157,7 +158,7 @@ export async function GET(request: Request) {
   } catch (err) {
     console.error("[GET calendario]", err);
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Error al cargar calendario" },
+      { error: mensajeErrorPrisma(err) },
       { status: 500 }
     );
   }

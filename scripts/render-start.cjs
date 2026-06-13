@@ -1,6 +1,7 @@
 const { spawn } = require("child_process");
 const fs = require("fs");
 const path = require("path");
+const { migrateDeploy } = require("./migrate-deploy.cjs");
 
 const root = path.join(__dirname, "..");
 const hostname = "0.0.0.0";
@@ -28,6 +29,8 @@ if (!process.env.DATABASE_URL) {
 if (!process.env.JWT_SECRET) {
   console.warn("[startup] ADVERTENCIA: JWT_SECRET no configurada.");
 }
+
+migrateDeploy(root);
 
 const buildId = path.join(root, ".next", "BUILD_ID");
 if (!fs.existsSync(buildId)) {

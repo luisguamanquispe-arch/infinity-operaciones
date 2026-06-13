@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getFullSession } from "@/lib/auth";
 import { firmaImagenSrcRapida } from "@/lib/firma-image";
 import { nombresTecnicosTicket } from "@/lib/ticket-tecnicos";
+import { mensajeErrorPrisma } from "@/lib/prisma-errors";
 
 export async function GET(request: Request) {
   try {
@@ -142,7 +143,7 @@ export async function GET(request: Request) {
     console.error("[GET reportes]", err);
     return NextResponse.json(
       {
-        error: err instanceof Error ? err.message : "Error al cargar reportes",
+        error: mensajeErrorPrisma(err),
         resumen: { total: 0, conFotos: 0, conFirma: 0, conMedicion: 0, tiempoPromedioMin: 0 },
         items: [],
         filtros: { tecnicos: [], sectores: [] },
