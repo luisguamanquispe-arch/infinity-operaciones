@@ -1,8 +1,5 @@
-# Render Blueprint — despliegue en un clic
-# https://render.com/docs/blueprint-spec
-#
-# Uso: render.com → New → Blueprint → conectar repo GitHub
-# La base de datos se conecta sola (sin configurar DATABASE_URL a mano).
+# Render Blueprint — GitHub Actions compila la imagen Docker (evita OOM en 512 MB).
+# Tras el primer push a main, la imagen queda en ghcr.io/luisguamanquispe-arch/infinity-operaciones:latest
 
 databases:
   - name: infinity-db
@@ -13,12 +10,11 @@ databases:
 services:
   - type: web
     name: infinity-operaciones
-    runtime: node
+    runtime: image
     plan: free
     region: oregon
-    branch: main
-    buildCommand: npm run build:render
-    startCommand: npm run start:railway
+    image:
+      url: ghcr.io/luisguamanquispe-arch/infinity-operaciones:latest
     healthCheckPath: /api/health
     envVars:
       - key: DATABASE_URL
@@ -28,11 +24,7 @@ services:
       - key: NODE_ENV
         value: production
       - key: NODE_OPTIONS
-        value: --max-old-space-size=192
-      - key: RENDER_LOW_MEMORY
-        value: "1"
-      - key: BUILD_NODE_OPTIONS
-        value: --max-old-space-size=320
+        value: --max-old-space-size=160
       - key: NEXT_TELEMETRY_DISABLED
         value: "1"
       - key: JWT_SECRET

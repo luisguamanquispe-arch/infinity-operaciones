@@ -1,4 +1,4 @@
-const { execSync } = require("child_process");
+const { execSync, spawnSync } = require("child_process");
 const path = require("path");
 const { prepareStandalone } = require("./prepare-standalone.cjs");
 
@@ -7,39 +7,62 @@ const lowMemory = process.env.RENDER_LOW_MEMORY !== "0";
 
 if (lowMemory) {
   process.env.RENDER_LOW_MEMORY = "1";
-  process.env.NODE_OPTIONS = process.env.BUILD_NODE_OPTIONS || "--max-old-space-size=320";
-} else {
-  process.env.NODE_OPTIONS = process.env.BUILD_NODE_OPTIONS || "--max-old-space-size=384";
 }
 
 process.env.NEXT_TELEMETRY_DISABLED = "1";
 process.env.NEXT_BUILD_WORKERS = "1";
 process.env.UV_THREADPOOL_SIZE = "1";
 
-function run(cmd) {
+function run(cmd, extraEnv = {}) {
   console.log(`[build] ${cmd}`);
-  execSync(cmd, { stdio: "inherit", cwd: root, env: process.env, shell: true });
+  execSync(cmd, {
+    stdio: "inherit",
+    cwd: root,
+    env: { ...process.env, ...extraEnv },
+    shell: true,
+  });
 }
 
-console.log(`[build] lowMemory=${lowMemory} NODE_OPTIONS=${process.env.NODE_OPTIONS}`);
+/** Ejecuta next build en subproceso aislado para liberar RAM entre pasos */
+function runNextBuild(heapMb) {
+  const nextBin = path.join(root, "node_modules", "next", "dist", "bin", "next");
+  console.log(`[build] next build (heap ${heapMb}MB, proceso aislado)...`);
+  const result = spawnSync(process.execPath, [nextBin, "build"], {
+    stdio: "inherit",
+    cwd: root,
+    env: {
+      ...process.env,
+      RENDER_LOW_MEMORY: lowMemory ? "1" : "0",
+      NODE_OPTIONS: `--max-old-space-size=${heapMb}`,
+      NEXT_TELEMETRY_DISABLED: "1",
+      NEXT_BUILD_WORKERS: "1",
+      UV_THREADPOOL_SIZE: "1",
+    },
+  });
+  if (result.status !== 0) process.exit(result.status ?? 1);
+}
 
-run("npm ci --include=dev --ignore-scripts");
-run("npx prisma generate");
-run("npm run build");
+const heapBuild = lowMemory ? 256 : 384;
+console.log(`[build] lowMemory=${lowMemory} heapBuild=${heapBuild}MB`);
+
+run("npm ci --include=dev --ignore-scripts --no-audit --no-fund", {
+  NODE_OPTIONS: "--max-old-space-size=128",
+});
+run("npx prisma generate", { NODE_OPTIONS: "--max-old-space-size=128" });
+runNextBuild(heapBuild);
 
 if (process.env.DATABASE_URL) {
-  run("npx prisma migrate deploy");
+  run("npx prisma migrate deploy", { NODE_OPTIONS: "--max-old-space-size=128" });
 } else {
   console.warn("[build] DATABASE_URL ausente — migraciones omitidas.");
 }
 
 if (lowMemory) {
-  console.log("[build] Pruning devDependencies para reducir RAM en runtime...");
-  run("npm prune --omit=dev");
+  run("npm prune --omit=dev", { NODE_OPTIONS: "--max-old-space-size=128" });
   console.log("[build] Build ligero listo (next start en runtime).");
 } else if (!prepareStandalone(root)) {
-  console.error("[build] ERROR: falta .next/standalone/server.js tras el build.");
+  console.error("[build] ERROR: falta .next/standalone/server.js.");
   process.exit(1);
 } else {
-  console.log("[build] Standalone preparado correctamente.");
+  console.log("[build] Standalone preparado.");
 }
