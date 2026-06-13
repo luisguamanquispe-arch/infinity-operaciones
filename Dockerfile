@@ -35,4 +35,4 @@ EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
-CMD ["sh", "scripts/railway-start.sh"]
+CMD ["node", "scripts/render-start.cjs"]

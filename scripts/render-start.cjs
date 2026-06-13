@@ -24,28 +24,37 @@ process.env.PORT = port;
 process.env.NODE_OPTIONS = process.env.NODE_OPTIONS || "--max-old-space-size=256";
 
 const standaloneDir = path.join(root, ".next", "standalone");
-const serverJs = path.join(standaloneDir, "server.js");
+const renderServer = path.join(standaloneDir, "server.js");
+const dockerServer = path.join(root, "server.js");
 
-if (!fs.existsSync(serverJs)) {
+let serverCwd;
+let serverEntry;
+
+if (fs.existsSync(renderServer)) {
+  serverCwd = standaloneDir;
+  serverEntry = "server.js";
+  const staticDir = path.join(standaloneDir, ".next", "static");
+  if (!fs.existsSync(staticDir)) {
+    console.log("[startup] Copiando assets al bundle standalone...");
+    prepareStandalone(root);
+  }
+} else if (fs.existsSync(dockerServer)) {
+  serverCwd = root;
+  serverEntry = "server.js";
+} else {
   fail(
-    "No existe .next/standalone/server.js.\n" +
-      "Build Command en Render debe ser: npm run build:render"
+    "No se encontró server.js.\n" +
+      "Build Command en Render: npm run build:render"
   );
-}
-
-const staticDir = path.join(standaloneDir, ".next", "static");
-if (!fs.existsSync(staticDir)) {
-  console.log("[startup] Copiando assets al bundle standalone...");
-  prepareStandalone(root);
 }
 
 const dbPreview = process.env.DATABASE_URL.replace(/:[^:@/]+@/, ":***@").slice(0, 48);
 console.log(`[startup] DATABASE_URL ok (${dbPreview}...)`);
 console.log(`[startup] NODE_OPTIONS=${process.env.NODE_OPTIONS}`);
-console.log(`[startup] Standalone → http://${hostname}:${port}`);
+console.log(`[startup] ${serverCwd}/server.js → http://${hostname}:${port}`);
 
-const child = spawn(process.execPath, ["server.js"], {
-  cwd: standaloneDir,
+const child = spawn(process.execPath, [serverEntry], {
+  cwd: serverCwd,
   env: process.env,
   stdio: "inherit",
 });

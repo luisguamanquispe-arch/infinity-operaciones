@@ -6,6 +6,7 @@ const root = path.join(__dirname, "..");
 
 process.env.NODE_OPTIONS = process.env.BUILD_NODE_OPTIONS || "--max-old-space-size=384";
 process.env.NEXT_TELEMETRY_DISABLED = "1";
+process.env.NEXT_BUILD_WORKERS = "1";
 
 function run(cmd) {
   console.log(`[build] ${cmd}`);
@@ -16,14 +17,13 @@ console.log(`[build] NODE_OPTIONS=${process.env.NODE_OPTIONS}`);
 
 run("npm install --include=dev --ignore-scripts");
 run("npx prisma generate");
+run("npm run build");
 
 if (process.env.DATABASE_URL) {
   run("npx prisma migrate deploy");
 } else {
-  console.warn("[build] DATABASE_URL ausente — migraciones omitidas (configúrala en Render).");
+  console.warn("[build] DATABASE_URL ausente — migraciones omitidas.");
 }
-
-run("npm run build");
 
 if (!prepareStandalone(root)) {
   console.error("[build] ERROR: falta .next/standalone/server.js tras el build.");
