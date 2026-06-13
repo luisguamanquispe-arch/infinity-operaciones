@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, CheckCircle } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
+import { enMayusculas, inputMayusculasClass } from "@/lib/mayusculas";
 
 export default function NuevoTecnicoPage() {
   const router = useRouter();
@@ -98,8 +99,8 @@ export default function NuevoTecnicoPage() {
                 required
                 placeholder="Ej: Pedro Gómez"
                 value={form.nombre}
-                onChange={(e) => setForm({ ...form, nombre: e.target.value })}
-                className="w-full px-3 py-2.5 border rounded-xl text-sm mt-0.5"
+                onChange={(e) => setForm({ ...form, nombre: enMayusculas(e.target.value) })}
+                className={`w-full px-3 py-2.5 border rounded-xl text-sm mt-0.5 ${inputMayusculasClass}`}
               />
             </div>
 
@@ -120,8 +121,8 @@ export default function NuevoTecnicoPage() {
                 type="text"
                 placeholder="Ej: Moto-03 / ABC-1234"
                 value={form.vehiculo}
-                onChange={(e) => setForm({ ...form, vehiculo: e.target.value })}
-                className="w-full px-3 py-2.5 border rounded-xl text-sm mt-0.5"
+                onChange={(e) => setForm({ ...form, vehiculo: enMayusculas(e.target.value) })}
+                className={`w-full px-3 py-2.5 border rounded-xl text-sm mt-0.5 ${inputMayusculasClass}`}
               />
             </div>
           </section>

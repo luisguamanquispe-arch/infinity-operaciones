@@ -13,6 +13,7 @@ import {
 } from "@/lib/ticket-tecnicos";
 import { fotoImagenSrcRapida } from "@/lib/foto-image";
 import { firmaImagenSrcRapida } from "@/lib/firma-image";
+import { normalizarTextoTicket } from "@/lib/mayusculas";
 
 export async function GET(
   _request: Request,
@@ -140,8 +141,15 @@ export async function PATCH(
     updateData.slaVenceEn = new Date(ticket.createdAt.getTime() + slaHoras * 60 * 60 * 1000);
   }
   if (body.estado && ESTADOS_VALIDOS.includes(body.estado)) updateData.estado = body.estado;
-  if (body.motivo !== undefined) updateData.motivo = body.motivo || null;
-  if (body.descripcion !== undefined) updateData.descripcion = body.descripcion || null;
+  if (body.motivo !== undefined || body.descripcion !== undefined) {
+    Object.assign(
+      updateData,
+      normalizarTextoTicket({
+        ...(body.motivo !== undefined ? { motivo: body.motivo || null } : {}),
+        ...(body.descripcion !== undefined ? { descripcion: body.descripcion || null } : {}),
+      })
+    );
+  }
   if (body.programadoEn !== undefined) {
     updateData.programadoEn = body.programadoEn ? parseProgramadoEn(body.programadoEn) : null;
   }

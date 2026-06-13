@@ -54,6 +54,7 @@ interface ReporteData {
       referencia: string | null;
     };
     tecnico: { usuario: { nombre: string } } | null;
+    tecnicosLabel: string;
     orden: {
       finalizadoEn: string | null;
       medicion: {
@@ -216,8 +217,8 @@ export function ReporteDetalle({ backHref, backLabel }: ReporteDetalleProps) {
               {PRIORIDAD_LABELS[ticket.prioridad]}
             </p>
             <p className="text-sm">
-              <span className="text-slate-500">Técnico:</span>{" "}
-              {ticket.tecnico?.usuario.nombre || "Sin asignar"}
+              <span className="text-slate-500">Técnicos:</span>{" "}
+              {ticket.tecnicosLabel}
             </p>
             <p className="text-sm">
               <span className="text-slate-500">Motivo:</span> {ticket.motivo}

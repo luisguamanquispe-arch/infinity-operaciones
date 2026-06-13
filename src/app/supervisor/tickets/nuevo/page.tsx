@@ -12,6 +12,7 @@ import {
   normalizarCedula,
   validarCedulaEcuatoriana,
 } from "@/lib/cedula-ec";
+import { enMayusculas, inputMayusculasClass } from "@/lib/mayusculas";
 
 interface Cliente {
   id: string;
@@ -32,6 +33,8 @@ interface Tecnico {
 }
 
 const TIPOS = ["SOPORTE", "INSTALACION", "RECONEXION", "CORTE", "MIGRACION", "RETIRO"] as const;
+
+const CAMPOS_MAYUS_CLIENTE = new Set(["nombre", "plan", "sector", "nodo", "direccion"]);
 
 export default function NuevoTicketPage() {
   const router = useRouter();
@@ -240,10 +243,16 @@ export default function NuevoTicketPage() {
                     type="text"
                     required={required}
                     value={cliente[key as keyof typeof cliente]}
-                    onChange={(e) =>
-                      setCliente({ ...cliente, [key]: e.target.value })
-                    }
-                    className="w-full px-3 py-2 border rounded-lg text-sm mt-0.5"
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setCliente({
+                        ...cliente,
+                        [key]: CAMPOS_MAYUS_CLIENTE.has(key) ? enMayusculas(val) : val,
+                      });
+                    }}
+                    className={`w-full px-3 py-2 border rounded-lg text-sm mt-0.5 ${
+                      CAMPOS_MAYUS_CLIENTE.has(key) ? inputMayusculasClass : ""
+                    }`}
                   />
                 </div>
               ))}
@@ -259,8 +268,10 @@ export default function NuevoTicketPage() {
                 rows={5}
                 placeholder="Ej: Frente al parque central, casa azul de dos pisos, portón negro..."
                 value={cliente.referencia}
-                onChange={(e) => setCliente({ ...cliente, referencia: e.target.value })}
-                className="w-full px-3 py-2 border rounded-lg text-sm mt-0.5 resize-none"
+                onChange={(e) =>
+                  setCliente({ ...cliente, referencia: enMayusculas(e.target.value) })
+                }
+                className={`w-full px-3 py-2 border rounded-lg text-sm mt-0.5 resize-none ${inputMayusculasClass}`}
               />
               <p className="text-xs text-slate-400 mt-1">
                 Puntos de referencia para que el técnico ubique al cliente fácilmente
@@ -310,8 +321,8 @@ export default function NuevoTicketPage() {
                 required
                 placeholder="Ej: Sin servicio, luz roja en ONU"
                 value={ticket.motivo}
-                onChange={(e) => setTicket({ ...ticket, motivo: e.target.value })}
-                className="w-full px-3 py-2 border rounded-lg text-sm mt-0.5"
+                onChange={(e) => setTicket({ ...ticket, motivo: enMayusculas(e.target.value) })}
+                className={`w-full px-3 py-2 border rounded-lg text-sm mt-0.5 ${inputMayusculasClass}`}
               />
             </div>
 
@@ -321,8 +332,10 @@ export default function NuevoTicketPage() {
                 rows={3}
                 placeholder="Detalle reportado por el cliente..."
                 value={ticket.descripcion}
-                onChange={(e) => setTicket({ ...ticket, descripcion: e.target.value })}
-                className="w-full px-3 py-2 border rounded-lg text-sm mt-0.5 resize-none"
+                onChange={(e) =>
+                  setTicket({ ...ticket, descripcion: enMayusculas(e.target.value) })
+                }
+                className={`w-full px-3 py-2 border rounded-lg text-sm mt-0.5 resize-none ${inputMayusculasClass}`}
               />
             </div>
           </section>

@@ -5,6 +5,7 @@ import { getOrCreateOrden } from "@/lib/tickets";
 import { persistTicketImage } from "@/lib/media-storage";
 import { tecnicoAsignadoAlTicket } from "@/lib/ticket-tecnicos";
 import { mensajeCedulaInvalida, normalizarCedula, validarCedulaEcuatoriana } from "@/lib/cedula-ec";
+import { enMayusculas } from "@/lib/mayusculas";
 
 export const maxDuration = 60;
 export const runtime = "nodejs";
@@ -91,14 +92,21 @@ export async function PUT(
         where: { ordenId: orden.id },
         create: {
           ordenId: orden.id,
-          nombreCliente,
+          nombreCliente: enMayusculas(nombreCliente),
           cedula: cedulaNorm,
           imagenUrl,
           imagenData: imagen,
           lat,
           lng,
         },
-        update: { nombreCliente, cedula: cedulaNorm, imagenUrl, imagenData: imagen, lat, lng },
+        update: {
+          nombreCliente: enMayusculas(nombreCliente),
+          cedula: cedulaNorm,
+          imagenUrl,
+          imagenData: imagen,
+          lat,
+          lng,
+        },
       });
 
       return NextResponse.json({ firma });

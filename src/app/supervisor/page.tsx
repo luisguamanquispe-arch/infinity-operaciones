@@ -34,7 +34,7 @@ interface DashboardData {
     prioridad: string;
     estado: string;
     cliente: { nombre: string; sector: string };
-    tecnico: { usuario: { nombre: string } } | null;
+    tecnicosLabel: string;
   }[];
 }
 
@@ -182,7 +182,7 @@ export default function SupervisorDashboard() {
                 <tr>
                   <th className="text-left p-3">Ticket</th>
                   <th className="text-left p-3">Cliente</th>
-                  <th className="text-left p-3 hidden sm:table-cell">Técnico</th>
+                  <th className="text-left p-3 hidden sm:table-cell">Técnicos</th>
                   <th className="text-left p-3">Prioridad</th>
                   <th className="text-left p-3">Estado</th>
                   <th className="text-left p-3"></th>
@@ -193,8 +193,8 @@ export default function SupervisorDashboard() {
                   <tr key={t.id} className="border-t">
                     <td className="p-3 font-semibold text-infinity-600">{t.codigo}</td>
                     <td className="p-3">{t.cliente.nombre}</td>
-                    <td className="p-3 hidden sm:table-cell">
-                      {t.tecnico?.usuario.nombre || "Sin asignar"}
+                    <td className="p-3 hidden sm:table-cell text-xs leading-snug">
+                      {t.tecnicosLabel}
                     </td>
                     <td className="p-3">{PRIORIDAD_LABELS[t.prioridad]}</td>
                     <td className="p-3">{ESTADO_LABELS[t.estado]}</td>

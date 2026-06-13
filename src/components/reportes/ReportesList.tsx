@@ -215,7 +215,7 @@ export function ReportesList({
                   <tr>
                     <th className="text-left p-3">Ticket</th>
                     <th className="text-left p-3">Cliente</th>
-                    <th className="text-left p-3 hidden sm:table-cell">Técnico</th>
+                    <th className="text-left p-3 hidden sm:table-cell">Técnicos</th>
                     <th className="text-left p-3 hidden md:table-cell">Tipo</th>
                     <th className="text-left p-3">Cerrado</th>
                     <th className="text-left p-3">Firma</th>
@@ -241,7 +241,7 @@ export function ReportesList({
                           <p className="font-medium">{item.cliente.nombre}</p>
                           <p className="text-xs text-slate-400">{item.cliente.sector}</p>
                         </td>
-                        <td className="p-3 hidden sm:table-cell">{item.tecnico}</td>
+                        <td className="p-3 hidden sm:table-cell text-xs leading-snug">{item.tecnico}</td>
                         <td className="p-3 hidden md:table-cell">{TIPO_LABELS[item.tipo]}</td>
                         <td className="p-3">
                           <p className="text-xs">{formatDateShort(item.cerradoEn)}</p>

@@ -4,6 +4,7 @@ import { getFullSession } from "@/lib/auth";
 import { calcularDuracionCronometro } from "@/lib/tickets";
 import { firmaParaReporte } from "@/lib/firma-image";
 import { fotosParaReporte } from "@/lib/foto-image";
+import { nombresTecnicosTicket, ticketIncludeTecnicos } from "@/lib/ticket-tecnicos";
 
 export async function GET(
   _request: Request,
@@ -20,7 +21,7 @@ export async function GET(
     where: { id },
     include: {
       cliente: true,
-      tecnico: { include: { usuario: true } },
+      ...ticketIncludeTecnicos,
       orden: {
         include: {
           cronometro: true,
@@ -87,6 +88,7 @@ export async function GET(
   return NextResponse.json({
     ticket: {
       ...ticket,
+      tecnicosLabel: nombresTecnicosTicket(ticket),
       orden: orden
         ? {
             ...orden,

@@ -8,6 +8,7 @@ import { AppHeader } from "@/components/AppHeader";
 import { TIPO_LABELS, ESTADO_LABELS, PRIORIDAD_LABELS } from "@/lib/utils";
 import { toDatetimeLocalValue } from "@/lib/calendario";
 import { TecnicoMultiSelect } from "@/components/TecnicoMultiSelect";
+import { enMayusculas, inputMayusculasClass } from "@/lib/mayusculas";
 
 interface Tecnico {
   id: string;
@@ -195,8 +196,8 @@ export default function EditarTicketPage() {
             <input
               type="text"
               value={form.motivo}
-              onChange={(e) => setForm({ ...form, motivo: e.target.value })}
-              className="w-full px-3 py-2 border rounded-lg text-sm mt-0.5"
+              onChange={(e) => setForm({ ...form, motivo: enMayusculas(e.target.value) })}
+              className={`w-full px-3 py-2 border rounded-lg text-sm mt-0.5 ${inputMayusculasClass}`}
             />
           </div>
 
@@ -205,8 +206,10 @@ export default function EditarTicketPage() {
             <textarea
               rows={3}
               value={form.descripcion}
-              onChange={(e) => setForm({ ...form, descripcion: e.target.value })}
-              className="w-full px-3 py-2 border rounded-lg text-sm mt-0.5 resize-none"
+              onChange={(e) =>
+                setForm({ ...form, descripcion: enMayusculas(e.target.value) })
+              }
+              className={`w-full px-3 py-2 border rounded-lg text-sm mt-0.5 resize-none ${inputMayusculasClass}`}
             />
           </div>
 

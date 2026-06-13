@@ -10,6 +10,7 @@ import {
   validarTecnicoIds,
 } from "@/lib/ticket-tecnicos";
 import { mensajeCedulaInvalida, normalizarCedula, validarCedulaEcuatoriana } from "@/lib/cedula-ec";
+import { normalizarTextoCliente, normalizarTextoTicket } from "@/lib/mayusculas";
 import type { Prioridad, TipoTrabajo } from "@prisma/client";
 
 const TIPOS_VALIDOS: TipoTrabajo[] = [
@@ -78,16 +79,19 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: mensajeCedulaInvalida() }, { status: 400 });
       }
     }
+    const datosCliente = normalizarTextoCliente({
+      nombre: nombre || cliente.nombre,
+      plan: plan || cliente.plan,
+      direccion: direccion || cliente.direccion,
+      sector: sector || cliente.sector,
+      nodo: nodo ?? cliente.nodo,
+      referencia: referencia ?? cliente.referencia,
+    });
     cliente = await prisma.cliente.update({
       where: { id: clienteId },
       data: {
-        nombre: nombre || cliente.nombre,
+        ...datosCliente,
         telefono: telefono || cliente.telefono,
-        plan: plan || cliente.plan,
-        direccion: direccion || cliente.direccion,
-        sector: sector || cliente.sector,
-        nodo: nodo ?? cliente.nodo,
-        referencia: referencia ?? cliente.referencia,
         ...(cedula ? { cedula: normalizarCedula(cedula) } : {}),
       },
     });
@@ -102,26 +106,24 @@ export async function POST(request: Request) {
     if (!validarCedulaEcuatoriana(cedulaNorm)) {
       return NextResponse.json({ error: mensajeCedulaInvalida() }, { status: 400 });
     }
+    const datosNuevoCliente = normalizarTextoCliente({
+      nombre,
+      plan: plan || "Sin plan",
+      direccion,
+      sector,
+      nodo: nodo || null,
+      referencia: referencia || null,
+    });
     cliente = await prisma.cliente.upsert({
       where: { cedula: cedulaNorm },
       create: {
         cedula: cedulaNorm,
-        nombre,
         telefono,
-        plan: plan || "Sin plan",
-        direccion,
-        sector,
-        nodo: nodo || null,
-        referencia: referencia || null,
+        ...datosNuevoCliente,
       },
       update: {
-        nombre,
         telefono,
-        plan: plan || "Sin plan",
-        direccion,
-        sector,
-        nodo: nodo || null,
-        referencia: referencia || null,
+        ...datosNuevoCliente,
       },
     });
   }
@@ -134,6 +136,7 @@ export async function POST(request: Request) {
   const slaHoras = slaHorasPorPrioridad(prio);
   const slaVenceEn = new Date(Date.now() + slaHoras * 60 * 60 * 1000);
   const codigo = await generarCodigoTicket();
+  const datosTicket = normalizarTextoTicket({ motivo: motivo || null, descripcion: descripcion || null });
 
   const ticket = await prisma.ticket.create({
     data: {
@@ -143,8 +146,7 @@ export async function POST(request: Request) {
       tipo,
       prioridad: prio,
       estado: "PENDIENTE",
-      motivo: motivo || null,
-      descripcion: descripcion || null,
+      ...datosTicket,
       slaHoras,
       slaVenceEn,
       programadoEn: parseProgramadoEn(programadoEn),

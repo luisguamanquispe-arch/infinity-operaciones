@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { getFullSession } from "@/lib/auth";
+import { enMayusculas } from "@/lib/mayusculas";
 
 export async function GET() {
   const session = await getFullSession();
@@ -65,12 +66,12 @@ export async function POST(request: Request) {
     data: {
       email: emailNorm,
       passwordHash,
-      nombre: nombre.trim(),
+      nombre: enMayusculas(nombre),
       rol: "TECNICO",
       tecnico: {
         create: {
           telefono: telefono?.trim() || null,
-          vehiculo: vehiculo?.trim() || null,
+          vehiculo: vehiculo ? enMayusculas(vehiculo) : null,
           estadoActual: "DISPONIBLE",
         },
       },

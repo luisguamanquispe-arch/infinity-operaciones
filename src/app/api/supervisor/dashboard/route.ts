@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getFullSession } from "@/lib/auth";
 
+import { nombresTecnicosTicket, ticketIncludeTecnicos } from "@/lib/ticket-tecnicos";
+
 export async function GET() {
   const session = await getFullSession();
   if (!session || !["SUPERVISOR", "ADMIN"].includes(session.rol)) {
@@ -30,7 +32,10 @@ export async function GET() {
     }),
     prisma.ticket.findMany({
       where: { estado: { in: ["PENDIENTE", "EN_PROCESO"] } },
-      include: { cliente: true, tecnico: { include: { usuario: true } } },
+      include: {
+        cliente: true,
+        ...ticketIncludeTecnicos,
+      },
       orderBy: { prioridad: "asc" },
       take: 20,
     }),
@@ -78,6 +83,13 @@ export async function GET() {
       lng: t.lng,
       telefono: t.telefono,
     })),
-    tickets: ticketsRecientes,
+    tickets: ticketsRecientes.map((t) => ({
+      id: t.id,
+      codigo: t.codigo,
+      prioridad: t.prioridad,
+      estado: t.estado,
+      cliente: t.cliente,
+      tecnicosLabel: nombresTecnicosTicket(t),
+    })),
   });
 }

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getFullSession } from "@/lib/auth";
 import { mensajeCedulaInvalida, normalizarCedula, validarCedulaEcuatoriana } from "@/lib/cedula-ec";
+import { normalizarTextoCliente } from "@/lib/mayusculas";
 
 export async function GET(request: Request) {
   const session = await getFullSession();
@@ -67,19 +68,23 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: mensajeCedulaInvalida() }, { status: 400 });
   }
 
+  const datosCliente = normalizarTextoCliente({
+    nombre,
+    plan: plan || "Sin plan",
+    direccion,
+    sector,
+    nodo: nodo || null,
+    referencia: referencia || null,
+  });
+
   let cliente;
   if (clienteId) {
     cliente = await prisma.cliente.update({
       where: { id: clienteId },
       data: {
         cedula: cedulaNorm,
-        nombre,
         telefono,
-        plan: plan || "Sin plan",
-        direccion,
-        sector,
-        nodo: nodo || null,
-        referencia: referencia || null,
+        ...datosCliente,
       },
     });
   } else {
@@ -87,22 +92,12 @@ export async function POST(request: Request) {
       where: { cedula: cedulaNorm },
       create: {
         cedula: cedulaNorm,
-        nombre,
         telefono,
-        plan: plan || "Sin plan",
-        direccion,
-        sector,
-        nodo: nodo || null,
-        referencia: referencia || null,
+        ...datosCliente,
       },
       update: {
-        nombre,
         telefono,
-        plan: plan || "Sin plan",
-        direccion,
-        sector,
-        nodo: nodo || null,
-        referencia: referencia || null,
+        ...datosCliente,
       },
     });
   }
