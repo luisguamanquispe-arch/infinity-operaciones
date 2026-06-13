@@ -1,4 +1,4 @@
-const { spawn, execSync } = require("child_process");
+const { spawn, spawnSync } = require("child_process");
 const fs = require("fs");
 const path = require("path");
 const { prepareStandalone } = require("./prepare-standalone.cjs");
@@ -23,18 +23,36 @@ process.env.NODE_OPTIONS = process.env.NODE_OPTIONS || "--max-old-space-size=160
 console.log(`[startup] NODE_OPTIONS=${process.env.NODE_OPTIONS}`);
 
 function runMigrateDeploy() {
-  const prismaCli = path.join(root, "node_modules", "prisma", "build", "index.js");
+  if (process.env.PRISMA_MIGRATE_ON_START === "0") {
+    console.log("[startup] PRISMA_MIGRATE_ON_START=0 — omitiendo migrate deploy.");
+    return;
+  }
+
+  const prismaDir = path.join(root, "node_modules", "prisma", "build");
+  const prismaCli = path.join(prismaDir, "index.js");
+  const prismaWasm = path.join(prismaDir, "prisma_schema_build_bg.wasm");
+
   if (!fs.existsSync(prismaCli)) {
     console.warn("[startup] Prisma CLI no encontrado — omitiendo migrate deploy.");
     return;
   }
-  // Invocar el CLI real (prisma/build/index.js), no node_modules/.bin/prisma copiado
-  // como archivo: si se desreferencia el symlink, Prisma busca *.wasm en .bin/ y falla.
-  execSync(`"${process.execPath}" "${prismaCli}" migrate deploy`, {
+  if (!fs.existsSync(prismaWasm)) {
+    console.warn(
+      "[startup] prisma_schema_build_bg.wasm no encontrado en prisma/build — omitiendo migrate deploy."
+    );
+    return;
+  }
+
+  console.log("[startup] Ejecutando prisma migrate deploy...");
+  const result = spawnSync(process.execPath, [prismaCli, "migrate", "deploy"], {
     stdio: "inherit",
     cwd: root,
     env: { ...process.env, NODE_OPTIONS: "--max-old-space-size=128" },
   });
+
+  if (result.status !== 0) {
+    throw new Error(`migrate deploy terminó con código ${result.status ?? 1}`);
+  }
 }
 
 try {
