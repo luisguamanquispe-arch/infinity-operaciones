@@ -18,6 +18,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error("[Seed] Error:", err);
-  process.exit(1);
+  console.error("[Seed] Error (no bloquea el arranque):", err.message || err);
+  process.exit(0);
 });
