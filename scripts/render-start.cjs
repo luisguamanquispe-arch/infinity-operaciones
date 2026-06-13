@@ -21,43 +21,46 @@ const hostname = process.env.HOSTNAME || "0.0.0.0";
 const port = process.env.PORT || "3000";
 process.env.HOSTNAME = hostname;
 process.env.PORT = port;
-process.env.NODE_OPTIONS = process.env.NODE_OPTIONS || "--max-old-space-size=256";
 
 const standaloneDir = path.join(root, ".next", "standalone");
 const renderServer = path.join(standaloneDir, "server.js");
 const dockerServer = path.join(root, "server.js");
+const nextBuild = path.join(root, ".next", "BUILD_ID");
 
-let serverCwd;
-let serverEntry;
+function startStandalone(cwd, entry) {
+  process.env.NODE_OPTIONS = process.env.NODE_OPTIONS || "--max-old-space-size=192";
+  console.log(`[startup] Standalone ${cwd}/${entry} (heap 192MB)`);
+  return spawn(process.execPath, [entry], { cwd, env: process.env, stdio: "inherit" });
+}
 
-if (fs.existsSync(renderServer)) {
-  serverCwd = standaloneDir;
-  serverEntry = "server.js";
-  const staticDir = path.join(standaloneDir, ".next", "static");
-  if (!fs.existsSync(staticDir)) {
-    console.log("[startup] Copiando assets al bundle standalone...");
-    prepareStandalone(root);
+function startNext() {
+  if (!fs.existsSync(nextBuild)) {
+    fail("No hay build (.next/BUILD_ID). Build Command: npm run build:render");
   }
-} else if (fs.existsSync(dockerServer)) {
-  serverCwd = root;
-  serverEntry = "server.js";
-} else {
-  fail(
-    "No se encontró server.js.\n" +
-      "Build Command en Render: npm run build:render"
-  );
+  process.env.NODE_OPTIONS = process.env.NODE_OPTIONS || "--max-old-space-size=192";
+  console.log(`[startup] next start en ${hostname}:${port} (heap 192MB, modo bajo RAM)`);
+  const nextBin = require.resolve("next/dist/bin/next");
+  return spawn(process.execPath, [nextBin, "start", "-H", hostname, "-p", port], {
+    cwd: root,
+    env: process.env,
+    stdio: "inherit",
+  });
 }
 
 const dbPreview = process.env.DATABASE_URL.replace(/:[^:@/]+@/, ":***@").slice(0, 48);
 console.log(`[startup] DATABASE_URL ok (${dbPreview}...)`);
-console.log(`[startup] NODE_OPTIONS=${process.env.NODE_OPTIONS}`);
-console.log(`[startup] ${serverCwd}/server.js → http://${hostname}:${port}`);
 
-const child = spawn(process.execPath, [serverEntry], {
-  cwd: serverCwd,
-  env: process.env,
-  stdio: "inherit",
-});
+let child;
+
+if (fs.existsSync(renderServer)) {
+  const staticDir = path.join(standaloneDir, ".next", "static");
+  if (!fs.existsSync(staticDir)) prepareStandalone(root);
+  child = startStandalone(standaloneDir, "server.js");
+} else if (fs.existsSync(dockerServer)) {
+  child = startStandalone(root, "server.js");
+} else {
+  child = startNext();
+}
 
 child.on("exit", (code, signal) => {
   if (signal) console.error(`[startup] Proceso terminado por señal: ${signal}`);

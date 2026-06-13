@@ -28,7 +28,11 @@ services:
       - key: NODE_ENV
         value: production
       - key: NODE_OPTIONS
-        value: --max-old-space-size=256
+        value: --max-old-space-size=192
+      - key: RENDER_LOW_MEMORY
+        value: "1"
+      - key: BUILD_NODE_OPTIONS
+        value: --max-old-space-size=320
       - key: NEXT_TELEMETRY_DISABLED
         value: "1"
       - key: JWT_SECRET
