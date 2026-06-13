@@ -18,6 +18,7 @@ import {
   formatTime,
 } from "@/lib/utils";
 import { toDatetimeLocalValue } from "@/lib/calendario";
+import { TecnicoMultiSelect } from "@/components/TecnicoMultiSelect";
 
 interface TicketCal {
   id: string;
@@ -27,6 +28,7 @@ interface TicketCal {
   motivo: string | null;
   programadoEn: string | null;
   tecnicoId: string | null;
+  tecnicoIds?: string[];
   cliente: { nombre: string; sector: string };
 }
 
@@ -66,7 +68,7 @@ export function CalendarioSoporte() {
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState<{
     ticket: TicketCal;
-    tecnicoId: string;
+    tecnicoIds: string[];
     programadoEn: string;
   } | null>(null);
   const [guardando, setGuardando] = useState(false);
@@ -89,9 +91,16 @@ export function CalendarioSoporte() {
   }
 
   function abrirProgramar(ticket: TicketCal, tecnicoId = "") {
+    const ids = ticket.tecnicoIds?.length
+      ? ticket.tecnicoIds
+      : ticket.tecnicoId
+        ? [ticket.tecnicoId]
+        : tecnicoId
+          ? [tecnicoId]
+          : [];
     setModal({
       ticket,
-      tecnicoId: tecnicoId || ticket.tecnicoId || "",
+      tecnicoIds: ids,
       programadoEn: toDatetimeLocalValue(ticket.programadoEn) || "",
     });
   }
@@ -104,7 +113,7 @@ export function CalendarioSoporte() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         ticketId: modal.ticket.id,
-        tecnicoId: modal.tecnicoId || null,
+        tecnicoIds: modal.tecnicoIds,
         programadoEn: modal.programadoEn || null,
       }),
     });
@@ -284,23 +293,16 @@ export function CalendarioSoporte() {
               />
             </div>
 
-            <div>
-              <label className="text-xs text-slate-500">Técnico asignado</label>
-              <select
-                value={modal.tecnicoId}
-                onChange={(e) =>
-                  setModal({ ...modal, tecnicoId: e.target.value })
-                }
-                className="w-full px-3 py-2 border rounded-lg text-sm mt-0.5"
-              >
-                <option value="">Sin asignar</option>
-                {data.tecnicos.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.nombre} — {ESTADO_TECNICO_LABELS[t.estado]}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <TecnicoMultiSelect
+              label="Técnicos asignados (puede seleccionar varios)"
+              tecnicos={data.tecnicos.map((t) => ({
+                id: t.id,
+                nombre: t.nombre,
+                estado: t.estado,
+              }))}
+              selected={modal.tecnicoIds}
+              onChange={(tecnicoIds) => setModal({ ...modal, tecnicoIds })}
+            />
 
             <div className="flex gap-2">
               <Link

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getFullSession } from "@/lib/auth";
 import { calcularDuracionCronometro } from "@/lib/tickets";
 import { diaKey } from "@/lib/calendario";
+import { whereTecnicoAsignado } from "@/lib/ticket-tecnicos";
 import type { Prisma, TipoTrabajo } from "@prisma/client";
 
 export const runtime = "nodejs";
@@ -22,7 +23,7 @@ function buildTicketWhere(
   tecnicoId: string,
   hoy: Date
 ): Prisma.TicketWhereInput {
-  const base: Prisma.TicketWhereInput = { tecnicoId };
+  const base: Prisma.TicketWhereInput = whereTecnicoAsignado(tecnicoId);
 
   if (filtro === "pendientes") return { ...base, estado: "PENDIENTE" };
   if (filtro === "en_proceso") return { ...base, estado: "EN_PROCESO" };
@@ -73,7 +74,7 @@ export async function GET(request: Request) {
     }),
     prisma.ticket.findMany({
       where: {
-        tecnicoId: session.tecnicoId,
+        ...whereTecnicoAsignado(session.tecnicoId),
         estado: { in: ["PENDIENTE", "EN_PROCESO"] },
       },
       include: { cliente: clienteSelect },
@@ -96,7 +97,7 @@ export async function GET(request: Request) {
     }),
     prisma.ticket.count({
       where: {
-        tecnicoId: session.tecnicoId,
+        ...whereTecnicoAsignado(session.tecnicoId),
         estado: { in: ["FINALIZADO", "CERRADO"] },
         updatedAt: { gte: hoy, lte: finHoy },
       },

@@ -2,7 +2,13 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getFullSession } from "@/lib/auth";
 import { cuposDisponibles, diaKey, parseProgramadoEn } from "@/lib/calendario";
-import { notificarTecnicoAsignacion } from "@/lib/notificaciones-tecnico";
+import {
+  asignarTecnicosTicket,
+  notificarTecnicosNuevos,
+  tecnicoIdsFromTicket,
+  ticketIncludeTecnicos,
+  validarTecnicoIds,
+} from "@/lib/ticket-tecnicos";
 import {
   startOfWeek,
   endOfWeek,
@@ -14,6 +20,13 @@ import { es } from "date-fns/locale";
 
 const ESTADOS_ACTIVOS = ["PENDIENTE", "EN_PROCESO"] as const;
 
+function ticketEnTecnico(
+  t: { tecnicoId: string | null; tecnicos: { tecnicoId: string }[] },
+  tecnicoId: string
+) {
+  return tecnicoIdsFromTicket(t).includes(tecnicoId);
+}
+
 function ticketResumen(t: {
   id: string;
   codigo: string;
@@ -23,6 +36,7 @@ function ticketResumen(t: {
   motivo: string | null;
   programadoEn: Date | null;
   tecnicoId: string | null;
+  tecnicos: { tecnicoId: string }[];
   cliente: { nombre: string; sector: string };
 }) {
   return {
@@ -34,6 +48,7 @@ function ticketResumen(t: {
     motivo: t.motivo,
     programadoEn: t.programadoEn?.toISOString() ?? null,
     tecnicoId: t.tecnicoId,
+    tecnicoIds: tecnicoIdsFromTicket(t),
     cliente: t.cliente,
   };
 }
@@ -60,6 +75,11 @@ export async function GET(request: Request) {
   });
   const fechasSet = new Set(dias.map((d) => d.fecha));
 
+  const ticketInclude = {
+    cliente: true,
+    tecnicos: { select: { tecnicoId: true } },
+  };
+
   const [tecnicos, ticketsSemana, sinProgramar] = await Promise.all([
     prisma.tecnico.findMany({
       include: { usuario: true },
@@ -70,7 +90,7 @@ export async function GET(request: Request) {
         estado: { in: [...ESTADOS_ACTIVOS] },
         programadoEn: { gte: inicio, lte: fin },
       },
-      include: { cliente: true },
+      include: ticketInclude,
       orderBy: { programadoEn: "asc" },
     }),
     prisma.ticket.findMany({
@@ -78,7 +98,7 @@ export async function GET(request: Request) {
         estado: { in: [...ESTADOS_ACTIVOS] },
         programadoEn: null,
       },
-      include: { cliente: true },
+      include: ticketInclude,
       orderBy: { createdAt: "desc" },
       take: 50,
     }),
@@ -92,7 +112,10 @@ export async function GET(request: Request) {
 
     for (const dia of dias) {
       const delDia = ticketsSemana.filter(
-        (t) => t.tecnicoId === tec.id && t.programadoEn && diaKey(t.programadoEn) === dia.fecha
+        (t) =>
+          t.programadoEn &&
+          diaKey(t.programadoEn) === dia.fecha &&
+          ticketEnTecnico(t, tec.id)
       );
       const cupos = cuposDisponibles(tec.estadoActual, delDia.length);
       diasMap[dia.fecha] = {
@@ -113,7 +136,9 @@ export async function GET(request: Request) {
   const sinAsignarPorDia: Record<string, ReturnType<typeof ticketResumen>[]> = {};
   for (const f of fechasSet) sinAsignarPorDia[f] = [];
 
-  for (const t of ticketsSemana.filter((t) => !t.tecnicoId && t.programadoEn)) {
+  for (const t of ticketsSemana.filter(
+    (t) => tecnicoIdsFromTicket(t).length === 0 && t.programadoEn
+  )) {
     const f = diaKey(t.programadoEn!);
     if (fechasSet.has(f)) {
       sinAsignarPorDia[f].push(ticketResumen(t));
@@ -130,6 +155,19 @@ export async function GET(request: Request) {
   });
 }
 
+function parseTecnicoIds(body: {
+  tecnicoIds?: string[];
+  tecnicoId?: string | null;
+}): string[] | undefined {
+  if (body.tecnicoIds !== undefined) {
+    return Array.isArray(body.tecnicoIds) ? body.tecnicoIds.filter(Boolean) : [];
+  }
+  if (body.tecnicoId !== undefined) {
+    return body.tecnicoId ? [body.tecnicoId] : [];
+  }
+  return undefined;
+}
+
 export async function PATCH(request: Request) {
   const session = await getFullSession();
   if (!session || !["SUPERVISOR", "ADMIN"].includes(session.rol)) {
@@ -137,55 +175,71 @@ export async function PATCH(request: Request) {
   }
 
   const body = await request.json();
-  const { ticketId, tecnicoId, programadoEn } = body;
+  const { ticketId, programadoEn } = body;
+  const tecnicoIdsInput = parseTecnicoIds(body);
 
   if (!ticketId) {
     return NextResponse.json({ error: "ticketId requerido" }, { status: 400 });
   }
 
-  const ticket = await prisma.ticket.findUnique({ where: { id: ticketId } });
+  const ticket = await prisma.ticket.findUnique({
+    where: { id: ticketId },
+    include: { tecnicos: true },
+  });
   if (!ticket) {
     return NextResponse.json({ error: "Ticket no encontrado" }, { status: 404 });
   }
 
+  const idsAnteriores = tecnicoIdsFromTicket(ticket);
   const updateData: Record<string, unknown> = {};
-
-  if (tecnicoId !== undefined) {
-    if (tecnicoId) {
-      const tecnico = await prisma.tecnico.findUnique({ where: { id: tecnicoId } });
-      if (!tecnico) {
-        return NextResponse.json({ error: "Técnico no encontrado" }, { status: 404 });
-      }
-    }
-    updateData.tecnicoId = tecnicoId || null;
-  }
 
   if (programadoEn !== undefined) {
     updateData.programadoEn = programadoEn ? parseProgramadoEn(programadoEn) : null;
   }
 
-  if (Object.keys(updateData).length === 0) {
+  if (tecnicoIdsInput !== undefined) {
+    const errTecnicos = await validarTecnicoIds(tecnicoIdsInput);
+    if (errTecnicos) {
+      return NextResponse.json({ error: errTecnicos }, { status: 404 });
+    }
+  }
+
+  if (Object.keys(updateData).length === 0 && tecnicoIdsInput === undefined) {
     return NextResponse.json({ error: "Sin cambios" }, { status: 400 });
   }
 
-  const updated = await prisma.ticket.update({
+  if (Object.keys(updateData).length > 0) {
+    await prisma.ticket.update({ where: { id: ticketId }, data: updateData });
+  }
+
+  let idsNuevos = idsAnteriores;
+  if (tecnicoIdsInput !== undefined) {
+    idsNuevos = await asignarTecnicosTicket(ticketId, tecnicoIdsInput);
+  }
+
+  const updated = await prisma.ticket.findUnique({
     where: { id: ticketId },
-    data: updateData,
-    include: { cliente: true, tecnico: { include: { usuario: true } } },
+    include: ticketIncludeTecnicos,
   });
+
+  if (!updated) {
+    return NextResponse.json({ error: "Ticket no encontrado" }, { status: 404 });
+  }
 
   await prisma.eventoTicket.create({
     data: {
       ticketId,
       usuarioId: session.id,
       accion: "TICKET_PROGRAMADO",
-      metadata: JSON.stringify(updateData),
+      metadata: JSON.stringify({ ...updateData, tecnicoIds: idsNuevos }),
     },
   });
 
-  if (updated.tecnicoId) {
-    await notificarTecnicoAsignacion(updated);
+  if (idsNuevos.length) {
+    await notificarTecnicosNuevos(updated, idsAnteriores, idsNuevos);
   }
 
-  return NextResponse.json({ ticket: updated });
+  return NextResponse.json({
+    ticket: { ...updated, tecnicoIds: idsNuevos },
+  });
 }

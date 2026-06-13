@@ -5,7 +5,13 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Search, Loader2, CheckCircle } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
-import { TIPO_LABELS, ESTADO_TECNICO_LABELS } from "@/lib/utils";
+import { TIPO_LABELS } from "@/lib/utils";
+import { TecnicoMultiSelect } from "@/components/TecnicoMultiSelect";
+import {
+  mensajeCedulaInvalida,
+  normalizarCedula,
+  validarCedulaEcuatoriana,
+} from "@/lib/cedula-ec";
 
 interface Cliente {
   id: string;
@@ -54,9 +60,10 @@ export default function NuevoTicketPage() {
     prioridad: "MEDIA",
     motivo: "",
     descripcion: "",
-    tecnicoId: "",
+    tecnicoIds: [] as string[],
     programadoEn: "",
   });
+  const [cedulaError, setCedulaError] = useState("");
 
   useEffect(() => {
     fetch("/api/tecnicos")
@@ -98,6 +105,14 @@ export default function NuevoTicketPage() {
     setLoading(true);
     setError("");
     setExito("");
+    setCedulaError("");
+
+    const cedulaNorm = normalizarCedula(cliente.cedula);
+    if (!validarCedulaEcuatoriana(cedulaNorm)) {
+      setCedulaError(mensajeCedulaInvalida());
+      setLoading(false);
+      return;
+    }
 
     const res = await fetch("/api/tickets", {
       method: "POST",
@@ -105,8 +120,9 @@ export default function NuevoTicketPage() {
       body: JSON.stringify({
         clienteId,
         ...cliente,
+        cedula: cedulaNorm,
         ...ticket,
-        tecnicoId: ticket.tecnicoId || null,
+        tecnicoIds: ticket.tecnicoIds,
         programadoEn: ticket.programadoEn || null,
       }),
     });
@@ -210,7 +226,7 @@ export default function NuevoTicketPage() {
 
             <div className="grid grid-cols-2 gap-3">
               {[
-                { key: "cedula", label: "Cédula *", required: true },
+                { key: "cedula", label: "Cédula * (10 dígitos)", required: true },
                 { key: "nombre", label: "Nombre *", required: true },
                 { key: "telefono", label: "Teléfono *", required: true },
                 { key: "plan", label: "Plan contratado", required: false },
@@ -232,6 +248,9 @@ export default function NuevoTicketPage() {
                 </div>
               ))}
             </div>
+            {cedulaError && (
+              <p className="text-sm text-red-600">{cedulaError}</p>
+            )}
 
             <div>
               <label className="text-xs text-slate-500">Referencia *</label>
@@ -327,18 +346,12 @@ export default function NuevoTicketPage() {
               </p>
             </div>
 
-            <select
-              value={ticket.tecnicoId}
-              onChange={(e) => setTicket({ ...ticket, tecnicoId: e.target.value })}
-              className="w-full px-3 py-2 border rounded-lg text-sm"
-            >
-              <option value="">Sin asignar (asignar después)</option>
-              {tecnicos.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.nombre} — {ESTADO_TECNICO_LABELS[t.estado]}
-                </option>
-              ))}
-            </select>
+            <TecnicoMultiSelect
+              label="Técnicos asignados (puede seleccionar más de uno)"
+              tecnicos={tecnicos}
+              selected={ticket.tecnicoIds}
+              onChange={(tecnicoIds) => setTicket({ ...ticket, tecnicoIds })}
+            />
           </section>
 
           <button

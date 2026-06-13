@@ -3,6 +3,11 @@
 import { useRef, useEffect, useState } from "react";
 import SignaturePad from "signature_pad";
 import { fetchWithRetry } from "@/lib/compress-image";
+import {
+  mensajeCedulaInvalida,
+  normalizarCedula,
+  validarCedulaEcuatoriana,
+} from "@/lib/cedula-ec";
 
 interface SignatureCaptureProps {
   ticketId: string;
@@ -55,6 +60,12 @@ export function SignatureCapture({
       return;
     }
 
+    const cedulaNorm = normalizarCedula(cedula);
+    if (!validarCedulaEcuatoriana(cedulaNorm)) {
+      setError(mensajeCedulaInvalida());
+      return;
+    }
+
     setLoading(true);
     setError("");
     const imagen = padRef.current.toDataURL("image/png");
@@ -79,7 +90,7 @@ export function SignatureCapture({
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        firma: { nombreCliente: nombre, cedula, imagen, lat, lng },
+        firma: { nombreCliente: nombre, cedula: cedulaNorm, imagen, lat, lng },
       }),
     });
 

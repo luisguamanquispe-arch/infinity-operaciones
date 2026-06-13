@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getFullSession } from "@/lib/auth";
 import { firmaImagenSrcRapida } from "@/lib/firma-image";
+import { nombresTecnicosTicket } from "@/lib/ticket-tecnicos";
 
 export async function GET(request: Request) {
   const session = await getFullSession();
@@ -31,7 +32,14 @@ export async function GET(request: Request) {
     }
   }
 
-  if (tecnicoId) where.tecnicoId = tecnicoId;
+  if (tecnicoId) {
+    where.AND = [
+      ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
+      {
+        OR: [{ tecnicoId }, { tecnicos: { some: { tecnicoId } } }],
+      },
+    ];
+  }
   if (tipo) where.tipo = tipo;
   if (sector) where.cliente = { sector: { contains: sector } };
   if (q) {
@@ -49,6 +57,9 @@ export async function GET(request: Request) {
         select: { nombre: true, cedula: true, sector: true },
       },
       tecnico: { include: { usuario: { select: { nombre: true } } } },
+      tecnicos: {
+        include: { tecnico: { include: { usuario: { select: { nombre: true } } } } },
+      },
       orden: {
         select: {
           finalizadoEn: true,
@@ -97,7 +108,7 @@ export async function GET(request: Request) {
       cedula: t.cliente.cedula,
       sector: t.cliente.sector,
     },
-    tecnico: t.tecnico?.usuario.nombre || "Sin asignar",
+    tecnico: nombresTecnicosTicket(t),
     duracionMin: t.orden?.cronometro?.duracionSegundos
       ? Math.round(t.orden.cronometro.duracionSegundos / 60)
       : null,

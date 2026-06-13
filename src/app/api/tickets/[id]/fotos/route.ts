@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getFullSession } from "@/lib/auth";
 import { getOrCreateOrden } from "@/lib/tickets";
 import { persistTicketImage } from "@/lib/media-storage";
+import { tecnicoAsignadoAlTicket } from "@/lib/ticket-tecnicos";
 import type { TipoFoto } from "@prisma/client";
 
 export const maxDuration = 60;
@@ -59,8 +60,11 @@ export async function POST(
       );
     }
 
-    const ticket = await prisma.ticket.findUnique({ where: { id } });
-    if (!ticket || ticket.tecnicoId !== session.tecnicoId) {
+    const ticket = await prisma.ticket.findUnique({
+      where: { id },
+      include: { tecnicos: { select: { tecnicoId: true } } },
+    });
+    if (!ticket || !tecnicoAsignadoAlTicket(ticket, session.tecnicoId)) {
       return NextResponse.json({ error: "No autorizado" }, { status: 403 });
     }
 

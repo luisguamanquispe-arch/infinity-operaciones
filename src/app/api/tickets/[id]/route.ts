@@ -3,7 +3,14 @@ import { prisma } from "@/lib/prisma";
 import { getFullSession } from "@/lib/auth";
 import { getOrCreateOrden, calcularDuracionCronometro, slaHorasPorPrioridad } from "@/lib/tickets";
 import { parseProgramadoEn } from "@/lib/calendario";
-import { notificarTecnicoAsignacion } from "@/lib/notificaciones-tecnico";
+import {
+  asignarTecnicosTicket,
+  notificarTecnicosNuevos,
+  tecnicoAsignadoAlTicket,
+  tecnicoIdsFromTicket,
+  ticketIncludeTecnicos,
+  validarTecnicoIds,
+} from "@/lib/ticket-tecnicos";
 import { fotoImagenSrcRapida } from "@/lib/foto-image";
 import { firmaImagenSrcRapida } from "@/lib/firma-image";
 
@@ -19,8 +26,7 @@ export async function GET(
   const ticket = await prisma.ticket.findUnique({
     where: { id },
     include: {
-      cliente: true,
-      tecnico: { include: { usuario: true } },
+      ...ticketIncludeTecnicos,
       orden: {
         include: {
           cronometro: true,
@@ -43,7 +49,7 @@ export async function GET(
 
   if (!ticket) return NextResponse.json({ error: "Ticket no encontrado" }, { status: 404 });
 
-  if (session.rol === "TECNICO" && ticket.tecnicoId !== session.tecnicoId) {
+  if (session.rol === "TECNICO" && !tecnicoAsignadoAlTicket(ticket, session.tecnicoId)) {
     return NextResponse.json({ error: "No autorizado" }, { status: 403 });
   }
 
@@ -73,12 +79,33 @@ export async function GET(
       : null,
   };
 
-  return NextResponse.json({ ticket, orden: ordenConFotos, duracionSegundos, inventario });
+  return NextResponse.json({
+    ticket: {
+      ...ticket,
+      tecnicoIds: tecnicoIdsFromTicket(ticket),
+    },
+    orden: ordenConFotos,
+    duracionSegundos,
+    inventario,
+  });
 }
 
 const TIPOS_VALIDOS = ["INSTALACION", "SOPORTE", "MIGRACION", "RECONEXION", "RETIRO", "CORTE"];
 const PRIORIDADES_VALIDAS = ["ALTA", "MEDIA", "BAJA"];
 const ESTADOS_VALIDOS = ["PENDIENTE", "EN_PROCESO", "FINALIZADO", "CERRADO", "CANCELADO"];
+
+function parseTecnicoIds(body: {
+  tecnicoIds?: string[];
+  tecnicoId?: string | null;
+}): string[] | undefined {
+  if (body.tecnicoIds !== undefined) {
+    return Array.isArray(body.tecnicoIds) ? body.tecnicoIds.filter(Boolean) : [];
+  }
+  if (body.tecnicoId !== undefined) {
+    return body.tecnicoId ? [body.tecnicoId] : [];
+  }
+  return undefined;
+}
 
 export async function PATCH(
   request: Request,
@@ -92,10 +119,16 @@ export async function PATCH(
   const { id } = await params;
   const body = await request.json();
 
-  const ticket = await prisma.ticket.findUnique({ where: { id } });
+  const ticket = await prisma.ticket.findUnique({
+    where: { id },
+    include: { tecnicos: true },
+  });
   if (!ticket) {
     return NextResponse.json({ error: "Ticket no encontrado" }, { status: 404 });
   }
+
+  const idsAnteriores = tecnicoIdsFromTicket(ticket);
+  const tecnicoIdsInput = parseTecnicoIds(body);
 
   const updateData: Record<string, unknown> = {};
 
@@ -112,43 +145,52 @@ export async function PATCH(
   if (body.programadoEn !== undefined) {
     updateData.programadoEn = body.programadoEn ? parseProgramadoEn(body.programadoEn) : null;
   }
-  if (body.tecnicoId !== undefined) {
-    updateData.tecnicoId = body.tecnicoId || null;
-    if (body.tecnicoId) {
-      const tecnico = await prisma.tecnico.findUnique({ where: { id: body.tecnicoId } });
-      if (!tecnico) {
-        return NextResponse.json({ error: "Técnico no encontrado" }, { status: 404 });
-      }
+
+  if (tecnicoIdsInput !== undefined) {
+    const errTecnicos = await validarTecnicoIds(tecnicoIdsInput);
+    if (errTecnicos) {
+      return NextResponse.json({ error: errTecnicos }, { status: 404 });
     }
   }
 
-  if (Object.keys(updateData).length === 0) {
+  if (Object.keys(updateData).length === 0 && tecnicoIdsInput === undefined) {
     return NextResponse.json({ error: "Sin cambios" }, { status: 400 });
   }
 
-  const updated = await prisma.ticket.update({
+  if (Object.keys(updateData).length > 0) {
+    await prisma.ticket.update({ where: { id }, data: updateData });
+  }
+
+  let idsNuevos = idsAnteriores;
+  if (tecnicoIdsInput !== undefined) {
+    idsNuevos = await asignarTecnicosTicket(id, tecnicoIdsInput);
+  }
+
+  const updated = await prisma.ticket.findUnique({
     where: { id },
-    data: updateData,
-    include: {
-      cliente: true,
-      tecnico: { include: { usuario: true } },
-    },
+    include: ticketIncludeTecnicos,
   });
+
+  if (!updated) {
+    return NextResponse.json({ error: "Ticket no encontrado" }, { status: 404 });
+  }
 
   await prisma.eventoTicket.create({
     data: {
       ticketId: id,
       usuarioId: session.id,
       accion: "TICKET_MODIFICADO",
-      metadata: JSON.stringify(updateData),
+      metadata: JSON.stringify({ ...updateData, tecnicoIds: idsNuevos }),
     },
   });
 
-  const programado =
-    updateData.tecnicoId !== undefined || updateData.programadoEn !== undefined;
-  if (programado && updated.tecnicoId) {
-    await notificarTecnicoAsignacion(updated);
+  const huboProgramacion =
+    updateData.programadoEn !== undefined || tecnicoIdsInput !== undefined;
+  if (huboProgramacion && idsNuevos.length) {
+    await notificarTecnicosNuevos(updated, idsAnteriores, idsNuevos);
   }
 
-  return NextResponse.json({ ticket: updated });
+  return NextResponse.json({
+    ticket: { ...updated, tecnicoIds: idsNuevos },
+  });
 }

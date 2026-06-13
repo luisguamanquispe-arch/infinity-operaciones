@@ -1,0 +1,111 @@
+import { prisma } from "@/lib/prisma";
+import { notificarTecnicoAsignacion } from "@/lib/notificaciones-tecnico";
+
+export const ticketIncludeTecnicos = {
+  tecnicos: {
+    include: {
+      tecnico: { include: { usuario: { select: { nombre: true } } } },
+    },
+    orderBy: { asignadoEn: "asc" as const },
+  },
+  tecnico: { include: { usuario: { select: { nombre: true } } } },
+  cliente: true,
+} as const;
+
+export function tecnicoIdsFromTicket(ticket: {
+  tecnicoId: string | null;
+  tecnicos?: { tecnicoId: string }[];
+}): string[] {
+  if (ticket.tecnicos?.length) {
+    return ticket.tecnicos.map((t) => t.tecnicoId);
+  }
+  return ticket.tecnicoId ? [ticket.tecnicoId] : [];
+}
+
+export function tecnicoAsignadoAlTicket(
+  ticket: { tecnicoId: string | null; tecnicos?: { tecnicoId: string }[] },
+  tecnicoId: string | undefined | null
+): boolean {
+  if (!tecnicoId) return false;
+  return tecnicoIdsFromTicket(ticket).includes(tecnicoId);
+}
+
+export function nombresTecnicosTicket(ticket: {
+  tecnicoId: string | null;
+  tecnico?: { usuario: { nombre: string } } | null;
+  tecnicos?: { tecnico: { usuario: { nombre: string } } }[];
+}): string {
+  if (ticket.tecnicos?.length) {
+    return ticket.tecnicos.map((t) => t.tecnico.usuario.nombre).join(", ");
+  }
+  return ticket.tecnico?.usuario.nombre ?? "Sin asignar";
+}
+
+export async function validarTecnicoIds(ids: string[]): Promise<string | null> {
+  const unicos = [...new Set(ids.filter(Boolean))];
+  if (unicos.length === 0) return null;
+
+  const count = await prisma.tecnico.count({ where: { id: { in: unicos } } });
+  if (count !== unicos.length) {
+    return "Uno o más técnicos no existen";
+  }
+  return null;
+}
+
+/** Reemplaza asignaciones del ticket y sincroniza tecnicoId (primer técnico). */
+export async function asignarTecnicosTicket(
+  ticketId: string,
+  tecnicoIds: string[]
+): Promise<string[]> {
+  const unicos = [...new Set(tecnicoIds.filter(Boolean))];
+
+  await prisma.$transaction([
+    prisma.ticketTecnico.deleteMany({ where: { ticketId } }),
+    ...(unicos.length
+      ? [
+          prisma.ticketTecnico.createMany({
+            data: unicos.map((tecnicoId) => ({ ticketId, tecnicoId })),
+          }),
+        ]
+      : []),
+    prisma.ticket.update({
+      where: { id: ticketId },
+      data: { tecnicoId: unicos[0] ?? null },
+    }),
+  ]);
+
+  return unicos;
+}
+
+type TicketNotificacion = Parameters<typeof notificarTecnicoAsignacion>[0];
+
+/** Notifica solo a técnicos recién agregados. */
+export async function notificarTecnicosNuevos(
+  ticket: TicketNotificacion & { id: string },
+  idsAnteriores: string[],
+  idsNuevos: string[]
+) {
+  const agregados = idsNuevos.filter((id) => !idsAnteriores.includes(id));
+  if (agregados.length === 0) return;
+
+  const tecnicos = await prisma.tecnico.findMany({
+    where: { id: { in: agregados } },
+    include: { usuario: true },
+  });
+
+  for (const tecnico of tecnicos) {
+    await notificarTecnicoAsignacion({
+      ...ticket,
+      tecnico: { telefono: tecnico.telefono, usuario: tecnico.usuario },
+    });
+  }
+}
+
+export function whereTecnicoAsignado(tecnicoId: string) {
+  return {
+    OR: [
+      { tecnicoId },
+      { tecnicos: { some: { tecnicoId } } },
+    ],
+  };
+}

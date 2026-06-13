@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getFullSession } from "@/lib/auth";
+import { mensajeCedulaInvalida, normalizarCedula, validarCedulaEcuatoriana } from "@/lib/cedula-ec";
 
 export async function GET(request: Request) {
   const session = await getFullSession();
@@ -61,11 +62,17 @@ export async function POST(request: Request) {
     );
   }
 
+  const cedulaNorm = normalizarCedula(cedula);
+  if (!validarCedulaEcuatoriana(cedulaNorm)) {
+    return NextResponse.json({ error: mensajeCedulaInvalida() }, { status: 400 });
+  }
+
   let cliente;
   if (clienteId) {
     cliente = await prisma.cliente.update({
       where: { id: clienteId },
       data: {
+        cedula: cedulaNorm,
         nombre,
         telefono,
         plan: plan || "Sin plan",
@@ -77,9 +84,9 @@ export async function POST(request: Request) {
     });
   } else {
     cliente = await prisma.cliente.upsert({
-      where: { cedula },
+      where: { cedula: cedulaNorm },
       create: {
-        cedula,
+        cedula: cedulaNorm,
         nombre,
         telefono,
         plan: plan || "Sin plan",

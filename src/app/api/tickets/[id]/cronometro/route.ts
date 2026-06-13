@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getFullSession } from "@/lib/auth";
 import { getOrCreateOrden, calcularDuracionCronometro } from "@/lib/tickets";
+import { tecnicoAsignadoAlTicket } from "@/lib/ticket-tecnicos";
 
 export async function POST(
   request: Request,
@@ -15,8 +16,11 @@ export async function POST(
   const { id } = await params;
   const { accion, lat, lng } = await request.json();
 
-  const ticket = await prisma.ticket.findUnique({ where: { id } });
-  if (!ticket || ticket.tecnicoId !== session.tecnicoId) {
+  const ticket = await prisma.ticket.findUnique({
+    where: { id },
+    include: { tecnicos: { select: { tecnicoId: true } } },
+  });
+  if (!ticket || !tecnicoAsignadoAlTicket(ticket, session.tecnicoId)) {
     return NextResponse.json({ error: "No autorizado" }, { status: 403 });
   }
 

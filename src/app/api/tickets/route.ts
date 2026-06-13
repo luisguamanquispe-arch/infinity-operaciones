@@ -3,7 +3,13 @@ import { prisma } from "@/lib/prisma";
 import { getFullSession } from "@/lib/auth";
 import { generarCodigoTicket, slaHorasPorPrioridad } from "@/lib/tickets";
 import { parseProgramadoEn } from "@/lib/calendario";
-import { notificarTecnicoAsignacion } from "@/lib/notificaciones-tecnico";
+import {
+  asignarTecnicosTicket,
+  notificarTecnicosNuevos,
+  ticketIncludeTecnicos,
+  validarTecnicoIds,
+} from "@/lib/ticket-tecnicos";
+import { mensajeCedulaInvalida, normalizarCedula, validarCedulaEcuatoriana } from "@/lib/cedula-ec";
 import type { Prioridad, TipoTrabajo } from "@prisma/client";
 
 const TIPOS_VALIDOS: TipoTrabajo[] = [
@@ -16,6 +22,17 @@ const TIPOS_VALIDOS: TipoTrabajo[] = [
 ];
 
 const PRIORIDADES_VALIDAS: Prioridad[] = ["ALTA", "MEDIA", "BAJA"];
+
+function parseTecnicoIds(body: {
+  tecnicoIds?: string[];
+  tecnicoId?: string | null;
+}): string[] {
+  if (Array.isArray(body.tecnicoIds)) {
+    return body.tecnicoIds.filter(Boolean);
+  }
+  if (body.tecnicoId) return [body.tecnicoId];
+  return [];
+}
 
 export async function POST(request: Request) {
   const session = await getFullSession();
@@ -38,9 +55,10 @@ export async function POST(request: Request) {
     prioridad,
     motivo,
     descripcion,
-    tecnicoId,
     programadoEn,
   } = body;
+
+  const tecnicoIds = parseTecnicoIds(body);
 
   if (!tipo || !TIPOS_VALIDOS.includes(tipo)) {
     return NextResponse.json({ error: "Tipo de trabajo inválido" }, { status: 400 });
@@ -54,6 +72,12 @@ export async function POST(request: Request) {
     if (!cliente) {
       return NextResponse.json({ error: "Cliente no encontrado" }, { status: 404 });
     }
+    if (cedula) {
+      const cedulaNorm = normalizarCedula(cedula);
+      if (!validarCedulaEcuatoriana(cedulaNorm)) {
+        return NextResponse.json({ error: mensajeCedulaInvalida() }, { status: 400 });
+      }
+    }
     cliente = await prisma.cliente.update({
       where: { id: clienteId },
       data: {
@@ -64,6 +88,7 @@ export async function POST(request: Request) {
         sector: sector || cliente.sector,
         nodo: nodo ?? cliente.nodo,
         referencia: referencia ?? cliente.referencia,
+        ...(cedula ? { cedula: normalizarCedula(cedula) } : {}),
       },
     });
   } else {
@@ -73,10 +98,14 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
+    const cedulaNorm = normalizarCedula(cedula);
+    if (!validarCedulaEcuatoriana(cedulaNorm)) {
+      return NextResponse.json({ error: mensajeCedulaInvalida() }, { status: 400 });
+    }
     cliente = await prisma.cliente.upsert({
-      where: { cedula },
+      where: { cedula: cedulaNorm },
       create: {
-        cedula,
+        cedula: cedulaNorm,
         nombre,
         telefono,
         plan: plan || "Sin plan",
@@ -97,11 +126,9 @@ export async function POST(request: Request) {
     });
   }
 
-  if (tecnicoId) {
-    const tecnico = await prisma.tecnico.findUnique({ where: { id: tecnicoId } });
-    if (!tecnico) {
-      return NextResponse.json({ error: "Técnico no encontrado" }, { status: 404 });
-    }
+  const errTecnicos = await validarTecnicoIds(tecnicoIds);
+  if (errTecnicos) {
+    return NextResponse.json({ error: errTecnicos }, { status: 404 });
   }
 
   const slaHoras = slaHorasPorPrioridad(prio);
@@ -112,7 +139,7 @@ export async function POST(request: Request) {
     data: {
       codigo,
       clienteId: cliente.id,
-      tecnicoId: tecnicoId || null,
+      tecnicoId: tecnicoIds[0] ?? null,
       tipo,
       prioridad: prio,
       estado: "PENDIENTE",
@@ -121,11 +148,15 @@ export async function POST(request: Request) {
       slaHoras,
       slaVenceEn,
       programadoEn: parseProgramadoEn(programadoEn),
+      ...(tecnicoIds.length
+        ? {
+            tecnicos: {
+              create: tecnicoIds.map((tecnicoId) => ({ tecnicoId })),
+            },
+          }
+        : {}),
     },
-    include: {
-      cliente: true,
-      tecnico: { include: { usuario: true } },
-    },
+    include: ticketIncludeTecnicos,
   });
 
   await prisma.eventoTicket.create({
@@ -133,12 +164,12 @@ export async function POST(request: Request) {
       ticketId: ticket.id,
       usuarioId: session.id,
       accion: "TICKET_CREADO",
-      metadata: JSON.stringify({ codigo, tipo, prioridad, tecnicoId }),
+      metadata: JSON.stringify({ codigo, tipo, prioridad, tecnicoIds }),
     },
   });
 
-  if (ticket.tecnicoId) {
-    await notificarTecnicoAsignacion(ticket);
+  if (tecnicoIds.length) {
+    await notificarTecnicosNuevos(ticket, [], tecnicoIds);
   }
 
   return NextResponse.json({ ticket }, { status: 201 });

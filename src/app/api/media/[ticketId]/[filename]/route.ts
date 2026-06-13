@@ -23,7 +23,11 @@ export async function GET(
 
   const ticket = await prisma.ticket.findUnique({
     where: { id: ticketId },
-    select: { tecnicoId: true },
+    select: {
+      id: true,
+      tecnicoId: true,
+      tecnicos: { select: { tecnicoId: true } },
+    },
   });
 
   if (!ticket) {
@@ -33,7 +37,9 @@ export async function GET(
   const allowed =
     session.rol === "ADMIN" ||
     session.rol === "SUPERVISOR" ||
-    (session.rol === "TECNICO" && ticket.tecnicoId === session.tecnicoId);
+    (session.rol === "TECNICO" &&
+      (ticket.tecnicoId === session.tecnicoId ||
+        ticket.tecnicos.some((t) => t.tecnicoId === session.tecnicoId)));
 
   if (!allowed) {
     return NextResponse.json({ error: "No autorizado" }, { status: 403 });

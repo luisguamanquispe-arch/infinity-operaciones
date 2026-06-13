@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { getFullSession } from "@/lib/auth";
 import { getOrCreateOrden } from "@/lib/tickets";
 import { persistTicketImage } from "@/lib/media-storage";
+import { tecnicoAsignadoAlTicket } from "@/lib/ticket-tecnicos";
+import { mensajeCedulaInvalida, normalizarCedula, validarCedulaEcuatoriana } from "@/lib/cedula-ec";
 
 export const maxDuration = 60;
 export const runtime = "nodejs";
@@ -19,8 +21,11 @@ export async function POST(
   const { id } = await params;
   const { rxDbm, txDbm, pingMs, downloadMbps, uploadMbps } = await request.json();
 
-  const ticket = await prisma.ticket.findUnique({ where: { id } });
-  if (!ticket || ticket.tecnicoId !== session.tecnicoId) {
+  const ticket = await prisma.ticket.findUnique({
+    where: { id },
+    include: { tecnicos: { select: { tecnicoId: true } } },
+  });
+  if (!ticket || !tecnicoAsignadoAlTicket(ticket, session.tecnicoId)) {
     return NextResponse.json({ error: "No autorizado" }, { status: 403 });
   }
 
@@ -62,8 +67,11 @@ export async function PUT(
     const { id } = await params;
     const body = await request.json();
 
-    const ticket = await prisma.ticket.findUnique({ where: { id } });
-    if (!ticket || ticket.tecnicoId !== session.tecnicoId) {
+    const ticket = await prisma.ticket.findUnique({
+      where: { id },
+      include: { tecnicos: { select: { tecnicoId: true } } },
+    });
+    if (!ticket || !tecnicoAsignadoAlTicket(ticket, session.tecnicoId)) {
       return NextResponse.json({ error: "No autorizado" }, { status: 403 });
     }
 
@@ -71,6 +79,10 @@ export async function PUT(
 
     if (body.firma) {
       const { nombreCliente, cedula, imagen, lat, lng } = body.firma;
+      const cedulaNorm = normalizarCedula(cedula || "");
+      if (!validarCedulaEcuatoriana(cedulaNorm)) {
+        return NextResponse.json({ error: mensajeCedulaInvalida() }, { status: 400 });
+      }
       const base64 = imagen.replace(/^data:image\/\w+;base64,/, "");
       const buffer = Buffer.from(base64, "base64");
       const filename = `firma_${Date.now()}.png`;
@@ -80,13 +92,13 @@ export async function PUT(
         create: {
           ordenId: orden.id,
           nombreCliente,
-          cedula,
+          cedula: cedulaNorm,
           imagenUrl,
           imagenData: imagen,
           lat,
           lng,
         },
-        update: { nombreCliente, cedula, imagenUrl, imagenData: imagen, lat, lng },
+        update: { nombreCliente, cedula: cedulaNorm, imagenUrl, imagenData: imagen, lat, lng },
       });
 
       return NextResponse.json({ firma });

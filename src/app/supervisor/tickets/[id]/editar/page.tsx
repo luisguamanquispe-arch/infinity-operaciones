@@ -5,8 +5,9 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Loader2, CheckCircle } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
-import { TIPO_LABELS, ESTADO_LABELS, ESTADO_TECNICO_LABELS, PRIORIDAD_LABELS } from "@/lib/utils";
+import { TIPO_LABELS, ESTADO_LABELS, PRIORIDAD_LABELS } from "@/lib/utils";
 import { toDatetimeLocalValue } from "@/lib/calendario";
+import { TecnicoMultiSelect } from "@/components/TecnicoMultiSelect";
 
 interface Tecnico {
   id: string;
@@ -34,7 +35,7 @@ export default function EditarTicketPage() {
     estado: "PENDIENTE",
     motivo: "",
     descripcion: "",
-    tecnicoId: "",
+    tecnicoIds: [] as string[],
     programadoEn: "",
   });
 
@@ -57,7 +58,11 @@ export default function EditarTicketPage() {
         estado: t.estado,
         motivo: t.motivo || "",
         descripcion: t.descripcion || "",
-        tecnicoId: t.tecnicoId || "",
+        tecnicoIds: t.tecnicoIds?.length
+          ? t.tecnicoIds
+          : t.tecnicoId
+            ? [t.tecnicoId]
+            : [],
         programadoEn: toDatetimeLocalValue(t.programadoEn),
       });
       setTecnicos(tecData.tecnicos);
@@ -76,7 +81,7 @@ export default function EditarTicketPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         ...form,
-        tecnicoId: form.tecnicoId || null,
+        tecnicoIds: form.tecnicoIds,
         programadoEn: form.programadoEn || null,
       }),
     });
@@ -168,21 +173,12 @@ export default function EditarTicketPage() {
             </p>
           </div>
 
-          <div>
-            <label className="text-xs text-slate-500">Técnico asignado</label>
-            <select
-              value={form.tecnicoId}
-              onChange={(e) => setForm({ ...form, tecnicoId: e.target.value })}
-              className="w-full px-3 py-2 border rounded-lg text-sm mt-0.5"
-            >
-              <option value="">Sin asignar</option>
-              {tecnicos.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.nombre} — {ESTADO_TECNICO_LABELS[t.estado]}
-                </option>
-              ))}
-            </select>
-          </div>
+          <TecnicoMultiSelect
+            label="Técnicos asignados"
+            tecnicos={tecnicos}
+            selected={form.tecnicoIds}
+            onChange={(tecnicoIds) => setForm({ ...form, tecnicoIds })}
+          />
 
           <div>
             <label className="text-xs text-slate-500">Fecha y hora programada</label>
