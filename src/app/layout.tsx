@@ -2,8 +2,8 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "LGB Operaciones",
-  description: "Dashboard operativo para técnicos ISP - LGB Sistemas",
+  title: "Infinity Operaciones",
+  description: "Dashboard operativo para técnicos ISP — Infinity Internet",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,

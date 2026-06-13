@@ -1,8 +1,6 @@
 import { redirect } from "next/navigation";
-import { getSession, dashboardPath } from "@/lib/auth";
 
-export default async function Home() {
-  const session = await getSession();
-  if (session) redirect(dashboardPath(session.rol));
+/** Entrada directa al login; sesiones activas van al panel vía middleware. */
+export default function Home() {
   redirect("/login");
 }
