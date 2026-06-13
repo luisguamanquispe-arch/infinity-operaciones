@@ -1,4 +1,3 @@
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { writeFile, mkdir } from "fs/promises";
 import path from "path";
 import { getEnv } from "./env";
@@ -26,6 +25,7 @@ async function saveToS3(
   ticketId: string,
   filename: string
 ): Promise<string> {
+  const { S3Client, PutObjectCommand } = await import("@aws-sdk/client-s3");
   const env = getEnv();
   const { S3_BUCKET, S3_REGION, S3_ACCESS_KEY, S3_SECRET_KEY, S3_ENDPOINT, S3_PUBLIC_URL } =
     env;

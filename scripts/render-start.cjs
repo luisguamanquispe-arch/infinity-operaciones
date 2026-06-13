@@ -1,56 +1,59 @@
-const { execSync, spawn } = require("child_process");
+const { spawn } = require("child_process");
+const fs = require("fs");
 const path = require("path");
+const { prepareStandalone } = require("./prepare-standalone.cjs");
 
 const root = path.join(__dirname, "..");
 
-if (!process.env.DATABASE_URL) {
-  console.error("");
-  console.error("ERROR: DATABASE_URL is not set.");
-  console.error("");
-  console.error("Render fix:");
-  console.error("  1. Dashboard → infinity-operaciones → Environment");
-  console.error("  2. Add DATABASE_URL from infinity-db (Internal Database URL)");
-  console.error("  3. Manual Deploy → Clear build cache & deploy");
-  console.error("");
+function fail(msg) {
+  console.error(`\n[startup] ERROR: ${msg}\n`);
   process.exit(1);
+}
+
+if (!process.env.DATABASE_URL) {
+  fail(
+    "DATABASE_URL no configurada.\n" +
+      "Render → infinity-operaciones → Environment → Add from Database → infinity-db → Internal URL"
+  );
 }
 
 const hostname = process.env.HOSTNAME || "0.0.0.0";
 const port = process.env.PORT || "3000";
 process.env.HOSTNAME = hostname;
 process.env.PORT = port;
-process.env.NODE_OPTIONS = process.env.NODE_OPTIONS || "--max-old-space-size=384";
+process.env.NODE_OPTIONS = process.env.NODE_OPTIONS || "--max-old-space-size=256";
+
+const standaloneDir = path.join(root, ".next", "standalone");
+const serverJs = path.join(standaloneDir, "server.js");
+
+if (!fs.existsSync(serverJs)) {
+  fail(
+    "No existe .next/standalone/server.js.\n" +
+      "Build Command en Render debe ser: npm run build:render"
+  );
+}
+
+const staticDir = path.join(standaloneDir, ".next", "static");
+if (!fs.existsSync(staticDir)) {
+  console.log("[startup] Copiando assets al bundle standalone...");
+  prepareStandalone(root);
+}
 
 const dbPreview = process.env.DATABASE_URL.replace(/:[^:@/]+@/, ":***@").slice(0, 48);
 console.log(`[startup] DATABASE_URL ok (${dbPreview}...)`);
+console.log(`[startup] NODE_OPTIONS=${process.env.NODE_OPTIONS}`);
+console.log(`[startup] Standalone → http://${hostname}:${port}`);
 
-console.log("[startup] Running database migrations...");
-try {
-  execSync("npx prisma migrate deploy", {
-    stdio: "inherit",
-    env: process.env,
-    cwd: root,
-  });
-} catch {
-  console.error("[startup] prisma migrate deploy failed — revise DATABASE_URL y logs de Postgres.");
-  process.exit(1);
-}
-
-console.log("[startup] Seed en segundo plano...");
-const seed = spawn(process.execPath, [path.join(__dirname, "ensure-seed.cjs")], {
-  cwd: root,
-  env: process.env,
-  stdio: "ignore",
-  detached: true,
-});
-seed.unref();
-
-console.log(`[startup] Next.js on ${hostname}:${port}...`);
-const nextBin = require.resolve("next/dist/bin/next");
-const child = spawn(process.execPath, [nextBin, "start", "-H", hostname, "-p", port], {
-  cwd: root,
+const child = spawn(process.execPath, ["server.js"], {
+  cwd: standaloneDir,
   env: process.env,
   stdio: "inherit",
 });
 
-child.on("exit", (code) => process.exit(code ?? 1));
+child.on("exit", (code, signal) => {
+  if (signal) console.error(`[startup] Proceso terminado por señal: ${signal}`);
+  process.exit(code ?? 1);
+});
+
+process.on("SIGTERM", () => child.kill("SIGTERM"));
+process.on("SIGINT", () => child.kill("SIGINT"));

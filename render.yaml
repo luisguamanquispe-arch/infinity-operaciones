@@ -17,7 +17,7 @@ services:
     plan: free
     region: oregon
     branch: main
-    buildCommand: npm install --include=dev && npx prisma generate && npm run build
+    buildCommand: npm run build:render
     startCommand: npm run start:railway
     healthCheckPath: /api/health
     envVars:
@@ -28,7 +28,9 @@ services:
       - key: NODE_ENV
         value: production
       - key: NODE_OPTIONS
-        value: --max-old-space-size=384
+        value: --max-old-space-size=256
+      - key: NEXT_TELEMETRY_DISABLED
+        value: "1"
       - key: JWT_SECRET
         generateValue: true
       - key: SETUP_TOKEN
