@@ -29,7 +29,7 @@ jobs:
             npx prisma generate
             npx prisma migrate deploy
           else
-            echo "DATABASE_URL no está en GitHub Secrets — migraciones solo al arrancar el contenedor."
+            echo "::warning::DATABASE_URL no está en GitHub Secrets — agrega el secret para migraciones automáticas."
           fi
 
       - uses: docker/setup-buildx-action@v3

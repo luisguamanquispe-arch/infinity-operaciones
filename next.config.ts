@@ -7,6 +7,14 @@ const nextConfig: NextConfig = {
   ...(lowMemory ? {} : { output: "standalone" }),
   productionBrowserSourceMaps: false,
   eslint: { ignoreDuringBuilds: true },
+  serverExternalPackages: ["@prisma/client", "prisma"],
+  outputFileTracingExcludes: {
+    "*": [
+      "./node_modules/prisma/**",
+      "./node_modules/.bin/prisma",
+      "./node_modules/.bin/prisma*",
+    ],
+  },
   experimental: {
     webpackMemoryOptimizations: true,
     preloadEntriesOnStart: false,
