@@ -17,6 +17,7 @@
     "db:migrate:dev": "prisma migrate dev",
     "db:seed": "tsx prisma/seed.ts",
     "db:limpiar": "tsx scripts/limpiar-datos.ts",
+    "db:eliminar-tecnicos": "tsx scripts/eliminar-tecnicos.ts",
     "mobile:install": "cd mobile/tecnico && npm install",
     "mobile:sync": "cd mobile/tecnico && npx cap sync",
     "mobile:android": "cd mobile/tecnico && npx cap open android",
