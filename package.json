@@ -22,7 +22,7 @@
     "mobile:ios": "cd mobile/tecnico && npx cap open ios",
     "db:setup": "prisma migrate deploy && tsx prisma/seed.ts",
     "db:setup:dev": "prisma db push && tsx prisma/seed.ts",
-    "start:railway": "sh scripts/railway-start.sh",
+    "start:railway": "node scripts/render-start.cjs",
     "postinstall": "prisma generate"
   },
   "dependencies": {
