@@ -26,8 +26,8 @@ jobs:
         run: |
           if [ -n "$DATABASE_URL" ]; then
             npm ci --ignore-scripts
-            npx prisma generate
-            npx prisma migrate deploy
+            node scripts/prisma-run.cjs generate
+            node scripts/prisma-run.cjs migrate deploy
           else
             echo "::warning::DATABASE_URL no está en GitHub Secrets — agrega el secret para migraciones automáticas."
           fi

@@ -16,7 +16,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV NEXT_BUILD_WORKERS=1
 ENV RENDER_LOW_MEMORY=1
 ENV GIT_SHA=$GIT_SHA
-RUN npx prisma generate
+RUN node scripts/prisma-run.cjs generate
 RUN npm run build
 # Solo deps de runtime; el CLI de Prisma no debe existir en la imagen final
 RUN npm prune --omit=dev && \

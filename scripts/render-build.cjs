@@ -1,5 +1,6 @@
 const { execSync, spawnSync } = require("child_process");
 const path = require("path");
+const { runPrisma } = require("./prisma-cli.cjs");
 const { prepareStandalone } = require("./prepare-standalone.cjs");
 
 const root = path.join(__dirname, "..");
@@ -23,7 +24,6 @@ function run(cmd, extraEnv = {}) {
   });
 }
 
-/** Ejecuta next build en subproceso aislado para liberar RAM entre pasos */
 function runNextBuild(heapMb) {
   const nextBin = path.join(root, "node_modules", "next", "dist", "bin", "next");
   console.log(`[build] next build (heap ${heapMb}MB, proceso aislado)...`);
@@ -48,17 +48,24 @@ console.log(`[build] lowMemory=${lowMemory} heapBuild=${heapBuild}MB`);
 run("npm ci --include=dev --ignore-scripts --no-audit --no-fund", {
   NODE_OPTIONS: "--max-old-space-size=128",
 });
-run("npx prisma generate", { NODE_OPTIONS: "--max-old-space-size=128" });
+
+console.log("[build] prisma generate (CLI directo, sin npx)...");
+runPrisma(root, ["generate"], { NODE_OPTIONS: "--max-old-space-size=128" });
+
 runNextBuild(heapBuild);
 
 if (process.env.DATABASE_URL) {
-  run("npx prisma migrate deploy", { NODE_OPTIONS: "--max-old-space-size=128" });
+  console.log("[build] prisma migrate deploy (CLI directo)...");
+  runPrisma(root, ["migrate", "deploy"], { NODE_OPTIONS: "--max-old-space-size=128" });
 } else {
   console.warn("[build] DATABASE_URL ausente — migraciones omitidas.");
 }
 
 if (lowMemory) {
   run("npm prune --omit=dev", { NODE_OPTIONS: "--max-old-space-size=128" });
+  run("rm -rf node_modules/prisma node_modules/.bin/prisma node_modules/.bin/prisma.cmd 2>/dev/null; true", {
+    NODE_OPTIONS: "--max-old-space-size=128",
+  });
   console.log("[build] Build ligero listo (next start en runtime).");
 } else if (!prepareStandalone(root)) {
   console.error("[build] ERROR: falta .next/standalone/server.js.");

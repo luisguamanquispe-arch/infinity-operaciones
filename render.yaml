@@ -1,5 +1,6 @@
-# Render Blueprint — GitHub Actions compila la imagen Docker (evita OOM en 512 MB).
-# Tras el primer push a main, la imagen queda en ghcr.io/luisguamanquispe-arch/infinity-operaciones:latest
+# Render Blueprint — imagen Docker precompilada en GitHub Actions.
+# GHCR debe ser PUBLICO: GitHub → Packages → infinity-operaciones → Public
+# Verificar deploy: /api/health → service=infinity-operaciones y gitSha con hash reciente
 
 databases:
   - name: infinity-db

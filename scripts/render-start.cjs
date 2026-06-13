@@ -2,6 +2,7 @@ const { spawn, spawnSync } = require("child_process");
 const fs = require("fs");
 const path = require("path");
 const { prepareStandalone } = require("./prepare-standalone.cjs");
+const { runPrisma } = require("./prisma-cli.cjs");
 
 const root = path.join(__dirname, "..");
 
@@ -48,15 +49,7 @@ function runMigrateDeploy() {
   }
 
   console.log("[startup] Ejecutando prisma migrate deploy...");
-  const result = spawnSync(process.execPath, [prismaCli, "migrate", "deploy"], {
-    stdio: "inherit",
-    cwd: root,
-    env: { ...process.env, NODE_OPTIONS: "--max-old-space-size=128" },
-  });
-
-  if (result.status !== 0) {
-    throw new Error(`migrate deploy terminó con código ${result.status ?? 1}`);
-  }
+  runPrisma(root, ["migrate", "deploy"], { NODE_OPTIONS: "--max-old-space-size=128" });
 }
 
 try {
