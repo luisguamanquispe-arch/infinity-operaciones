@@ -14,6 +14,7 @@ import {
 import { fotoImagenSrcRapida } from "@/lib/foto-image";
 import { firmaImagenSrcRapida } from "@/lib/firma-image";
 import { normalizarTextoTicket } from "@/lib/mayusculas";
+import { iniciarCronometroTicket } from "@/lib/cronometro";
 
 export async function GET(
   _request: Request,
@@ -54,35 +55,74 @@ export async function GET(
     return NextResponse.json({ error: "No autorizado" }, { status: 403 });
   }
 
+  if (
+    session.rol === "TECNICO" &&
+    session.tecnicoId &&
+    !["CERRADO", "FINALIZADO", "CANCELADO"].includes(ticket.estado)
+  ) {
+    await iniciarCronometroTicket({
+      ticketId: ticket.id,
+      tecnicoId: session.tecnicoId,
+      usuarioId: session.id,
+    });
+  }
+
   const orden = ticket.orden || (await getOrCreateOrden(ticket.id));
 
-  const duracionSegundos = orden.cronometro
+  // Recargar orden tras posible auto-inicio del cronómetro
+  const ordenActual = await prisma.ordenServicio.findUnique({
+    where: { ticketId: ticket.id },
+    include: {
+      cronometro: true,
+      medicion: true,
+      fotografias: {
+        select: { id: true, tipo: true, url: true, lat: true, lng: true },
+      },
+      firma: {
+        select: {
+          nombreCliente: true,
+          cedula: true,
+          imagenUrl: true,
+        },
+      },
+      materiales: { include: { inventario: true } },
+    },
+  });
+
+  const ordenFinal = ordenActual ?? orden;
+
+  const duracionSegundos = ordenFinal.cronometro
     ? calcularDuracionCronometro(
-        orden.cronometro.inicio,
-        orden.cronometro.fin,
-        orden.cronometro.pausasJson
+        ordenFinal.cronometro.inicio,
+        ordenFinal.cronometro.fin,
+        ordenFinal.cronometro.pausasJson
       )
     : 0;
 
   const inventario = await prisma.inventario.findMany({ orderBy: { nombre: "asc" } });
 
   const ordenConFotos = {
-    ...orden,
-    fotografias: orden.fotografias.map((f) => ({
+    ...ordenFinal,
+    fotografias: ordenFinal.fotografias.map((f) => ({
       ...f,
       imagenSrc: fotoImagenSrcRapida(f),
     })),
-    firma: orden.firma
+    firma: ordenFinal.firma
       ? {
-          ...orden.firma,
-          imagenSrc: firmaImagenSrcRapida(orden.firma) ?? orden.firma.imagenUrl,
+          ...ordenFinal.firma,
+          imagenSrc: firmaImagenSrcRapida(ordenFinal.firma) ?? ordenFinal.firma.imagenUrl,
         }
       : null,
   };
 
+  const ticketActualizado =
+    session.rol === "TECNICO" && ticket.estado === "PENDIENTE" && ordenFinal.cronometro?.inicio
+      ? { ...ticket, estado: "EN_PROCESO" as const }
+      : ticket;
+
   return NextResponse.json({
     ticket: {
-      ...ticket,
+      ...ticketActualizado,
       tecnicoIds: tecnicoIdsFromTicket(ticket),
     },
     orden: ordenConFotos,

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getFullSession } from "@/lib/auth";
 import { getOrCreateOrden, calcularDuracionCronometro } from "@/lib/tickets";
+import { iniciarCronometroTicket } from "@/lib/cronometro";
 import { tecnicoAsignadoAlTicket } from "@/lib/ticket-tecnicos";
 
 export async function POST(
@@ -28,37 +29,12 @@ export async function POST(
   const now = new Date();
 
   if (accion === "iniciar") {
-    await prisma.cronometro.update({
-      where: { ordenId: orden.id },
-      data: {
-        inicio: now,
-        activo: true,
-        pausado: false,
-      },
-    });
-
-    await prisma.ordenServicio.update({
-      where: { id: orden.id },
-      data: { iniciadoEn: now, latInicio: lat, lngInicio: lng },
-    });
-
-    await prisma.ticket.update({
-      where: { id },
-      data: { estado: "EN_PROCESO" },
-    });
-
-    await prisma.tecnico.update({
-      where: { id: session.tecnicoId },
-      data: { estadoActual: "TRABAJANDO", lat, lng },
-    });
-
-    await prisma.eventoTicket.create({
-      data: {
-        ticketId: id,
-        usuarioId: session.id,
-        accion: "CRONOMETRO_INICIADO",
-        metadata: JSON.stringify({ lat, lng }),
-      },
+    await iniciarCronometroTicket({
+      ticketId: id,
+      tecnicoId: session.tecnicoId,
+      usuarioId: session.id,
+      lat,
+      lng,
     });
   } else if (accion === "pausar") {
     const cron = await prisma.cronometro.findUnique({ where: { ordenId: orden.id } });

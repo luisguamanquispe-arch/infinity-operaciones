@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { Play, Pause, Square } from "lucide-react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { Pause, Square, Play } from "lucide-react";
 import { formatDuration } from "@/lib/utils";
 
 interface CronometroProps {
@@ -38,6 +38,7 @@ export function Cronometro({
 }: CronometroProps) {
   const [duracion, setDuracion] = useState(duracionInicial);
   const [loading, setLoading] = useState(false);
+  const gpsEnviadoRef = useRef(false);
 
   useEffect(() => {
     setDuracion(duracionInicial);
@@ -68,30 +69,47 @@ export function Cronometro({
     [ticketId, onUpdate]
   );
 
+  // Registra GPS al abrir el ticket (el cronómetro ya arrancó en el servidor)
+  useEffect(() => {
+    if (!cronometro?.inicio || cronometro.fin || gpsEnviadoRef.current) return;
+    gpsEnviadoRef.current = true;
+    void ejecutar("iniciar");
+  }, [cronometro?.inicio, cronometro?.fin, ejecutar]);
+
   const finalizado = !!cronometro?.fin;
   const activo = cronometro?.activo && !finalizado;
   const pausado = cronometro?.pausado;
+  const pendienteInicio = !finalizado && !cronometro?.inicio;
 
   return (
     <div className="bg-white rounded-xl border p-4 space-y-4">
-      <h3 className="font-semibold text-slate-800">Cronómetro de reparación</h3>
+      <div>
+        <h3 className="font-semibold text-slate-800">Cronómetro de reparación</h3>
+        <p className="text-xs text-slate-500 mt-1">
+          {pendienteInicio
+            ? "Preparando registro de tiempo…"
+            : finalizado
+              ? "Tiempo efectivo registrado para este soporte"
+              : "Contando desde que abrió el ticket"}
+        </p>
+      </div>
 
       <div className="text-center py-4">
         <p className="text-4xl font-mono font-bold text-infinity-700">
           {formatDuration(duracion)}
         </p>
-        <p className="text-xs text-slate-400 mt-1">Tiempo transcurrido</p>
+        <p className="text-xs text-slate-400 mt-1">Tiempo efectivo</p>
       </div>
 
       <div className="flex gap-2">
-        {!activo && !finalizado && (
+        {pendienteInicio && (
           <button
             onClick={() => ejecutar("iniciar")}
             disabled={loading}
             className="flex-1 flex items-center justify-center gap-2 py-3 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-700 disabled:opacity-50"
           >
             <Play className="w-4 h-4" />
-            Iniciar trabajo
+            {loading ? "Iniciando…" : "Iniciar manualmente"}
           </button>
         )}
 
@@ -117,19 +135,29 @@ export function Cronometro({
         )}
 
         {activo && pausado && (
-          <button
-            onClick={() => ejecutar("reanudar")}
-            disabled={loading}
-            className="flex-1 flex items-center justify-center gap-2 py-3 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-700 disabled:opacity-50"
-          >
-            <Play className="w-4 h-4" />
-            Reanudar
-          </button>
+          <>
+            <button
+              onClick={() => ejecutar("reanudar")}
+              disabled={loading}
+              className="flex-1 flex items-center justify-center gap-2 py-3 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-700 disabled:opacity-50"
+            >
+              <Play className="w-4 h-4" />
+              Reanudar
+            </button>
+            <button
+              onClick={() => ejecutar("finalizar")}
+              disabled={loading}
+              className="flex-1 flex items-center justify-center gap-2 py-3 bg-infinity-600 text-white rounded-xl font-medium hover:bg-infinity-700 disabled:opacity-50"
+            >
+              <Square className="w-4 h-4" />
+              Finalizar
+            </button>
+          </>
         )}
 
         {finalizado && (
           <p className="flex-1 text-center text-emerald-600 font-medium py-3">
-            ✅ Trabajo finalizado
+            Trabajo finalizado — {formatDuration(duracion)}
           </p>
         )}
       </div>
