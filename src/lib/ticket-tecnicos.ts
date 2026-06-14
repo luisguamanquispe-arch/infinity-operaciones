@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import type { Prisma } from "@prisma/client";
 import { notificarTecnicoAsignacion } from "@/lib/notificaciones-tecnico";
 
 export const ticketIncludeTecnicos = {
@@ -11,6 +12,8 @@ export const ticketIncludeTecnicos = {
   tecnico: { include: { usuario: { select: { nombre: true } } } },
   cliente: true,
 } as const;
+
+export type TicketConTecnicos = Prisma.TicketGetPayload<{ include: typeof ticketIncludeTecnicos }>;
 
 export function tecnicoIdsFromTicket(ticket: {
   tecnicoId: string | null;
@@ -77,11 +80,9 @@ export async function asignarTecnicosTicket(
   return unicos;
 }
 
-type TicketNotificacion = Parameters<typeof notificarTecnicoAsignacion>[0];
-
 /** Notifica solo a técnicos recién agregados. */
 export async function notificarTecnicosNuevos(
-  ticket: TicketNotificacion & { id: string },
+  ticket: TicketConTecnicos,
   idsAnteriores: string[],
   idsNuevos: string[]
 ) {

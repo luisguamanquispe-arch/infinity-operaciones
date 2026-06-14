@@ -10,7 +10,7 @@ import {
   validarTecnicoIds,
 } from "@/lib/ticket-tecnicos";
 import { mensajeCedulaInvalida, normalizarCedula, validarCedulaEcuatoriana } from "@/lib/cedula-ec";
-import { normalizarTextoCliente, normalizarTextoTicket, enMayusculas } from "@/lib/mayusculas";
+import { normalizarClienteNuevo, normalizarTextoCliente, normalizarTextoTicket, enMayusculas } from "@/lib/mayusculas";
 import { getOrCreateClienteInfraestructura } from "@/lib/cliente-infraestructura";
 import {
   minTecnicosInfraestructura,
@@ -197,7 +197,7 @@ export async function POST(request: Request) {
     if (!validarCedulaEcuatoriana(cedulaNorm)) {
       return NextResponse.json({ error: mensajeCedulaInvalida() }, { status: 400 });
     }
-    const datosNuevoCliente = normalizarTextoCliente({
+    const datosNuevoCliente = normalizarClienteNuevo({
       nombre,
       plan: plan || "Sin plan",
       direccion,

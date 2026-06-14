@@ -25,6 +25,25 @@ export function normalizarTextoCliente(input: {
   };
 }
 
+/** Cliente nuevo con campos obligatorios ya validados. */
+export function normalizarClienteNuevo(input: {
+  nombre: string;
+  direccion: string;
+  sector: string;
+  plan?: string;
+  referencia?: string | null;
+  nodo?: string | null;
+}) {
+  return {
+    nombre: enMayusculas(input.nombre),
+    direccion: enMayusculas(input.direccion),
+    sector: enMayusculas(input.sector),
+    plan: enMayusculas(input.plan || "Sin plan"),
+    nodo: input.nodo ? enMayusculas(input.nodo) : null,
+    referencia: input.referencia ? enMayusculas(input.referencia) : null,
+  };
+}
+
 export function normalizarTextoTicket(input: {
   motivo?: string | null;
   descripcion?: string | null;

@@ -32,10 +32,7 @@ export async function GET() {
     }),
     prisma.ticket.findMany({
       where: { estado: { in: ["PENDIENTE", "EN_PROCESO"] } },
-      include: {
-        cliente: true,
-        ...ticketIncludeTecnicos,
-      },
+      include: ticketIncludeTecnicos,
       orderBy: { prioridad: "asc" },
       take: 20,
     }),

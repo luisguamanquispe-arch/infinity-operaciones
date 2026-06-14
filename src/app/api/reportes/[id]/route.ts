@@ -20,7 +20,6 @@ export async function GET(
   const ticket = await prisma.ticket.findUnique({
     where: { id },
     include: {
-      cliente: true,
       ...ticketIncludeTecnicos,
       orden: {
         include: {
