@@ -56,6 +56,9 @@ jobs:
         run: |
           if [ -n "$RENDER_DEPLOY_HOOK" ]; then
             curl -fsSL -X POST "$RENDER_DEPLOY_HOOK"
+            echo "Deploy hook enviado a Render."
           else
-            echo "RENDER_DEPLOY_HOOK no configurado — omitiendo redeploy en Render."
+            echo "::error::RENDER_DEPLOY_HOOK no configurado en GitHub Secrets. Render NO recibirá la imagen nueva."
+            echo "Render Dashboard → servicio → Settings → Deploy Hook → copiar URL → GitHub repo → Settings → Secrets → RENDER_DEPLOY_HOOK"
+            exit 1
           fi

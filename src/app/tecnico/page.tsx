@@ -11,6 +11,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
+import { DeployVersionBanner } from "@/components/DeployVersionBanner";
 import { StatCard } from "@/components/StatCard";
 import { TicketList } from "@/components/TicketList";
 import { TecnicoAgenda } from "@/components/TecnicoAgenda";
@@ -127,6 +128,7 @@ export default function TecnicoDashboard() {
 
   return (
     <div className="min-h-dvh bg-slate-50">
+      <DeployVersionBanner />
       <AppHeader title="LGB Técnicos" subtitle="Panel del Técnico" />
 
       <main className="max-w-6xl mx-auto p-4 space-y-6">
