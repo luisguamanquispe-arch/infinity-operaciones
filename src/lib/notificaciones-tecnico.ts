@@ -8,6 +8,8 @@ type TicketAsignado = {
   prioridad: string;
   motivo: string | null;
   descripcion?: string | null;
+  nodoAfectado?: string | null;
+  zonaInfra?: string | null;
   programadoEn: Date | null;
   tecnico: { telefono: string | null; usuario: { nombre: string } } | null;
   cliente: { nombre: string; direccion: string; sector: string };
@@ -26,6 +28,8 @@ function construirMensaje(ticket: TicketAsignado, nombreTecnico: string): string
     ? formatDateTime(ticket.programadoEn)
     : "Por confirmar (revise la app)";
 
+  const esInfra = ticket.tipo === "INFRAESTRUCTURA";
+
   const lineas = [
     `🔔 LGB Operaciones — Nuevo ticket`,
     ``,
@@ -36,10 +40,18 @@ function construirMensaje(ticket: TicketAsignado, nombreTecnico: string): string
     `⚡ Prioridad: ${PRIORIDAD_LABELS[ticket.prioridad] || ticket.prioridad}`,
     `📅 Programado: ${programacion}`,
     ``,
-    `👤 Cliente: ${ticket.cliente.nombre}`,
-    `📍 Sector: ${ticket.cliente.sector}`,
-    `🏠 Dirección: ${ticket.cliente.direccion}`,
   ];
+
+  if (esInfra) {
+    lineas.push(`🏗️ Nodo: ${ticket.nodoAfectado || "—"}`);
+    if (ticket.zonaInfra) lineas.push(`📍 Zona: ${ticket.zonaInfra}`);
+  } else {
+    lineas.push(
+      `👤 Cliente: ${ticket.cliente.nombre}`,
+      `📍 Sector: ${ticket.cliente.sector}`,
+      `🏠 Dirección: ${ticket.cliente.direccion}`
+    );
+  }
 
   if (ticket.motivo) lineas.push(`🔧 Motivo: ${ticket.motivo}`);
   if (ticket.descripcion) lineas.push(`📝 Detalle: ${ticket.descripcion}`);
@@ -63,13 +75,15 @@ export async function notificarTecnicoAsignacion(ticket: TicketAsignado) {
 
   const mensajeTexto = construirMensaje(ticket, nombreTecnico);
 
+  const esInfra = ticket.tipo === "INFRAESTRUCTURA";
+
   const result = await enviarWhatsAppTecnicoTicket({
     telefono,
     codigo: ticket.codigo,
     tecnicoNombre: nombreTecnico,
-    cliente: ticket.cliente.nombre,
-    sector: ticket.cliente.sector,
-    direccion: ticket.cliente.direccion,
+    cliente: esInfra ? `NODO ${ticket.nodoAfectado || "INFRA"}` : ticket.cliente.nombre,
+    sector: esInfra ? ticket.zonaInfra || "INFRAESTRUCTURA" : ticket.cliente.sector,
+    direccion: esInfra ? ticket.nodoAfectado || "Varios nodos" : ticket.cliente.direccion,
     tipo: TIPO_LABELS[ticket.tipo] || ticket.tipo,
     prioridad: PRIORIDAD_LABELS[ticket.prioridad] || ticket.prioridad,
     programacion,

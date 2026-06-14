@@ -8,24 +8,50 @@ export const TIPO_PATCHCORD_LABELS: Record<TipoPatchCord, string> = {
 
 export const TIPOS_PATCHCORD = Object.keys(TIPO_PATCHCORD_LABELS) as TipoPatchCord[];
 
-export function materialRequiereDetalle(tipo: TipoInventario): boolean {
-  return tipo === "PATCHCORD" || tipo === "EQUIPO";
+function nombreNorm(nombre: string): string {
+  return nombre.toLowerCase();
 }
 
-export function materialEsPatchcord(tipo: TipoInventario): boolean {
-  return tipo === "PATCHCORD";
+export function materialEsPigtail(nombre: string): boolean {
+  return nombreNorm(nombre).includes("pigtail");
+}
+
+/** Equipos/passivos de infra que exigen serie, modelo y marca. */
+export function materialInfraConDetalle(nombre: string): boolean {
+  const n = nombreNorm(nombre);
+  return (
+    materialEsPigtail(nombre) ||
+    n.includes("caja nap") ||
+    n.includes("splitter") ||
+    n.includes("mikrotik")
+  );
+}
+
+export function materialRequiereDetalle(tipo: TipoInventario, nombre?: string): boolean {
+  if (tipo === "PATCHCORD" || tipo === "EQUIPO") return true;
+  if (nombre && materialInfraConDetalle(nombre)) return true;
+  return false;
+}
+
+export function materialEsPatchcord(tipo: TipoInventario, nombre?: string): boolean {
+  if (tipo !== "PATCHCORD") return false;
+  if (nombre && materialEsPigtail(nombre)) return false;
+  return true;
 }
 
 /** Resuelve tipo cuando el inventario aún no tiene categoría explícita. */
 export function inferTipoInventario(nombre: string): TipoInventario {
-  const n = nombre.toLowerCase();
-  if (n.includes("patch")) return "PATCHCORD";
+  const n = nombreNorm(nombre);
+  if (n.includes("patch") && !n.includes("pigtail")) return "PATCHCORD";
   if (
     n.includes("onu") ||
     n.includes("router") ||
     n.includes("route") ||
     n.includes("bridge") ||
-    n.includes("repetidor")
+    n.includes("repetidor") ||
+    n.includes("mikrotik") ||
+    n.includes("caja nap") ||
+    n.includes("splitter")
   ) {
     return "EQUIPO";
   }
@@ -51,9 +77,10 @@ export interface MaterialDetalleInput {
 
 export function validarMaterialDetalle(
   tipo: TipoInventario,
-  material: MaterialDetalleInput
+  material: MaterialDetalleInput,
+  nombre?: string
 ): string | null {
-  if (!materialRequiereDetalle(tipo)) return null;
+  if (!materialRequiereDetalle(tipo, nombre)) return null;
 
   const serie = material.serie?.trim();
   const modelo = material.modelo?.trim();
@@ -63,11 +90,33 @@ export function validarMaterialDetalle(
   if (!modelo) return "Indique el modelo del material";
   if (!marca) return "Indique la marca del material";
 
-  if (materialEsPatchcord(tipo)) {
+  if (materialEsPatchcord(tipo, nombre)) {
     if (!material.tipoPatchCord || !TIPOS_PATCHCORD.includes(material.tipoPatchCord as TipoPatchCord)) {
       return "Seleccione el tipo de patch cord (APC-APC, APC-UPC o UPC-UPC)";
     }
   }
 
   return null;
+}
+
+export function guardarDetalleMaterial(
+  tipo: TipoInventario,
+  nombre: string,
+  material: MaterialDetalleInput
+): {
+  serie: string | null;
+  modelo: string | null;
+  marca: string | null;
+  tipoPatchCord: TipoPatchCord | null;
+} {
+  const requiere = materialRequiereDetalle(tipo, nombre);
+  return {
+    serie: requiere && material.serie?.trim() ? material.serie.trim().toUpperCase() : null,
+    modelo: requiere && material.modelo?.trim() ? material.modelo.trim().toUpperCase() : null,
+    marca: requiere && material.marca?.trim() ? material.marca.trim().toUpperCase() : null,
+    tipoPatchCord:
+      materialEsPatchcord(tipo, nombre) && material.tipoPatchCord
+        ? (material.tipoPatchCord as TipoPatchCord)
+        : null,
+  };
 }

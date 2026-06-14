@@ -28,7 +28,7 @@ function buildTicketWhere(
   if (filtro === "pendientes") return { ...base, estado: "PENDIENTE" };
   if (filtro === "en_proceso") return { ...base, estado: "EN_PROCESO" };
   if (filtro === "finalizadas") return { ...base, estado: { in: ["FINALIZADO", "CERRADO"] } };
-  if (["INSTALACION", "SOPORTE", "CORTE", "RECONEXION", "RETIRO", "MIGRACION"].includes(filtro)) {
+  if (["INSTALACION", "SOPORTE", "INFRAESTRUCTURA", "CORTE", "RECONEXION", "RETIRO", "MIGRACION"].includes(filtro)) {
     return { ...base, tipo: filtro as TipoTrabajo };
   }
 

@@ -3,6 +3,7 @@ import {
   Rol,
 } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import { CATALOGO_INVENTARIO } from "../src/lib/inventario-catalog";
 
 const prisma = new PrismaClient();
 
@@ -42,15 +43,7 @@ async function main() {
   });
 
   await prisma.inventario.createMany({
-    data: [
-      { nombre: "Cable Drop", unidad: "m", stock: 5000, stockMin: 500, tipo: "CONSUMIBLE" },
-      { nombre: "Conector SC/APC", unidad: "unidad", stock: 200, stockMin: 20, tipo: "CONSUMIBLE" },
-      { nombre: "ONU", unidad: "unidad", stock: 50, stockMin: 10, tipo: "EQUIPO" },
-      { nombre: "Router", unidad: "unidad", stock: 30, stockMin: 5, tipo: "EQUIPO" },
-      { nombre: "Bridge", unidad: "unidad", stock: 20, stockMin: 5, tipo: "EQUIPO" },
-      { nombre: "Repetidor", unidad: "unidad", stock: 20, stockMin: 5, tipo: "EQUIPO" },
-      { nombre: "Patch Cord", unidad: "unidad", stock: 100, stockMin: 15, tipo: "PATCHCORD" },
-    ],
+    data: CATALOGO_INVENTARIO,
   });
 
   console.log("Seed completado (sin técnicos ni tickets de prueba)");

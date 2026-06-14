@@ -32,7 +32,7 @@ interface Tecnico {
   estado: string;
 }
 
-const TIPOS = ["SOPORTE", "INSTALACION", "RECONEXION", "CORTE", "MIGRACION", "RETIRO"] as const;
+const TIPOS = ["SOPORTE", "INFRAESTRUCTURA", "INSTALACION", "RECONEXION", "CORTE", "MIGRACION", "RETIRO"] as const;
 
 const CAMPOS_MAYUS_CLIENTE = new Set(["nombre", "plan", "sector", "nodo", "direccion"]);
 

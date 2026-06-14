@@ -1,6 +1,7 @@
 import { prisma } from "./prisma";
-import type { TipoFoto } from "@prisma/client";
+import type { TipoFoto, TipoTrabajo } from "@prisma/client";
 import { FOTOS_OBLIGATORIAS } from "./utils";
+import { FOTOS_OBLIGATORIAS_INFRA } from "./ticket-infraestructura";
 import { enviarWhatsAppTicketCerrado } from "./whatsapp";
 export async function getOrCreateOrden(ticketId: string) {
   const fotoLite = {
@@ -66,34 +67,50 @@ export function calcularDuracionCronometro(
   return Math.max(0, Math.floor(totalMs / 1000));
 }
 
-export function validarCierreOrden(orden: {
-  servicioOk: boolean;
-  potenciaOk: boolean;
-  fotosOk: boolean;
-  clienteConforme: boolean;
-  firmaOk: boolean;
-  cronometro: { fin: Date | null } | null;
-  medicion: unknown;
-  firma: unknown;
-  fotografias: { tipo: TipoFoto }[];
-}): { valido: boolean; errores: string[] } {
+export function validarCierreOrden(
+  orden: {
+    servicioOk: boolean;
+    potenciaOk: boolean;
+    fotosOk: boolean;
+    clienteConforme: boolean;
+    firmaOk: boolean;
+    cronometro: { fin: Date | null } | null;
+    medicion: unknown;
+    firma: unknown;
+    fotografias: { tipo: TipoFoto }[];
+  },
+  options?: { esInfraestructura?: boolean }
+): { valido: boolean; errores: string[] } {
   const errores: string[] = [];
+  const esInfra = options?.esInfraestructura ?? false;
 
   if (!orden.cronometro?.fin) errores.push("El cronómetro debe estar finalizado");
-  if (!orden.medicion) errores.push("Debe registrar mediciones técnicas");
-  if (!orden.firma) errores.push("Debe registrar la firma del cliente");
 
-  for (const tipo of FOTOS_OBLIGATORIAS) {
-    if (!orden.fotografias.some((f) => f.tipo === tipo)) {
-      errores.push(`Falta foto: ${tipo}`);
+  if (esInfra) {
+    for (const tipo of FOTOS_OBLIGATORIAS_INFRA) {
+      if (!orden.fotografias.some((f) => f.tipo === tipo)) {
+        errores.push(`Falta foto: ${tipo}`);
+      }
     }
-  }
+    if (!orden.servicioOk) errores.push("Checklist: Infraestructura restablecida");
+    if (!orden.potenciaOk) errores.push("Checklist: Enlaces/nodo validados");
+    if (!orden.fotosOk) errores.push("Checklist: Fotos cargadas");
+  } else {
+    if (!orden.medicion) errores.push("Debe registrar mediciones técnicas");
+    if (!orden.firma) errores.push("Debe registrar la firma del cliente");
 
-  if (!orden.servicioOk) errores.push("Checklist: Servicio funcionando");
-  if (!orden.potenciaOk) errores.push("Checklist: Potencia validada");
-  if (!orden.fotosOk) errores.push("Checklist: Fotos cargadas");
-  if (!orden.clienteConforme) errores.push("Checklist: Cliente conforme");
-  if (!orden.firmaOk) errores.push("Checklist: Firma registrada");
+    for (const tipo of FOTOS_OBLIGATORIAS) {
+      if (!orden.fotografias.some((f) => f.tipo === tipo)) {
+        errores.push(`Falta foto: ${tipo}`);
+      }
+    }
+
+    if (!orden.servicioOk) errores.push("Checklist: Servicio funcionando");
+    if (!orden.potenciaOk) errores.push("Checklist: Potencia validada");
+    if (!orden.fotosOk) errores.push("Checklist: Fotos cargadas");
+    if (!orden.clienteConforme) errores.push("Checklist: Cliente conforme");
+    if (!orden.firmaOk) errores.push("Checklist: Firma registrada");
+  }
 
   return { valido: errores.length === 0, errores };
 }
@@ -112,12 +129,14 @@ export function slaHorasPorPrioridad(prioridad: string): number {
   }
 }
 
-export async function generarCodigoTicket(): Promise<string> {
+export async function generarCodigoTicket(tipo?: TipoTrabajo): Promise<string> {
+  const prefix = tipo === "INFRAESTRUCTURA" ? "INF" : "ST";
   const tickets = await prisma.ticket.findMany({ select: { codigo: true } });
-  let max = 1000;
+  let max = tipo === "INFRAESTRUCTURA" ? 100 : 1000;
+  const re = new RegExp(`^${prefix}-(\\d+)$`);
   for (const t of tickets) {
-    const match = t.codigo.match(/^ST-(\d+)$/);
+    const match = t.codigo.match(re);
     if (match) max = Math.max(max, parseInt(match[1], 10));
   }
-  return `ST-${max + 1}`;
+  return `${prefix}-${max + 1}`;
 }

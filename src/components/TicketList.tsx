@@ -27,6 +27,7 @@ const FILTROS = [
   { id: "finalizadas", label: "Finalizadas" },
   { id: "INSTALACION", label: "Instalaciones" },
   { id: "SOPORTE", label: "Soportes" },
+  { id: "INFRAESTRUCTURA", label: "Infraestructura" },
   { id: "CORTE", label: "Cortes" },
   { id: "RECONEXION", label: "Reconexiones" },
 ];

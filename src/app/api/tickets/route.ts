@@ -10,12 +10,19 @@ import {
   validarTecnicoIds,
 } from "@/lib/ticket-tecnicos";
 import { mensajeCedulaInvalida, normalizarCedula, validarCedulaEcuatoriana } from "@/lib/cedula-ec";
-import { normalizarTextoCliente, normalizarTextoTicket } from "@/lib/mayusculas";
-import type { Prioridad, TipoTrabajo } from "@prisma/client";
+import { normalizarTextoCliente, normalizarTextoTicket, enMayusculas } from "@/lib/mayusculas";
+import { getOrCreateClienteInfraestructura } from "@/lib/cliente-infraestructura";
+import {
+  minTecnicosInfraestructura,
+  MOTIVOS_INFRA,
+  motivoInfraTexto,
+} from "@/lib/ticket-infraestructura";
+import type { MotivoInfraestructura, Prioridad, TipoTrabajo } from "@prisma/client";
 
 const TIPOS_VALIDOS: TipoTrabajo[] = [
   "INSTALACION",
   "SOPORTE",
+  "INFRAESTRUCTURA",
   "MIGRACION",
   "RECONEXION",
   "RETIRO",
@@ -66,6 +73,90 @@ export async function POST(request: Request) {
   }
 
   const prio: Prioridad = PRIORIDADES_VALIDAS.includes(prioridad) ? prioridad : "MEDIA";
+
+  if (tipo === "INFRAESTRUCTURA") {
+    const {
+      motivoInfraestructura,
+      nodoAfectado,
+      zonaInfra,
+    } = body as {
+      motivoInfraestructura?: MotivoInfraestructura;
+      nodoAfectado?: string;
+      zonaInfra?: string;
+    };
+
+    if (!motivoInfraestructura || !MOTIVOS_INFRA.includes(motivoInfraestructura)) {
+      return NextResponse.json({ error: "Seleccione el tipo de incidente de infraestructura" }, { status: 400 });
+    }
+    if (!nodoAfectado?.trim()) {
+      return NextResponse.json({ error: "Indique el nodo afectado" }, { status: 400 });
+    }
+    if (!descripcion?.trim()) {
+      return NextResponse.json({ error: "La descripción del trabajo es obligatoria" }, { status: 400 });
+    }
+    if (tecnicoIds.length < minTecnicosInfraestructura()) {
+      return NextResponse.json(
+        { error: `Asigne al menos ${minTecnicosInfraestructura()} técnicos para infraestructura` },
+        { status: 400 }
+      );
+    }
+
+    const errTecnicos = await validarTecnicoIds(tecnicoIds);
+    if (errTecnicos) {
+      return NextResponse.json({ error: errTecnicos }, { status: 404 });
+    }
+
+    const cliente = await getOrCreateClienteInfraestructura();
+    const slaHoras = slaHorasPorPrioridad(prio);
+    const slaVenceEn = new Date(Date.now() + slaHoras * 60 * 60 * 1000);
+    const codigo = await generarCodigoTicket("INFRAESTRUCTURA");
+    const motivoTexto = motivoInfraTexto(motivoInfraestructura);
+    const datosTicket = normalizarTextoTicket({
+      motivo: motivoTexto,
+      descripcion: descripcion || null,
+    });
+
+    const ticket = await prisma.ticket.create({
+      data: {
+        codigo,
+        clienteId: cliente.id,
+        tecnicoId: tecnicoIds[0],
+        tipo: "INFRAESTRUCTURA",
+        prioridad: prio,
+        estado: "PENDIENTE",
+        ...datosTicket,
+        motivoInfraestructura,
+        nodoAfectado: enMayusculas(nodoAfectado.trim()),
+        zonaInfra: zonaInfra?.trim() ? enMayusculas(zonaInfra.trim()) : null,
+        slaHoras,
+        slaVenceEn,
+        programadoEn: parseProgramadoEn(programadoEn),
+        tecnicos: {
+          create: tecnicoIds.map((tecnicoId) => ({ tecnicoId })),
+        },
+      },
+      include: ticketIncludeTecnicos,
+    });
+
+    await prisma.eventoTicket.create({
+      data: {
+        ticketId: ticket.id,
+        usuarioId: session.id,
+        accion: "TICKET_CREADO",
+        metadata: JSON.stringify({
+          codigo,
+          tipo: "INFRAESTRUCTURA",
+          motivoInfraestructura,
+          nodoAfectado,
+          tecnicoIds,
+        }),
+      },
+    });
+
+    await notificarTecnicosNuevos(ticket, [], tecnicoIds);
+
+    return NextResponse.json({ ticket }, { status: 201 });
+  }
 
   let cliente;
   if (clienteId) {
@@ -135,7 +226,7 @@ export async function POST(request: Request) {
 
   const slaHoras = slaHorasPorPrioridad(prio);
   const slaVenceEn = new Date(Date.now() + slaHoras * 60 * 60 * 1000);
-  const codigo = await generarCodigoTicket();
+  const codigo = await generarCodigoTicket(tipo);
   const datosTicket = normalizarTextoTicket({ motivo: motivo || null, descripcion: descripcion || null });
 
   const ticket = await prisma.ticket.create({

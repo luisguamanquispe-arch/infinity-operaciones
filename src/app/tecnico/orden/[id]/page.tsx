@@ -15,7 +15,14 @@ import {
   TIPOS_PATCHCORD,
   tipoInventarioEfectivo,
 } from "@/lib/material-detalle";
-import type { TipoInventario, TipoPatchCord } from "@prisma/client";
+import type { MotivoInfraestructura, TipoInventario, TipoPatchCord } from "@prisma/client";
+import {
+  esTicketInfraestructura,
+  FOTOS_ANTES_INFRA,
+  FOTOS_DURANTE_INFRA,
+  FOTOS_FINAL_INFRA,
+  MOTIVO_INFRA_LABELS,
+} from "@/lib/ticket-infraestructura";
 
 interface MaterialForm {
   inventarioId: string;
@@ -45,6 +52,9 @@ interface OrdenData {
     estado: string;
     motivo: string | null;
     descripcion: string | null;
+    motivoInfraestructura: MotivoInfraestructura | null;
+    nodoAfectado: string | null;
+    zonaInfra: string | null;
     programadoEn: string | null;
     cliente: {
       nombre: string;
@@ -194,6 +204,10 @@ export default function OrdenPage() {
     cargar();
   }
 
+  function nombreMaterial(inventarioId: string): string {
+    return data?.inventario.find((i) => i.id === inventarioId)?.nombre ?? "";
+  }
+
   function tipoMaterialSeleccionado(inventarioId: string): TipoInventario | null {
     const inv = data?.inventario.find((i) => i.id === inventarioId);
     if (!inv) return null;
@@ -242,6 +256,23 @@ export default function OrdenPage() {
   const { ticket, orden } = data;
   const fotoMap = Object.fromEntries(orden.fotografias.map((f) => [f.tipo, f]));
   const cerrado = ticket.estado === "CERRADO";
+  const esInfra = esTicketInfraestructura(ticket.tipo);
+  const fotosAntes = esInfra ? FOTOS_ANTES_INFRA : FOTOS_ANTES;
+  const fotosDurante = esInfra ? FOTOS_DURANTE_INFRA : FOTOS_DURANTE;
+  const fotosFinal = esInfra ? FOTOS_FINAL_INFRA : FOTOS_FINAL;
+  const checklistItems = esInfra
+    ? [
+        { key: "servicioOk" as const, label: "Infraestructura restablecida" },
+        { key: "potenciaOk" as const, label: "Enlaces / nodo validados" },
+        { key: "fotosOk" as const, label: "Fotos cargadas" },
+      ]
+    : [
+        { key: "servicioOk" as const, label: "Servicio funcionando" },
+        { key: "potenciaOk" as const, label: "Potencia validada" },
+        { key: "fotosOk" as const, label: "Fotos cargadas" },
+        { key: "clienteConforme" as const, label: "Cliente conforme" },
+        { key: "firmaOk" as const, label: "Firma registrada" },
+      ];
 
   return (
     <div className="min-h-dvh bg-slate-50 pb-8">
@@ -275,34 +306,58 @@ export default function OrdenPage() {
           </section>
         )}
 
-        {/* Datos del cliente */}
-        <section className="bg-white rounded-xl border p-4 space-y-2">
-          <h2 className="font-semibold text-lg">{ticket.cliente.nombre}</h2>
-          <div className="grid grid-cols-2 gap-2 text-sm">
-            <p><span className="text-slate-500">Cédula:</span> {ticket.cliente.cedula}</p>
-            <p className="flex items-center gap-1">
-              <Phone className="w-3 h-3" />
-              <a href={`tel:${ticket.cliente.telefono}`} className="text-infinity-600">
-                {ticket.cliente.telefono}
-              </a>
-            </p>
-            <p><span className="text-slate-500">Plan:</span> {ticket.cliente.plan}</p>
-            <p><span className="text-slate-500">Sector:</span> {ticket.cliente.sector}</p>
-          </div>
-          <p className="text-sm flex items-start gap-1">
-            <MapPin className="w-3 h-3 mt-0.5 shrink-0" />
-            {ticket.cliente.direccion}
-          </p>
-          {ticket.cliente.referencia && (
-            <p className="text-sm bg-amber-50 border border-amber-200 rounded-lg p-2">
-              <span className="text-slate-500 font-medium">Referencia: </span>
-              {ticket.cliente.referencia}
-            </p>
+        {/* Datos del cliente / sitio */}
+        <section className={`bg-white rounded-xl border p-4 space-y-2 ${esInfra ? "border-violet-200 bg-violet-50/30" : ""}`}>
+          {esInfra ? (
+            <>
+              <h2 className="font-semibold text-lg text-violet-900">Infraestructura — {ticket.codigo}</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+                <p>
+                  <span className="text-slate-500">Incidente:</span>{" "}
+                  {ticket.motivoInfraestructura
+                    ? MOTIVO_INFRA_LABELS[ticket.motivoInfraestructura]
+                    : ticket.motivo}
+                </p>
+                <p>
+                  <span className="text-slate-500">Nodo:</span> {ticket.nodoAfectado || "—"}
+                </p>
+                {ticket.zonaInfra && (
+                  <p>
+                    <span className="text-slate-500">Zona:</span> {ticket.zonaInfra}
+                  </p>
+                )}
+              </div>
+            </>
+          ) : (
+            <>
+              <h2 className="font-semibold text-lg">{ticket.cliente.nombre}</h2>
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <p><span className="text-slate-500">Cédula:</span> {ticket.cliente.cedula}</p>
+                <p className="flex items-center gap-1">
+                  <Phone className="w-3 h-3" />
+                  <a href={`tel:${ticket.cliente.telefono}`} className="text-infinity-600">
+                    {ticket.cliente.telefono}
+                  </a>
+                </p>
+                <p><span className="text-slate-500">Plan:</span> {ticket.cliente.plan}</p>
+                <p><span className="text-slate-500">Sector:</span> {ticket.cliente.sector}</p>
+              </div>
+              <p className="text-sm flex items-start gap-1">
+                <MapPin className="w-3 h-3 mt-0.5 shrink-0" />
+                {ticket.cliente.direccion}
+              </p>
+              {ticket.cliente.referencia && (
+                <p className="text-sm bg-amber-50 border border-amber-200 rounded-lg p-2">
+                  <span className="text-slate-500 font-medium">Referencia: </span>
+                  {ticket.cliente.referencia}
+                </p>
+              )}
+              <div className="grid grid-cols-2 gap-2 text-sm pt-2 border-t">
+                <p><span className="text-slate-500">Nodo:</span> {ticket.cliente.nodo || "—"}</p>
+                <p><span className="text-slate-500">Potencia:</span> {ticket.cliente.potencia ? `${ticket.cliente.potencia} dBm` : "—"}</p>
+              </div>
+            </>
           )}
-          <div className="grid grid-cols-2 gap-2 text-sm pt-2 border-t">
-            <p><span className="text-slate-500">Nodo:</span> {ticket.cliente.nodo || "—"}</p>
-            <p><span className="text-slate-500">Potencia:</span> {ticket.cliente.potencia ? `${ticket.cliente.potencia} dBm` : "—"}</p>
-          </div>
         </section>
 
         {/* Info técnica */}
@@ -324,7 +379,7 @@ export default function OrdenPage() {
             {/* Fotos antes */}
             <section className="bg-white rounded-xl border p-4 space-y-2">
               <h3 className="font-semibold">Evidencia — Antes de iniciar</h3>
-              {FOTOS_ANTES.map((t) => (
+              {fotosAntes.map((t) => (
                 <PhotoCapture
                   key={t}
                   ticketId={id}
@@ -337,7 +392,7 @@ export default function OrdenPage() {
 
             <section className="bg-white rounded-xl border p-4 space-y-2">
               <h3 className="font-semibold">Evidencia — Durante reparación</h3>
-              {FOTOS_DURANTE.map((t) => (
+              {fotosDurante.map((t) => (
                 <PhotoCapture
                   key={t}
                   ticketId={id}
@@ -348,7 +403,7 @@ export default function OrdenPage() {
               ))}
             </section>
 
-            {/* Medición */}
+            {!esInfra && (
             <section className="bg-white rounded-xl border p-4 space-y-3">
               <h3 className="font-semibold">Medición técnica</h3>
               <div className="grid grid-cols-2 gap-3">
@@ -380,18 +435,21 @@ export default function OrdenPage() {
                 Guardar medición
               </button>
             </section>
+            )}
 
             {/* Materiales */}
             <section className="bg-white rounded-xl border p-4 space-y-3">
               <h3 className="font-semibold">Material utilizado</h3>
               <p className="text-xs text-slate-500">
-                Patch cord, router, ONU, bridge y repetidor requieren serie, modelo y marca.
-                Patch cord también requiere tipo de conector.
+                Equipos, pigtails, caja NAP, splitter y Mikrotik requieren serie, modelo y marca.
+                Patch cord también requiere tipo de conector (APC-APC, APC-UPC, UPC-UPC).
+                Mangas, fibra, amarras, herrajes, rosetas y similares: solo cantidad.
               </p>
               {materiales.map((m, i) => {
+                const nombreMat = nombreMaterial(m.inventarioId);
                 const tipoMat = tipoMaterialSeleccionado(m.inventarioId);
-                const requiereDetalle = tipoMat ? materialRequiereDetalle(tipoMat) : false;
-                const esPatchcord = tipoMat ? materialEsPatchcord(tipoMat) : false;
+                const requiereDetalle = tipoMat ? materialRequiereDetalle(tipoMat, nombreMat) : false;
+                const esPatchcord = tipoMat ? materialEsPatchcord(tipoMat, nombreMat) : false;
 
                 return (
                   <div key={i} className="space-y-2 border border-slate-100 rounded-lg p-3">
@@ -492,7 +550,7 @@ export default function OrdenPage() {
             {/* Fotos final */}
             <section className="bg-white rounded-xl border p-4 space-y-2">
               <h3 className="font-semibold">Evidencia — Al finalizar</h3>
-              {FOTOS_FINAL.map((t) => (
+              {fotosFinal.map((t) => (
                 <PhotoCapture
                   key={t}
                   ticketId={id}
@@ -503,6 +561,7 @@ export default function OrdenPage() {
               ))}
             </section>
 
+            {!esInfra && (
             <SignatureCapture
               ticketId={id}
               existing={orden.firma}
@@ -510,17 +569,12 @@ export default function OrdenPage() {
               clienteCedula={ticket.cliente.cedula}
               onSaved={cargar}
             />
+            )}
 
             {/* Checklist y cierre */}
             <section className="bg-white rounded-xl border p-4 space-y-3">
               <h3 className="font-semibold">Checklist de cierre</h3>
-              {[
-                { key: "servicioOk" as const, label: "Servicio funcionando" },
-                { key: "potenciaOk" as const, label: "Potencia validada" },
-                { key: "fotosOk" as const, label: "Fotos cargadas" },
-                { key: "clienteConforme" as const, label: "Cliente conforme" },
-                { key: "firmaOk" as const, label: "Firma registrada" },
-              ].map(({ key, label }) => (
+              {checklistItems.map(({ key, label }) => (
                 <label key={key} className="flex items-center gap-3 text-sm cursor-pointer">
                   <input
                     type="checkbox"

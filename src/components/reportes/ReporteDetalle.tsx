@@ -23,7 +23,8 @@ import {
   formatDuration,
 } from "@/lib/utils";
 import { TIPO_PATCHCORD_LABELS } from "@/lib/material-detalle";
-import type { TipoPatchCord } from "@prisma/client";
+import { MOTIVO_INFRA_LABELS, esTicketInfraestructura } from "@/lib/ticket-infraestructura";
+import type { MotivoInfraestructura, TipoPatchCord } from "@prisma/client";
 
 interface Foto {
   id: string;
@@ -45,6 +46,9 @@ interface ReporteData {
     estado: string;
     motivo: string | null;
     descripcion: string | null;
+    motivoInfraestructura?: MotivoInfraestructura | null;
+    nodoAfectado?: string | null;
+    zonaInfra?: string | null;
     updatedAt: string;
     cliente: {
       nombre: string;
@@ -229,6 +233,24 @@ export function ReporteDetalle({ backHref, backLabel }: ReporteDetalleProps) {
             <p className="text-sm">
               <span className="text-slate-500">Motivo:</span> {ticket.motivo}
             </p>
+            {esTicketInfraestructura(ticket.tipo) && ticket.nodoAfectado && (
+              <>
+                <p className="text-sm">
+                  <span className="text-slate-500">Nodo:</span> {ticket.nodoAfectado}
+                </p>
+                {ticket.zonaInfra && (
+                  <p className="text-sm">
+                    <span className="text-slate-500">Zona:</span> {ticket.zonaInfra}
+                  </p>
+                )}
+                {ticket.motivoInfraestructura && (
+                  <p className="text-sm">
+                    <span className="text-slate-500">Incidente:</span>{" "}
+                    {MOTIVO_INFRA_LABELS[ticket.motivoInfraestructura]}
+                  </p>
+                )}
+              </>
+            )}
             <p className="text-sm text-slate-600">{ticket.descripcion}</p>
             <p className="text-sm flex items-center gap-1 mt-2">
               <Clock className="w-3.5 h-3.5 text-slate-400" />

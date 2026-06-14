@@ -7,9 +7,9 @@ import { tecnicoAsignadoAlTicket } from "@/lib/ticket-tecnicos";
 import { mensajeCedulaInvalida, normalizarCedula, validarCedulaEcuatoriana } from "@/lib/cedula-ec";
 import { enMayusculas } from "@/lib/mayusculas";
 import {
-  materialEsPatchcord,
   tipoInventarioEfectivo,
   validarMaterialDetalle,
+  guardarDetalleMaterial,
 } from "@/lib/material-detalle";
 import type { TipoPatchCord } from "@prisma/client";
 
@@ -143,7 +143,7 @@ export async function PUT(
           return NextResponse.json({ error: "Material de inventario no encontrado" }, { status: 400 });
         }
         const tipo = tipoInventarioEfectivo(inv.tipo, inv.nombre);
-        const errDetalle = validarMaterialDetalle(tipo, m);
+        const errDetalle = validarMaterialDetalle(tipo, m, inv.nombre);
         if (errDetalle) {
           return NextResponse.json({ error: `${inv.nombre}: ${errDetalle}` }, { status: 400 });
         }
@@ -154,18 +154,17 @@ export async function PUT(
       for (const m of items) {
         const inv = inventarioMap.get(m.inventarioId)!;
         const tipo = tipoInventarioEfectivo(inv.tipo, inv.nombre);
-        const requiereDetalle = tipo === "PATCHCORD" || tipo === "EQUIPO";
+        const detalle = guardarDetalleMaterial(tipo, inv.nombre, m);
 
         await prisma.materialUtilizado.create({
           data: {
             ordenId: orden.id,
             inventarioId: m.inventarioId,
             cantidad: parseFloat(String(m.cantidad)),
-            serie: requiereDetalle ? enMayusculas(m.serie!.trim()) : null,
-            modelo: requiereDetalle ? enMayusculas(m.modelo!.trim()) : null,
-            marca: requiereDetalle ? enMayusculas(m.marca!.trim()) : null,
-            tipoPatchCord:
-              materialEsPatchcord(tipo) && m.tipoPatchCord ? m.tipoPatchCord : null,
+            serie: detalle.serie,
+            modelo: detalle.modelo,
+            marca: detalle.marca,
+            tipoPatchCord: detalle.tipoPatchCord,
           },
         });
 

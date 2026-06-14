@@ -105,13 +105,20 @@ export default function SupervisorDashboard() {
       <AppHeader title="Panel Supervisor" subtitle="Monitoreo en tiempo real" />
 
       <main className="max-w-6xl mx-auto p-4 space-y-6">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <Link
             href="/supervisor/tickets/nuevo"
             className="flex items-center justify-center gap-2 py-3 bg-infinity-600 hover:bg-infinity-700 text-white font-semibold rounded-xl transition"
           >
             <Plus className="w-5 h-5" />
             Nuevo ticket de soporte
+          </Link>
+          <Link
+            href="/supervisor/tickets/nuevo-infraestructura"
+            className="flex items-center justify-center gap-2 py-3 bg-violet-700 hover:bg-violet-800 text-white font-semibold rounded-xl transition"
+          >
+            <Plus className="w-5 h-5" />
+            Ticket infraestructura
           </Link>
           <Link
             href="/supervisor/calendario"

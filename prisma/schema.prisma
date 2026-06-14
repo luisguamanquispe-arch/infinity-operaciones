@@ -23,10 +23,18 @@ enum EstadoTecnico {
 enum TipoTrabajo {
   INSTALACION
   SOPORTE
+  INFRAESTRUCTURA
   MIGRACION
   RECONEXION
   RETIRO
   CORTE
+}
+
+enum MotivoInfraestructura {
+  CORTE_ELECTRICO
+  CORTE_FIBRA
+  CONFIG_NODO
+  ACTUALIZACION
 }
 
 enum Prioridad {
@@ -115,25 +123,28 @@ model Cliente {
 }
 
 model Ticket {
-  id          String       @id @default(cuid())
-  codigo      String       @unique
-  clienteId   String
-  tecnicoId   String?
-  tipo        TipoTrabajo
-  prioridad   Prioridad    @default(MEDIA)
-  estado      EstadoTicket @default(PENDIENTE)
-  motivo      String?
-  descripcion String?
-  slaHoras    Int          @default(8)
-  slaVenceEn  DateTime?
-  programadoEn DateTime?
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-  cliente     Cliente      @relation(fields: [clienteId], references: [id])
-  tecnico     Tecnico?     @relation(fields: [tecnicoId], references: [id])
-  tecnicos    TicketTecnico[]
-  orden       OrdenServicio?
-  eventos     EventoTicket[]
+  id                   String                 @id @default(cuid())
+  codigo               String                 @unique
+  clienteId            String
+  tecnicoId            String?
+  tipo                 TipoTrabajo
+  prioridad            Prioridad              @default(MEDIA)
+  estado               EstadoTicket           @default(PENDIENTE)
+  motivo               String?
+  descripcion          String?
+  motivoInfraestructura MotivoInfraestructura?
+  nodoAfectado         String?
+  zonaInfra            String?
+  slaHoras             Int                    @default(8)
+  slaVenceEn           DateTime?
+  programadoEn         DateTime?
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
+  cliente              Cliente                @relation(fields: [clienteId], references: [id])
+  tecnico              Tecnico?               @relation(fields: [tecnicoId], references: [id])
+  tecnicos             TicketTecnico[]
+  orden                OrdenServicio?
+  eventos              EventoTicket[]
 }
 
 model TicketTecnico {

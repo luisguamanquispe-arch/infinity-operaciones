@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { getFullSession } from "@/lib/auth";
 import { getOrCreateOrden, validarCierreOrden, enviarWhatsApp } from "@/lib/tickets";
 import { tecnicoAsignadoAlTicket } from "@/lib/ticket-tecnicos";
+import { esClienteInfraestructura } from "@/lib/cliente-infraestructura";
+import { esTicketInfraestructura } from "@/lib/ticket-infraestructura";
 
 export async function POST(
   request: Request,
@@ -24,7 +26,9 @@ export async function POST(
   }
 
   const orden = await getOrCreateOrden(id);
-  const validacion = validarCierreOrden(orden);
+  const validacion = validarCierreOrden(orden, {
+    esInfraestructura: esTicketInfraestructura(ticket.tipo),
+  });
 
   if (!validacion.valido) {
     return NextResponse.json({ error: "Validación fallida", errores: validacion.errores }, { status: 400 });
@@ -47,12 +51,13 @@ export async function POST(
     data: { estadoActual: "DISPONIBLE" },
   });
 
-  await enviarWhatsApp(ticket.codigo, ticket.cliente.telefono);
-
-  await prisma.ordenServicio.update({
-    where: { id: orden.id },
-    data: { whatsappEnviado: true },
-  });
+  if (!esClienteInfraestructura(ticket.cliente.cedula)) {
+    await enviarWhatsApp(ticket.codigo, ticket.cliente.telefono);
+    await prisma.ordenServicio.update({
+      where: { id: orden.id },
+      data: { whatsappEnviado: true },
+    });
+  }
 
   await prisma.eventoTicket.create({
     data: {
