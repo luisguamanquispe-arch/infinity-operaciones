@@ -55,6 +55,18 @@ enum TipoFoto {
   CLIENTE_CONFORME
 }
 
+enum TipoInventario {
+  CONSUMIBLE
+  PATCHCORD
+  EQUIPO
+}
+
+enum TipoPatchCord {
+  APC_APC
+  APC_UPC
+  UPC_UPC
+}
+
 model Usuario {
   id           String   @id @default(cuid())
   email        String   @unique
@@ -217,22 +229,27 @@ model Firma {
 }
 
 model Inventario {
-  id         String   @id @default(cuid())
-  nombre     String   @unique
-  unidad     String   @default("unidad")
-  stock      Float    @default(0)
-  stockMin   Float    @default(5)
-  createdAt  DateTime @default(now())
+  id         String          @id @default(cuid())
+  nombre     String          @unique
+  unidad     String          @default("unidad")
+  tipo       TipoInventario  @default(CONSUMIBLE)
+  stock      Float           @default(0)
+  stockMin   Float           @default(5)
+  createdAt  DateTime        @default(now())
   materiales MaterialUtilizado[]
 }
 
 model MaterialUtilizado {
-  id           String        @id @default(cuid())
-  ordenId      String
-  inventarioId String
-  cantidad     Float
-  orden        OrdenServicio @relation(fields: [ordenId], references: [id], onDelete: Cascade)
-  inventario   Inventario    @relation(fields: [inventarioId], references: [id])
+  id            String         @id @default(cuid())
+  ordenId       String
+  inventarioId  String
+  cantidad      Float
+  serie         String?
+  modelo        String?
+  marca         String?
+  tipoPatchCord TipoPatchCord?
+  orden         OrdenServicio  @relation(fields: [ordenId], references: [id], onDelete: Cascade)
+  inventario    Inventario     @relation(fields: [inventarioId], references: [id])
 }
 
 model EvaluacionCliente {

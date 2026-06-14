@@ -6,6 +6,12 @@ import { persistTicketImage } from "@/lib/media-storage";
 import { tecnicoAsignadoAlTicket } from "@/lib/ticket-tecnicos";
 import { mensajeCedulaInvalida, normalizarCedula, validarCedulaEcuatoriana } from "@/lib/cedula-ec";
 import { enMayusculas } from "@/lib/mayusculas";
+import {
+  materialEsPatchcord,
+  tipoInventarioEfectivo,
+  validarMaterialDetalle,
+} from "@/lib/material-detalle";
+import type { TipoPatchCord } from "@prisma/client";
 
 export const maxDuration = 60;
 export const runtime = "nodejs";
@@ -113,20 +119,59 @@ export async function PUT(
     }
 
     if (body.materiales) {
+      const items = body.materiales as {
+        inventarioId: string;
+        cantidad: string | number;
+        serie?: string;
+        modelo?: string;
+        marca?: string;
+        tipoPatchCord?: TipoPatchCord | null;
+      }[];
+
+      const inventarioIds = [...new Set(items.map((m) => m.inventarioId))];
+      const inventarioMap = new Map(
+        (
+          await prisma.inventario.findMany({
+            where: { id: { in: inventarioIds } },
+          })
+        ).map((inv) => [inv.id, inv])
+      );
+
+      for (const m of items) {
+        const inv = inventarioMap.get(m.inventarioId);
+        if (!inv) {
+          return NextResponse.json({ error: "Material de inventario no encontrado" }, { status: 400 });
+        }
+        const tipo = tipoInventarioEfectivo(inv.tipo, inv.nombre);
+        const errDetalle = validarMaterialDetalle(tipo, m);
+        if (errDetalle) {
+          return NextResponse.json({ error: `${inv.nombre}: ${errDetalle}` }, { status: 400 });
+        }
+      }
+
       await prisma.materialUtilizado.deleteMany({ where: { ordenId: orden.id } });
 
-      for (const m of body.materiales) {
+      for (const m of items) {
+        const inv = inventarioMap.get(m.inventarioId)!;
+        const tipo = tipoInventarioEfectivo(inv.tipo, inv.nombre);
+        const requiereDetalle = tipo === "PATCHCORD" || tipo === "EQUIPO";
+
         await prisma.materialUtilizado.create({
           data: {
             ordenId: orden.id,
             inventarioId: m.inventarioId,
-            cantidad: parseFloat(m.cantidad),
+            cantidad: parseFloat(String(m.cantidad)),
+            serie: requiereDetalle ? enMayusculas(m.serie!.trim()) : null,
+            modelo: requiereDetalle ? enMayusculas(m.modelo!.trim()) : null,
+            marca: requiereDetalle ? enMayusculas(m.marca!.trim()) : null,
+            tipoPatchCord:
+              materialEsPatchcord(tipo) && m.tipoPatchCord ? m.tipoPatchCord : null,
           },
         });
 
         await prisma.inventario.update({
           where: { id: m.inventarioId },
-          data: { stock: { decrement: parseFloat(m.cantidad) } },
+          data: { stock: { decrement: parseFloat(String(m.cantidad)) } },
         });
       }
 

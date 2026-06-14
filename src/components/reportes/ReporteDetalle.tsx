@@ -22,6 +22,8 @@ import {
   formatDateTime,
   formatDuration,
 } from "@/lib/utils";
+import { TIPO_PATCHCORD_LABELS } from "@/lib/material-detalle";
+import type { TipoPatchCord } from "@prisma/client";
 
 interface Foto {
   id: string;
@@ -76,6 +78,10 @@ interface ReporteData {
       materiales: {
         id: string;
         cantidad: number;
+        serie: string | null;
+        modelo: string | null;
+        marca: string | null;
+        tipoPatchCord: string | null;
         inventario: { nombre: string; unidad: string };
       }[];
     } | null;
@@ -282,6 +288,8 @@ export function ReporteDetalle({ backHref, backLabel }: ReporteDetalleProps) {
               <thead className="bg-slate-50">
                 <tr>
                   <th className="text-left p-2">Material</th>
+                  <th className="text-left p-2">Serie / Modelo / Marca</th>
+                  <th className="text-left p-2">Patch cord</th>
                   <th className="text-right p-2">Cantidad</th>
                 </tr>
               </thead>
@@ -289,6 +297,16 @@ export function ReporteDetalle({ backHref, backLabel }: ReporteDetalleProps) {
                 {orden.materiales.map((m) => (
                   <tr key={m.id} className="border-t">
                     <td className="p-2">{m.inventario.nombre}</td>
+                    <td className="p-2 text-slate-600">
+                      {m.serie || m.modelo || m.marca
+                        ? [m.serie, m.modelo, m.marca].filter(Boolean).join(" · ")
+                        : "—"}
+                    </td>
+                    <td className="p-2 text-slate-600">
+                      {m.tipoPatchCord
+                        ? TIPO_PATCHCORD_LABELS[m.tipoPatchCord as TipoPatchCord]
+                        : "—"}
+                    </td>
                     <td className="p-2 text-right">
                       {m.cantidad} {m.inventario.unidad}
                     </td>

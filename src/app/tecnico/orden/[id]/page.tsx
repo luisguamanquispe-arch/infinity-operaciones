@@ -8,6 +8,34 @@ import { Cronometro } from "@/components/Cronometro";
 import { PhotoCapture } from "@/components/PhotoCapture";
 import { SignatureCapture } from "@/components/SignatureCapture";
 import { TIPO_LABELS, ESTADO_LABELS, formatDateTime } from "@/lib/utils";
+import {
+  materialEsPatchcord,
+  materialRequiereDetalle,
+  TIPO_PATCHCORD_LABELS,
+  TIPOS_PATCHCORD,
+  tipoInventarioEfectivo,
+} from "@/lib/material-detalle";
+import type { TipoInventario, TipoPatchCord } from "@prisma/client";
+
+interface MaterialForm {
+  inventarioId: string;
+  cantidad: string;
+  serie: string;
+  modelo: string;
+  marca: string;
+  tipoPatchCord: TipoPatchCord | "";
+}
+
+function materialVacio(): MaterialForm {
+  return {
+    inventarioId: "",
+    cantidad: "",
+    serie: "",
+    modelo: "",
+    marca: "",
+    tipoPatchCord: "",
+  };
+}
 
 interface OrdenData {
   ticket: {
@@ -53,10 +81,18 @@ interface OrdenData {
     } | null;
     fotografias: { tipo: string; url: string }[];
     firma: { imagenUrl: string; nombreCliente: string; cedula: string } | null;
-    materiales: { inventarioId: string; cantidad: number; inventario: { nombre: string } }[];
+    materiales: {
+      inventarioId: string;
+      cantidad: number;
+      serie: string | null;
+      modelo: string | null;
+      marca: string | null;
+      tipoPatchCord: TipoPatchCord | null;
+      inventario: { nombre: string; tipo: TipoInventario };
+    }[];
   };
   duracionSegundos: number;
-  inventario: { id: string; nombre: string; unidad: string; stock: number }[];
+  inventario: { id: string; nombre: string; unidad: string; stock: number; tipo: TipoInventario }[];
 }
 
 const FOTOS_ANTES = ["FACHADA", "POSTE", "NAP"];
@@ -79,9 +115,8 @@ export default function OrdenPage() {
     uploadMbps: "",
   });
 
-  const [materiales, setMateriales] = useState<{ inventarioId: string; cantidad: string }[]>([
-    { inventarioId: "", cantidad: "" },
-  ]);
+  const [materiales, setMateriales] = useState<MaterialForm[]>([materialVacio()]);
+  const [materialError, setMaterialError] = useState("");
 
   const [checklist, setChecklist] = useState({
     servicioOk: false,
@@ -111,6 +146,20 @@ export default function OrdenPage() {
       clienteConforme: d.orden.clienteConforme,
       firmaOk: d.orden.firmaOk,
     });
+    if (d.orden?.materiales?.length) {
+      setMateriales(
+        d.orden.materiales.map(
+          (m: OrdenData["orden"]["materiales"][number]): MaterialForm => ({
+            inventarioId: m.inventarioId,
+            cantidad: String(m.cantidad),
+            serie: m.serie ?? "",
+            modelo: m.modelo ?? "",
+            marca: m.marca ?? "",
+            tipoPatchCord: m.tipoPatchCord ?? "",
+          })
+        )
+      );
+    }
     setLoading(false);
   }, [id]);
 
@@ -128,14 +177,35 @@ export default function OrdenPage() {
   }
 
   async function guardarMateriales() {
+    setMaterialError("");
     const validos = materiales.filter((m) => m.inventarioId && m.cantidad);
     if (validos.length === 0) return;
-    await fetch(`/api/tickets/${id}/medicion`, {
+
+    const res = await fetch(`/api/tickets/${id}/medicion`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ materiales: validos }),
     });
+    const result = await res.json();
+    if (!res.ok) {
+      setMaterialError(result.error || "No se pudo guardar el material");
+      return;
+    }
     cargar();
+  }
+
+  function tipoMaterialSeleccionado(inventarioId: string): TipoInventario | null {
+    const inv = data?.inventario.find((i) => i.id === inventarioId);
+    if (!inv) return null;
+    return tipoInventarioEfectivo(inv.tipo, inv.nombre);
+  }
+
+  function actualizarMaterial(i: number, patch: Partial<MaterialForm>) {
+    setMateriales((prev) => {
+      const updated = [...prev];
+      updated[i] = { ...updated[i], ...patch };
+      return updated;
+    });
   }
 
   async function actualizarChecklist(key: keyof typeof checklist, value: boolean) {
@@ -314,43 +384,103 @@ export default function OrdenPage() {
             {/* Materiales */}
             <section className="bg-white rounded-xl border p-4 space-y-3">
               <h3 className="font-semibold">Material utilizado</h3>
-              {materiales.map((m, i) => (
-                <div key={i} className="flex gap-2">
-                  <select
-                    value={m.inventarioId}
-                    onChange={(e) => {
-                      const updated = [...materiales];
-                      updated[i].inventarioId = e.target.value;
-                      setMateriales(updated);
-                    }}
-                    className="flex-1 px-3 py-2 border rounded-lg text-sm"
-                  >
-                    <option value="">Seleccionar material</option>
-                    {data.inventario.map((inv) => (
-                      <option key={inv.id} value={inv.id}>
-                        {inv.nombre} (stock: {inv.stock} {inv.unidad})
-                      </option>
-                    ))}
-                  </select>
-                  <input
-                    type="number"
-                    placeholder="Cant."
-                    value={m.cantidad}
-                    onChange={(e) => {
-                      const updated = [...materiales];
-                      updated[i].cantidad = e.target.value;
-                      setMateriales(updated);
-                    }}
-                    className="w-20 px-3 py-2 border rounded-lg text-sm"
-                  />
-                </div>
-              ))}
+              <p className="text-xs text-slate-500">
+                Patch cord, router, ONU, bridge y repetidor requieren serie, modelo y marca.
+                Patch cord también requiere tipo de conector.
+              </p>
+              {materiales.map((m, i) => {
+                const tipoMat = tipoMaterialSeleccionado(m.inventarioId);
+                const requiereDetalle = tipoMat ? materialRequiereDetalle(tipoMat) : false;
+                const esPatchcord = tipoMat ? materialEsPatchcord(tipoMat) : false;
+
+                return (
+                  <div key={i} className="space-y-2 border border-slate-100 rounded-lg p-3">
+                    <div className="flex gap-2">
+                      <select
+                        value={m.inventarioId}
+                        onChange={(e) =>
+                          actualizarMaterial(i, {
+                            inventarioId: e.target.value,
+                            serie: "",
+                            modelo: "",
+                            marca: "",
+                            tipoPatchCord: "",
+                          })
+                        }
+                        className="flex-1 px-3 py-2 border rounded-lg text-sm"
+                      >
+                        <option value="">Seleccionar material</option>
+                        {data.inventario.map((inv) => (
+                          <option key={inv.id} value={inv.id}>
+                            {inv.nombre} (stock: {inv.stock} {inv.unidad})
+                          </option>
+                        ))}
+                      </select>
+                      <input
+                        type="number"
+                        placeholder="Cant."
+                        value={m.cantidad}
+                        onChange={(e) => actualizarMaterial(i, { cantidad: e.target.value })}
+                        className="w-20 px-3 py-2 border rounded-lg text-sm"
+                      />
+                    </div>
+
+                    {requiereDetalle && (
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        <input
+                          type="text"
+                          placeholder="Serie *"
+                          value={m.serie}
+                          onChange={(e) => actualizarMaterial(i, { serie: e.target.value })}
+                          className="px-3 py-2 border rounded-lg text-sm uppercase"
+                        />
+                        <input
+                          type="text"
+                          placeholder="Modelo *"
+                          value={m.modelo}
+                          onChange={(e) => actualizarMaterial(i, { modelo: e.target.value })}
+                          className="px-3 py-2 border rounded-lg text-sm uppercase"
+                        />
+                        <input
+                          type="text"
+                          placeholder="Marca *"
+                          value={m.marca}
+                          onChange={(e) => actualizarMaterial(i, { marca: e.target.value })}
+                          className="px-3 py-2 border rounded-lg text-sm uppercase"
+                        />
+                      </div>
+                    )}
+
+                    {esPatchcord && (
+                      <select
+                        value={m.tipoPatchCord}
+                        onChange={(e) =>
+                          actualizarMaterial(i, {
+                            tipoPatchCord: e.target.value as TipoPatchCord | "",
+                          })
+                        }
+                        className="w-full px-3 py-2 border rounded-lg text-sm"
+                      >
+                        <option value="">Tipo patch cord *</option>
+                        {TIPOS_PATCHCORD.map((t) => (
+                          <option key={t} value={t}>
+                            {TIPO_PATCHCORD_LABELS[t]}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+                );
+              })}
               <button
-                onClick={() => setMateriales([...materiales, { inventarioId: "", cantidad: "" }])}
+                onClick={() => setMateriales([...materiales, materialVacio()])}
                 className="text-sm text-infinity-600"
               >
                 + Agregar material
               </button>
+              {materialError && (
+                <div className="bg-red-50 text-red-700 text-sm p-3 rounded-lg">{materialError}</div>
+              )}
               <button
                 onClick={guardarMateriales}
                 className="w-full py-2 border border-infinity-600 text-infinity-600 rounded-lg text-sm font-medium"
