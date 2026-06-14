@@ -11,6 +11,8 @@ import {
   validarMaterialDetalle,
   guardarDetalleMaterial,
 } from "@/lib/material-detalle";
+import { calcularExcedenteMaterial } from "@/lib/fibra-excedente";
+import { esTicketInfraestructura } from "@/lib/ticket-infraestructura";
 import type { TipoPatchCord } from "@prisma/client";
 
 export const maxDuration = 60;
@@ -149,22 +151,31 @@ export async function PUT(
         }
       }
 
+      const ticketMat = await prisma.ticket.findUnique({
+        where: { id },
+        select: { tipo: true },
+      });
+      const esInfra = ticketMat ? esTicketInfraestructura(ticketMat.tipo) : false;
+
       await prisma.materialUtilizado.deleteMany({ where: { ordenId: orden.id } });
 
       for (const m of items) {
         const inv = inventarioMap.get(m.inventarioId)!;
         const tipo = tipoInventarioEfectivo(inv.tipo, inv.nombre);
         const detalle = guardarDetalleMaterial(tipo, inv.nombre, m);
+        const cantidad = parseFloat(String(m.cantidad));
+        const excedenteMetros = calcularExcedenteMaterial(inv.nombre, cantidad, esInfra);
 
         await prisma.materialUtilizado.create({
           data: {
             ordenId: orden.id,
             inventarioId: m.inventarioId,
-            cantidad: parseFloat(String(m.cantidad)),
+            cantidad,
             serie: detalle.serie,
             modelo: detalle.modelo,
             marca: detalle.marca,
             tipoPatchCord: detalle.tipoPatchCord,
+            excedenteMetros: excedenteMetros > 0 ? excedenteMetros : null,
           },
         });
 

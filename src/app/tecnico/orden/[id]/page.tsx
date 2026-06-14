@@ -23,6 +23,11 @@ import {
   FOTOS_FINAL_INFRA,
   MOTIVO_INFRA_LABELS,
 } from "@/lib/ticket-infraestructura";
+import {
+  calcularExcedenteMaterial,
+  esFibraDropCliente,
+  FIBRA_DROP_LIMITE_M,
+} from "@/lib/fibra-excedente";
 
 interface MaterialForm {
   inventarioId: string;
@@ -98,7 +103,8 @@ interface OrdenData {
       modelo: string | null;
       marca: string | null;
       tipoPatchCord: TipoPatchCord | null;
-      inventario: { nombre: string; tipo: TipoInventario };
+      excedenteMetros: number | null;
+      inventario: { nombre: string; tipo: TipoInventario; unidad: string };
     }[];
   };
   duracionSegundos: number;
@@ -441,15 +447,21 @@ export default function OrdenPage() {
             <section className="bg-white rounded-xl border p-4 space-y-3">
               <h3 className="font-semibold">Material utilizado</h3>
               <p className="text-xs text-slate-500">
-                Equipos, pigtails, caja NAP, splitter y Mikrotik requieren serie, modelo y marca.
-                Patch cord también requiere tipo de conector (APC-APC, APC-UPC, UPC-UPC).
-                Mangas, fibra, amarras, herrajes, rosetas y similares: solo cantidad.
+                Caja NAP, pigtails, patch cord y equipos requieren serie, modelo y marca.
+                Cable drop / fibra droop: incluye {FIBRA_DROP_LIMITE_M} m; el excedente se marca en
+                rojo para revisar cobro.
               </p>
               {materiales.map((m, i) => {
                 const nombreMat = nombreMaterial(m.inventarioId);
+                const invItem = data.inventario.find((x) => x.id === m.inventarioId);
                 const tipoMat = tipoMaterialSeleccionado(m.inventarioId);
                 const requiereDetalle = tipoMat ? materialRequiereDetalle(tipoMat, nombreMat) : false;
                 const esPatchcord = tipoMat ? materialEsPatchcord(tipoMat, nombreMat) : false;
+                const excedenteFibra =
+                  !esInfra && nombreMat
+                    ? calcularExcedenteMaterial(nombreMat, m.cantidad, false)
+                    : 0;
+                const esFibraDrop = !esInfra && esFibraDropCliente(nombreMat);
 
                 return (
                   <div key={i} className="space-y-2 border border-slate-100 rounded-lg p-3">
@@ -476,12 +488,38 @@ export default function OrdenPage() {
                       </select>
                       <input
                         type="number"
-                        placeholder="Cant."
+                        step="any"
+                        min="0"
+                        placeholder={invItem?.unidad === "m" ? "Metros" : "Cant."}
                         value={m.cantidad}
                         onChange={(e) => actualizarMaterial(i, { cantidad: e.target.value })}
-                        className="w-20 px-3 py-2 border rounded-lg text-sm"
+                        className={`w-24 px-3 py-2 border rounded-lg text-sm ${
+                          excedenteFibra > 0
+                            ? "border-red-500 bg-red-50 text-red-700 font-semibold"
+                            : ""
+                        }`}
                       />
                     </div>
+
+                    {esFibraDrop && m.cantidad && (
+                      <p
+                        className={`text-xs ${
+                          excedenteFibra > 0
+                            ? "text-red-700 font-semibold bg-red-50 border border-red-200 rounded-lg p-2"
+                            : "text-slate-500"
+                        }`}
+                      >
+                        {excedenteFibra > 0 ? (
+                          <>
+                            Excedente:{" "}
+                            <span className="text-red-700 font-bold">{excedenteFibra} m</span> sobre{" "}
+                            {FIBRA_DROP_LIMITE_M} m incluidos — revisar si se cobra al cliente
+                          </>
+                        ) : (
+                          <>Hasta {FIBRA_DROP_LIMITE_M} m incluidos en el plan</>
+                        )}
+                      </p>
+                    )}
 
                     {requiereDetalle && (
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">

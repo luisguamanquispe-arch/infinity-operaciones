@@ -24,6 +24,7 @@ import {
 } from "@/lib/utils";
 import { TIPO_PATCHCORD_LABELS } from "@/lib/material-detalle";
 import { MOTIVO_INFRA_LABELS, esTicketInfraestructura } from "@/lib/ticket-infraestructura";
+import { FIBRA_DROP_LIMITE_M } from "@/lib/fibra-excedente";
 import type { MotivoInfraestructura, TipoPatchCord } from "@prisma/client";
 
 interface Foto {
@@ -86,6 +87,7 @@ interface ReporteData {
         modelo: string | null;
         marca: string | null;
         tipoPatchCord: string | null;
+        excedenteMetros: number | null;
         inventario: { nombre: string; unidad: string };
       }[];
     } | null;
@@ -313,6 +315,7 @@ export function ReporteDetalle({ backHref, backLabel }: ReporteDetalleProps) {
                   <th className="text-left p-2">Serie / Modelo / Marca</th>
                   <th className="text-left p-2">Patch cord</th>
                   <th className="text-right p-2">Cantidad</th>
+                  <th className="text-right p-2">Excedente fibra</th>
                 </tr>
               </thead>
               <tbody>
@@ -331,6 +334,15 @@ export function ReporteDetalle({ backHref, backLabel }: ReporteDetalleProps) {
                     </td>
                     <td className="p-2 text-right">
                       {m.cantidad} {m.inventario.unidad}
+                    </td>
+                    <td className="p-2 text-right">
+                      {m.excedenteMetros && m.excedenteMetros > 0 ? (
+                        <span className="text-red-700 font-semibold" title={`Sobre ${FIBRA_DROP_LIMITE_M} m incluidos`}>
+                          +{m.excedenteMetros} m
+                        </span>
+                      ) : (
+                        "—"
+                      )}
                     </td>
                   </tr>
                 ))}

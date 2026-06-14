@@ -12,6 +12,7 @@ export interface ItemInventario {
 export const CATALOGO_INVENTARIO: ItemInventario[] = [
   { nombre: "Cable Drop", unidad: "m", stock: 5000, stockMin: 500, tipo: "CONSUMIBLE" },
   { nombre: "Conector SC/APC", unidad: "unidad", stock: 200, stockMin: 20, tipo: "CONSUMIBLE" },
+  { nombre: "Conector mecanico", unidad: "unidad", stock: 300, stockMin: 40, tipo: "CONSUMIBLE" },
   { nombre: "Mangas", unidad: "unidad", stock: 300, stockMin: 50, tipo: "CONSUMIBLE" },
   { nombre: "Fibra ADSS", unidad: "m", stock: 10000, stockMin: 1000, tipo: "CONSUMIBLE" },
   { nombre: "Fibra ASUS", unidad: "m", stock: 5000, stockMin: 500, tipo: "CONSUMIBLE" },

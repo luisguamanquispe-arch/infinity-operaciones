@@ -259,6 +259,7 @@ model MaterialUtilizado {
   modelo        String?
   marca         String?
   tipoPatchCord TipoPatchCord?
+  excedenteMetros Float?
   orden         OrdenServicio  @relation(fields: [ordenId], references: [id], onDelete: Cascade)
   inventario    Inventario     @relation(fields: [inventarioId], references: [id])
 }
