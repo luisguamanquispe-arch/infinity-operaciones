@@ -1,12 +1,13 @@
 "use client";
 
-import { Package, Cpu, Cable } from "lucide-react";
+import { Package, AlertTriangle } from "lucide-react";
 import {
   materialRequiereDetalle,
   TIPO_PATCHCORD_LABELS,
   tipoInventarioEfectivo,
 } from "@/lib/material-detalle";
 import { FIBRA_DROP_LIMITE_M } from "@/lib/fibra-excedente";
+import { TIPO_LABELS } from "@/lib/utils";
 import type { TipoInventario, TipoPatchCord } from "@prisma/client";
 
 export interface MaterialReporteItem {
@@ -20,146 +21,186 @@ export interface MaterialReporteItem {
   inventario: { nombre: string; unidad: string; tipo?: TipoInventario };
 }
 
-function clasificarMaterial(m: MaterialReporteItem) {
+function prioridadMaterial(m: MaterialReporteItem): number {
   const tipo = tipoInventarioEfectivo(m.inventario.tipo, m.inventario.nombre);
-  const conDetalle = materialRequiereDetalle(tipo, m.inventario.nombre);
-  return { tipo, conDetalle };
+  if (tipo === "EQUIPO") return 0;
+  if (materialRequiereDetalle(tipo, m.inventario.nombre)) return 1;
+  return 2;
 }
 
-function DetalleEquipo({ m }: { m: MaterialReporteItem }) {
-  const patchLabel = m.tipoPatchCord
-    ? TIPO_PATCHCORD_LABELS[m.tipoPatchCord as TipoPatchCord]
-    : null;
-
-  return (
-    <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-4 print:break-inside-avoid">
-      <div className="flex flex-wrap items-start justify-between gap-2 mb-3">
-        <div>
-          <p className="font-semibold text-slate-900">{m.inventario.nombre}</p>
-          <p className="text-xs text-slate-500 mt-0.5">Equipo / material trazable</p>
-        </div>
-        <span className="inline-flex items-center rounded-full bg-infinity-100 px-3 py-1 text-sm font-semibold text-infinity-800">
-          {m.cantidad} {m.inventario.unidad}
-        </span>
-      </div>
-
-      <dl className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
-        <div className="rounded-md bg-white border border-slate-100 px-3 py-2">
-          <dt className="text-xs font-medium text-slate-500 uppercase tracking-wide">Serie</dt>
-          <dd className="font-mono font-semibold text-slate-900 mt-0.5">{m.serie || "—"}</dd>
-        </div>
-        <div className="rounded-md bg-white border border-slate-100 px-3 py-2">
-          <dt className="text-xs font-medium text-slate-500 uppercase tracking-wide">Modelo</dt>
-          <dd className="font-semibold text-slate-900 mt-0.5">{m.modelo || "—"}</dd>
-        </div>
-        <div className="rounded-md bg-white border border-slate-100 px-3 py-2">
-          <dt className="text-xs font-medium text-slate-500 uppercase tracking-wide">Marca</dt>
-          <dd className="font-semibold text-slate-900 mt-0.5">{m.marca || "—"}</dd>
-        </div>
-      </dl>
-
-      {(patchLabel || (m.excedenteMetros && m.excedenteMetros > 0)) && (
-        <div className="mt-3 flex flex-wrap gap-2 text-xs">
-          {patchLabel && (
-            <span className="inline-flex items-center gap-1 rounded-md bg-violet-100 px-2.5 py-1 font-medium text-violet-800">
-              <Cable className="w-3 h-3" />
-              Patch cord: {patchLabel}
-            </span>
-          )}
-          {m.excedenteMetros != null && m.excedenteMetros > 0 && (
-            <span className="inline-flex rounded-md bg-red-100 px-2.5 py-1 font-semibold text-red-800">
-              Excedente fibra: +{m.excedenteMetros} m (sobre {FIBRA_DROP_LIMITE_M} m incluidos)
-            </span>
-          )}
-        </div>
-      )}
-    </div>
+export function ordenarMaterialesReporte(materiales: MaterialReporteItem[]): MaterialReporteItem[] {
+  return [...materiales].sort(
+    (a, b) =>
+      prioridadMaterial(a) - prioridadMaterial(b) ||
+      a.inventario.nombre.localeCompare(b.inventario.nombre, "es")
   );
+}
+
+function etiquetaTipoMaterial(m: MaterialReporteItem): string {
+  const tipo = tipoInventarioEfectivo(m.inventario.tipo, m.inventario.nombre);
+  if (tipo === "EQUIPO") return "Equipo";
+  if (materialRequiereDetalle(tipo, m.inventario.nombre)) return "Trazable";
+  return "Consumible";
+}
+
+function detalleIncompleto(m: MaterialReporteItem): boolean {
+  const tipo = tipoInventarioEfectivo(m.inventario.tipo, m.inventario.nombre);
+  if (!materialRequiereDetalle(tipo, m.inventario.nombre)) return false;
+  return !m.serie?.trim() || !m.modelo?.trim() || !m.marca?.trim();
 }
 
 interface MaterialesReporteProps {
   materiales: MaterialReporteItem[];
+  tipoTicket: string;
 }
 
-export function MaterialesReporte({ materiales }: MaterialesReporteProps) {
-  if (materiales.length === 0) return null;
-
-  const equipos: MaterialReporteItem[] = [];
-  const consumibles: MaterialReporteItem[] = [];
-
-  for (const m of materiales) {
-    const { conDetalle } = clasificarMaterial(m);
-    if (conDetalle || m.serie || m.modelo || m.marca) {
-      equipos.push(m);
-    } else {
-      consumibles.push(m);
-    }
-  }
+export function MaterialesReporte({ materiales, tipoTicket }: MaterialesReporteProps) {
+  const ordenados = ordenarMaterialesReporte(materiales);
+  const equipos = ordenados.filter((m) => prioridadMaterial(m) <= 1);
+  const consumibles = ordenados.filter((m) => prioridadMaterial(m) === 2);
+  const tipoLabel = TIPO_LABELS[tipoTicket] ?? tipoTicket;
 
   return (
     <section className="bg-white rounded-xl border overflow-hidden print:break-inside-avoid">
       <div className="bg-gradient-to-r from-infinity-800 to-infinity-700 px-4 py-3 text-white">
         <h3 className="font-semibold flex items-center gap-2">
           <Package className="w-4 h-4" />
-          Material utilizado
+          Equipos y materiales utilizados
         </h3>
         <p className="text-infinity-100 text-xs mt-0.5">
-          Equipos con serie, modelo y marca · consumibles e insumos
+          {tipoLabel} — detalle de equipos (serie, modelo, marca) e insumos descontados del inventario
         </p>
       </div>
 
-      <div className="p-4 space-y-6">
-        {equipos.length > 0 && (
-          <div className="space-y-3">
-            <h4 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-              <Cpu className="w-4 h-4 text-infinity-600" />
-              Equipos y materiales con trazabilidad
-              <span className="text-xs font-normal text-slate-400">({equipos.length})</span>
-            </h4>
-            <div className="space-y-3">
-              {equipos.map((m) => (
-                <DetalleEquipo key={m.id} m={m} />
-              ))}
-            </div>
-          </div>
-        )}
-
-        {consumibles.length > 0 && (
-          <div className="space-y-3">
-            <h4 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-              <Package className="w-4 h-4 text-slate-500" />
-              Consumibles e insumos
-              <span className="text-xs font-normal text-slate-400">({consumibles.length})</span>
-            </h4>
+      <div className="p-4 space-y-5">
+        {ordenados.length === 0 ? (
+          <p className="text-sm text-slate-500 text-center py-6 bg-slate-50 rounded-lg border border-dashed border-slate-200">
+            No se registró material en esta orden
+          </p>
+        ) : (
+          <>
             <div className="overflow-x-auto rounded-lg border border-slate-200">
-              <table className="w-full text-sm">
+              <table className="w-full text-sm min-w-[720px]">
                 <thead>
-                  <tr className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+                  <tr className="bg-slate-50 text-left text-[11px] uppercase tracking-wide text-slate-500">
                     <th className="p-3 font-semibold">Material</th>
-                    <th className="p-3 font-semibold text-right">Cantidad</th>
-                    <th className="p-3 font-semibold text-right">Excedente fibra</th>
+                    <th className="p-3 font-semibold w-20">Tipo</th>
+                    <th className="p-3 font-semibold text-right w-24">Cantidad</th>
+                    <th className="p-3 font-semibold w-28">Serie</th>
+                    <th className="p-3 font-semibold w-28">Modelo</th>
+                    <th className="p-3 font-semibold w-24">Marca</th>
+                    <th className="p-3 font-semibold w-28">Patch cord</th>
+                    <th className="p-3 font-semibold text-right w-28">Excedente</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {consumibles.map((m) => (
-                    <tr key={m.id} className="hover:bg-slate-50/50">
-                      <td className="p-3 font-medium text-slate-800">{m.inventario.nombre}</td>
-                      <td className="p-3 text-right text-slate-700">
-                        {m.cantidad} {m.inventario.unidad}
-                      </td>
-                      <td className="p-3 text-right">
-                        {m.excedenteMetros != null && m.excedenteMetros > 0 ? (
-                          <span className="text-red-700 font-semibold">+{m.excedenteMetros} m</span>
-                        ) : (
-                          <span className="text-slate-400">—</span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
+                  {ordenados.map((m) => {
+                    const patchLabel = m.tipoPatchCord
+                      ? TIPO_PATCHCORD_LABELS[m.tipoPatchCord as TipoPatchCord]
+                      : null;
+                    const requiereDetalle = materialRequiereDetalle(
+                      tipoInventarioEfectivo(m.inventario.tipo, m.inventario.nombre),
+                      m.inventario.nombre
+                    );
+                    const incompleto = detalleIncompleto(m);
+                    const esEquipo = prioridadMaterial(m) <= 1;
+
+                    return (
+                      <tr
+                        key={m.id}
+                        className={
+                          esEquipo
+                            ? "bg-infinity-50/40 print:bg-slate-50"
+                            : "hover:bg-slate-50/50"
+                        }
+                      >
+                        <td className="p-3">
+                          <p className="font-semibold text-slate-900">{m.inventario.nombre}</p>
+                          {incompleto && (
+                            <p className="text-[10px] text-amber-700 flex items-center gap-1 mt-0.5">
+                              <AlertTriangle className="w-3 h-3" />
+                              Detalle incompleto
+                            </p>
+                          )}
+                        </td>
+                        <td className="p-3">
+                          <span
+                            className={`inline-block rounded px-2 py-0.5 text-[10px] font-semibold uppercase ${
+                              esEquipo
+                                ? "bg-infinity-100 text-infinity-800"
+                                : "bg-slate-100 text-slate-600"
+                            }`}
+                          >
+                            {etiquetaTipoMaterial(m)}
+                          </span>
+                        </td>
+                        <td className="p-3 text-right font-medium text-slate-800 whitespace-nowrap">
+                          {m.cantidad} {m.inventario.unidad}
+                        </td>
+                        <td className="p-3 font-mono text-xs">
+                          {requiereDetalle ? (
+                            <span className={m.serie ? "font-semibold text-slate-900" : "text-slate-400"}>
+                              {m.serie || "—"}
+                            </span>
+                          ) : (
+                            <span className="text-slate-300">—</span>
+                          )}
+                        </td>
+                        <td className="p-3 text-xs">
+                          {requiereDetalle ? (
+                            <span className={m.modelo ? "font-semibold text-slate-900" : "text-slate-400"}>
+                              {m.modelo || "—"}
+                            </span>
+                          ) : (
+                            <span className="text-slate-300">—</span>
+                          )}
+                        </td>
+                        <td className="p-3 text-xs">
+                          {requiereDetalle ? (
+                            <span className={m.marca ? "font-semibold text-slate-900" : "text-slate-400"}>
+                              {m.marca || "—"}
+                            </span>
+                          ) : (
+                            <span className="text-slate-300">—</span>
+                          )}
+                        </td>
+                        <td className="p-3 text-xs text-slate-700">{patchLabel ?? "—"}</td>
+                        <td className="p-3 text-right text-xs">
+                          {m.excedenteMetros != null && m.excedenteMetros > 0 ? (
+                            <span
+                              className="text-red-700 font-semibold"
+                              title={`Sobre ${FIBRA_DROP_LIMITE_M} m incluidos`}
+                            >
+                              +{m.excedenteMetros} m
+                            </span>
+                          ) : (
+                            <span className="text-slate-400">—</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
-          </div>
+
+            {(equipos.length > 0 || consumibles.length > 0) && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-slate-600">
+                {equipos.length > 0 && (
+                  <div className="rounded-lg bg-infinity-50 border border-infinity-100 px-3 py-2">
+                    <span className="font-semibold text-infinity-800">{equipos.length}</span>{" "}
+                    equipo(s) / material(es) trazable(s) con serie, modelo y marca
+                  </div>
+                )}
+                {consumibles.length > 0 && (
+                  <div className="rounded-lg bg-slate-50 border border-slate-200 px-3 py-2">
+                    <span className="font-semibold text-slate-800">{consumibles.length}</span>{" "}
+                    consumible(s) e insumo(s)
+                  </div>
+                )}
+              </div>
+            )}
+          </>
         )}
       </div>
     </section>

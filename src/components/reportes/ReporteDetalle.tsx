@@ -378,8 +378,11 @@ export function ReporteDetalle({ backHref, backLabel }: ReporteDetalleProps) {
           </ReporteSection>
         )}
 
-        {orden?.materiales && orden.materiales.length > 0 && (
-          <MaterialesReporte materiales={orden.materiales} />
+        {(esInstalacion || ticket.tipo === "SOPORTE" || esInfra) && (
+          <MaterialesReporte
+            materiales={orden?.materiales ?? []}
+            tipoTicket={ticket.tipo}
+          />
         )}
 
         {esInstalacion && clausulas.length > 0 && (

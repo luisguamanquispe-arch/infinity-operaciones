@@ -51,7 +51,10 @@ export async function GET(
               lng: true,
             },
           },
-          materiales: { include: { inventario: true } },
+          materiales: {
+            include: { inventario: true },
+            orderBy: { inventario: { nombre: "asc" } },
+          },
         },
       },
       eventos: {
