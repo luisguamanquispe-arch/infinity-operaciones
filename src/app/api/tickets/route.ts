@@ -10,7 +10,7 @@ import {
   validarTecnicoIds,
 } from "@/lib/ticket-tecnicos";
 import { mensajeCedulaInvalida, normalizarCedula, validarCedulaEcuatoriana } from "@/lib/cedula-ec";
-import { normalizarClienteNuevo, normalizarTextoCliente, normalizarTextoTicket, enMayusculas } from "@/lib/mayusculas";
+import { normalizarClienteNuevo, normalizarTextoCliente, normalizarTextoTicket, enMayusculasGuardar } from "@/lib/mayusculas";
 import { getOrCreateClienteInfraestructura } from "@/lib/cliente-infraestructura";
 import {
   minTecnicosInfraestructura,
@@ -126,8 +126,8 @@ export async function POST(request: Request) {
         estado: "PENDIENTE",
         ...datosTicket,
         motivoInfraestructura,
-        nodoAfectado: enMayusculas(nodoAfectado.trim()),
-        zonaInfra: zonaInfra?.trim() ? enMayusculas(zonaInfra.trim()) : null,
+        nodoAfectado: enMayusculasGuardar(nodoAfectado),
+        zonaInfra: zonaInfra?.trim() ? enMayusculasGuardar(zonaInfra) : null,
         slaHoras,
         slaVenceEn,
         programadoEn: parseProgramadoEn(programadoEn),

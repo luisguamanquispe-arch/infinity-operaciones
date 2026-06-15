@@ -5,7 +5,7 @@ import { getOrCreateOrden } from "@/lib/tickets";
 import { persistTicketImage } from "@/lib/media-storage";
 import { tecnicoAsignadoAlTicket } from "@/lib/ticket-tecnicos";
 import { mensajeCedulaInvalida, normalizarCedula, validarCedulaEcuatoriana } from "@/lib/cedula-ec";
-import { enMayusculas } from "@/lib/mayusculas";
+import { enMayusculasGuardar } from "@/lib/mayusculas";
 import {
   tipoInventarioEfectivo,
   validarMaterialDetalle,
@@ -117,7 +117,7 @@ export async function PUT(
         where: { ordenId: orden.id },
         create: {
           ordenId: orden.id,
-          nombreCliente: enMayusculas(nombreCliente),
+          nombreCliente: enMayusculasGuardar(nombreCliente),
           cedula: cedulaNorm,
           imagenUrl,
           imagenData: imagen,
@@ -125,7 +125,7 @@ export async function PUT(
           lng,
         },
         update: {
-          nombreCliente: enMayusculas(nombreCliente),
+          nombreCliente: enMayusculasGuardar(nombreCliente),
           cedula: cedulaNorm,
           imagenUrl,
           imagenData: imagen,

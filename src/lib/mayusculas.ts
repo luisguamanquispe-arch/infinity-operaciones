@@ -1,7 +1,12 @@
-/** Texto en mayúsculas para datos operativos (clientes, tickets, etc.). */
+/** Texto en mayúsculas mientras se escribe (conserva espacios intermedios). */
 export function enMayusculas(valor: string | null | undefined): string {
   if (valor == null) return "";
-  return valor.toLocaleUpperCase("es-EC").trim();
+  return valor.toLocaleUpperCase("es-EC");
+}
+
+/** Mayúsculas y recorte de espacios al guardar en base de datos. */
+export function enMayusculasGuardar(valor: string | null | undefined): string {
+  return enMayusculas(valor).trim();
 }
 
 export function normalizarTextoCliente(input: {
@@ -14,14 +19,14 @@ export function normalizarTextoCliente(input: {
 }) {
   return {
     ...input,
-    ...(input.nombre !== undefined ? { nombre: enMayusculas(input.nombre) } : {}),
-    ...(input.direccion !== undefined ? { direccion: enMayusculas(input.direccion) } : {}),
-    ...(input.sector !== undefined ? { sector: enMayusculas(input.sector) } : {}),
+    ...(input.nombre !== undefined ? { nombre: enMayusculasGuardar(input.nombre) } : {}),
+    ...(input.direccion !== undefined ? { direccion: enMayusculasGuardar(input.direccion) } : {}),
+    ...(input.sector !== undefined ? { sector: enMayusculasGuardar(input.sector) } : {}),
     ...(input.referencia !== undefined
-      ? { referencia: input.referencia ? enMayusculas(input.referencia) : null }
+      ? { referencia: input.referencia ? enMayusculasGuardar(input.referencia) : null }
       : {}),
-    ...(input.nodo !== undefined ? { nodo: input.nodo ? enMayusculas(input.nodo) : null } : {}),
-    ...(input.plan !== undefined ? { plan: enMayusculas(input.plan) } : {}),
+    ...(input.nodo !== undefined ? { nodo: input.nodo ? enMayusculasGuardar(input.nodo) : null } : {}),
+    ...(input.plan !== undefined ? { plan: enMayusculasGuardar(input.plan) } : {}),
   };
 }
 
@@ -35,12 +40,12 @@ export function normalizarClienteNuevo(input: {
   nodo?: string | null;
 }) {
   return {
-    nombre: enMayusculas(input.nombre),
-    direccion: enMayusculas(input.direccion),
-    sector: enMayusculas(input.sector),
-    plan: enMayusculas(input.plan || "Sin plan"),
-    nodo: input.nodo ? enMayusculas(input.nodo) : null,
-    referencia: input.referencia ? enMayusculas(input.referencia) : null,
+    nombre: enMayusculasGuardar(input.nombre),
+    direccion: enMayusculasGuardar(input.direccion),
+    sector: enMayusculasGuardar(input.sector),
+    plan: enMayusculasGuardar(input.plan || "Sin plan"),
+    nodo: input.nodo ? enMayusculasGuardar(input.nodo) : null,
+    referencia: input.referencia ? enMayusculasGuardar(input.referencia) : null,
   };
 }
 
@@ -51,10 +56,10 @@ export function normalizarTextoTicket(input: {
   return {
     ...input,
     ...(input.motivo !== undefined
-      ? { motivo: input.motivo ? enMayusculas(input.motivo) : null }
+      ? { motivo: input.motivo ? enMayusculasGuardar(input.motivo) : null }
       : {}),
     ...(input.descripcion !== undefined
-      ? { descripcion: input.descripcion ? enMayusculas(input.descripcion) : null }
+      ? { descripcion: input.descripcion ? enMayusculasGuardar(input.descripcion) : null }
       : {}),
   };
 }
