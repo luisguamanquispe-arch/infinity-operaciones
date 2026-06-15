@@ -10,9 +10,10 @@ interface PhotoCaptureProps {
   tipo: string;
   existing?: { url: string; imagenSrc?: string } | null;
   onUploaded: () => void;
+  readOnly?: boolean;
 }
 
-export function PhotoCapture({ ticketId, tipo, existing, onUploaded }: PhotoCaptureProps) {
+export function PhotoCapture({ ticketId, tipo, existing, onUploaded, readOnly = false }: PhotoCaptureProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -91,6 +92,8 @@ export function PhotoCapture({ ticketId, tipo, existing, onUploaded }: PhotoCapt
           >
             Ver foto
           </a>
+        ) : readOnly ? (
+          <span className="text-xs text-slate-400 shrink-0 ml-2">Pendiente</span>
         ) : (
           <>
             <input

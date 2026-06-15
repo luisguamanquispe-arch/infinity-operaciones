@@ -14,6 +14,7 @@ interface CronometroProps {
   } | null;
   duracionInicial: number;
   onUpdate: () => void;
+  readOnly?: boolean;
 }
 
 function getGps(): Promise<{ lat: number; lng: number }> {
@@ -35,6 +36,7 @@ export function Cronometro({
   cronometro,
   duracionInicial,
   onUpdate,
+  readOnly = false,
 }: CronometroProps) {
   const [duracion, setDuracion] = useState(duracionInicial);
   const [loading, setLoading] = useState(false);
@@ -71,10 +73,10 @@ export function Cronometro({
 
   // Registra GPS al abrir el ticket (el cronómetro ya arrancó en el servidor)
   useEffect(() => {
-    if (!cronometro?.inicio || cronometro.fin || gpsEnviadoRef.current) return;
+    if (readOnly || !cronometro?.inicio || cronometro.fin || gpsEnviadoRef.current) return;
     gpsEnviadoRef.current = true;
     void ejecutar("iniciar");
-  }, [cronometro?.inicio, cronometro?.fin, ejecutar]);
+  }, [readOnly, cronometro?.inicio, cronometro?.fin, ejecutar]);
 
   const finalizado = !!cronometro?.fin;
   const activo = cronometro?.activo && !finalizado;
@@ -86,11 +88,13 @@ export function Cronometro({
       <div>
         <h3 className="font-semibold text-slate-800">Cronómetro de reparación</h3>
         <p className="text-xs text-slate-500 mt-1">
-          {pendienteInicio
-            ? "Preparando registro de tiempo…"
-            : finalizado
-              ? "Tiempo efectivo registrado para este soporte"
-              : "Contando desde que abrió el ticket"}
+          {readOnly
+            ? "Tiempo registrado por el técnico que reportó el ticket"
+            : pendienteInicio
+              ? "Preparando registro de tiempo…"
+              : finalizado
+                ? "Tiempo efectivo registrado para este soporte"
+                : "Contando desde que abrió el ticket"}
         </p>
       </div>
 
@@ -102,6 +106,14 @@ export function Cronometro({
       </div>
 
       <div className="flex gap-2">
+        {readOnly ? (
+          <p className="flex-1 text-center text-slate-600 font-medium py-3">
+            {cronometro?.inicio
+              ? `Tiempo compartido: ${formatDuration(duracion)}`
+              : "Aún no hay tiempo registrado"}
+          </p>
+        ) : (
+          <>
         {pendienteInicio && (
           <button
             onClick={() => ejecutar("iniciar")}
@@ -159,6 +171,8 @@ export function Cronometro({
           <p className="flex-1 text-center text-emerald-600 font-medium py-3">
             Trabajo finalizado — {formatDuration(duracion)}
           </p>
+        )}
+          </>
         )}
       </div>
     </div>

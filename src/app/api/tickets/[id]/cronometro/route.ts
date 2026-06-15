@@ -4,6 +4,7 @@ import { getFullSession } from "@/lib/auth";
 import { getOrCreateOrden, calcularDuracionCronometro } from "@/lib/tickets";
 import { iniciarCronometroTicket } from "@/lib/cronometro";
 import { tecnicoAsignadoAlTicket } from "@/lib/ticket-tecnicos";
+import { asegurarReportadorOrden } from "@/lib/ticket-reporte";
 
 export async function POST(
   request: Request,
@@ -23,6 +24,14 @@ export async function POST(
   });
   if (!ticket || !tecnicoAsignadoAlTicket(ticket, session.tecnicoId)) {
     return NextResponse.json({ error: "No autorizado" }, { status: 403 });
+  }
+
+  const permiso = await asegurarReportadorOrden(id, session.tecnicoId);
+  if (!permiso.ok) {
+    return NextResponse.json(
+      { error: permiso.error, reportadoPor: permiso.reportadoPorNombre },
+      { status: permiso.status }
+    );
   }
 
   const orden = await getOrCreateOrden(id);

@@ -100,6 +100,7 @@ model Tecnico {
   tickets      Ticket[]
   asignaciones TicketTecnico[]
   ubicaciones  UbicacionGps[]
+  ordenesReportadas OrdenServicio[] @relation("OrdenReportadaPor")
 }
 
 model Cliente {
@@ -172,7 +173,10 @@ model OrdenServicio {
   clienteConforme Boolean             @default(false)
   firmaOk         Boolean             @default(false)
   whatsappEnviado Boolean             @default(false)
+  reportadoPorTecnicoId String?
+  reportadoEn         DateTime?
   ticket          Ticket              @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  reportadoPor    Tecnico?            @relation("OrdenReportadaPor", fields: [reportadoPorTecnicoId], references: [id])
   cronometro      Cronometro?
   medicion        Medicion?
   fotografias     Fotografia[]

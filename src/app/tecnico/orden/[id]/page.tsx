@@ -7,7 +7,7 @@ import { ArrowLeft, Loader2, Phone, MapPin, CalendarClock } from "lucide-react";
 import { Cronometro } from "@/components/Cronometro";
 import { PhotoCapture } from "@/components/PhotoCapture";
 import { SignatureCapture } from "@/components/SignatureCapture";
-import { TIPO_LABELS, ESTADO_LABELS, formatDateTime } from "@/lib/utils";
+import { TIPO_LABELS, ESTADO_LABELS, formatDateTime, formatDuration } from "@/lib/utils";
 import { fetchWithRetry } from "@/lib/compress-image";
 import {
   materialEsPatchcord,
@@ -110,6 +110,14 @@ interface OrdenData {
   };
   duracionSegundos: number;
   inventario: { id: string; nombre: string; unidad: string; stock: number; tipo: TipoInventario }[];
+  reporte?: {
+    multiTecnico: boolean;
+    puedeEditar: boolean;
+    esReportador: boolean;
+    reportadoPor: { id: string; nombre: string } | null;
+    reportadoEn: string | null;
+    mensaje: string | null;
+  } | null;
 }
 
 const FOTOS_ANTES = ["FACHADA", "POSTE", "NAP"];
@@ -324,9 +332,10 @@ export default function OrdenPage() {
     );
   }
 
-  const { ticket, orden } = data;
+  const { ticket, orden, reporte } = data;
   const fotoMap = Object.fromEntries(orden.fotografias.map((f) => [f.tipo, f]));
   const cerrado = ticket.estado === "CERRADO";
+  const puedeEditar = reporte?.puedeEditar !== false && !cerrado;
   const esInfra = esTicketInfraestructura(ticket.tipo);
   const fotosAntes = esInfra ? FOTOS_ANTES_INFRA : FOTOS_ANTES;
   const fotosDurante = esInfra ? FOTOS_DURANTE_INFRA : FOTOS_DURANTE;
@@ -362,6 +371,28 @@ export default function OrdenPage() {
       </header>
 
       <main className="max-w-3xl mx-auto p-4 space-y-4">
+        {reporte?.mensaje && (
+          <section
+            className={`rounded-xl border p-4 ${
+              cerrado
+                ? "bg-emerald-50 border-emerald-200 text-emerald-900"
+                : puedeEditar
+                  ? "bg-infinity-50 border-infinity-200 text-infinity-900"
+                  : "bg-amber-50 border-amber-200 text-amber-900"
+            }`}
+          >
+            <p className="font-semibold">
+              {cerrado ? "Reporte ya registrado" : "Ticket con varios técnicos"}
+            </p>
+            <p className="text-sm mt-1">{reporte.mensaje}</p>
+            {data.duracionSegundos > 0 && (
+              <p className="text-sm mt-2 font-medium">
+                Tiempo registrado: {formatDuration(data.duracionSegundos)}
+              </p>
+            )}
+          </section>
+        )}
+
         {ticket.programadoEn && !cerrado && (
           <section className="bg-infinity-50 border border-infinity-200 rounded-xl p-4 flex gap-3">
             <CalendarClock className="w-6 h-6 text-infinity-600 shrink-0" />
@@ -445,8 +476,11 @@ export default function OrdenPage() {
               cronometro={orden.cronometro}
               duracionInicial={data.duracionSegundos}
               onUpdate={cargar}
+              readOnly={!puedeEditar}
             />
 
+            {puedeEditar ? (
+              <>
             {/* Fotos antes */}
             <section className="bg-white rounded-xl border p-4 space-y-2">
               <h3 className="font-semibold">Evidencia — Antes de iniciar</h3>
@@ -701,12 +735,68 @@ export default function OrdenPage() {
                 {cerrando ? "Cerrando..." : "✅ Cerrar ticket"}
               </button>
             </section>
+              </>
+            ) : (
+              <>
+                <section className="bg-white rounded-xl border p-4 space-y-2">
+                  <h3 className="font-semibold">Evidencia registrada</h3>
+                  {[...fotosAntes, ...fotosDurante, ...fotosFinal].map((t) => (
+                    <PhotoCapture
+                      key={t}
+                      ticketId={id}
+                      tipo={t}
+                      existing={fotoMap[t]}
+                      onUploaded={cargar}
+                      readOnly
+                    />
+                  ))}
+                </section>
+
+                {orden.medicion && !esInfra && (
+                  <section className="bg-white rounded-xl border p-4 space-y-2">
+                    <h3 className="font-semibold">Medición registrada</h3>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <p>RX: {orden.medicion.rxDbm} dBm</p>
+                      <p>TX: {orden.medicion.txDbm} dBm</p>
+                      {orden.medicion.pingMs != null && <p>Ping: {orden.medicion.pingMs} ms</p>}
+                      <p>Descarga: {orden.medicion.downloadMbps} Mbps</p>
+                      <p>Subida: {orden.medicion.uploadMbps} Mbps</p>
+                    </div>
+                  </section>
+                )}
+
+                {orden.materiales.length > 0 && (
+                  <section className="bg-white rounded-xl border p-4 space-y-2">
+                    <h3 className="font-semibold">Material utilizado</h3>
+                    {orden.materiales.map((m, i) => (
+                      <p key={i} className="text-sm">
+                        {m.inventario.nombre}: {m.cantidad} {m.inventario.unidad}
+                      </p>
+                    ))}
+                  </section>
+                )}
+
+                {orden.firma && (
+                  <section className="bg-white rounded-xl border p-4">
+                    <h3 className="font-semibold mb-2">Firma registrada</h3>
+                    <p className="text-sm text-slate-600">
+                      {orden.firma.nombreCliente} — {orden.firma.cedula}
+                    </p>
+                  </section>
+                )}
+              </>
+            )}
           </>
         )}
 
         {cerrado && (
-          <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 p-4 rounded-xl text-center font-medium">
-            ✅ Ticket cerrado exitosamente
+          <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 p-4 rounded-xl text-center font-medium space-y-2">
+            <p>✅ Ticket cerrado exitosamente</p>
+            {data.duracionSegundos > 0 && (
+              <p className="text-sm font-normal">
+                Tiempo registrado: {formatDuration(data.duracionSegundos)}
+              </p>
+            )}
           </div>
         )}
       </main>

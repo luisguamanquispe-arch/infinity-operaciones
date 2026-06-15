@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getFullSession } from "@/lib/auth";
+import { tecnicoIdsFromTicket } from "@/lib/ticket-tecnicos";
 
 export async function GET() {
   const session = await getFullSession();
@@ -35,6 +36,7 @@ export async function GET() {
       where: { estado: "CERRADO", updatedAt: { gte: inicioMes } },
       include: {
         tecnico: { include: { usuario: true } },
+        tecnicos: { include: { tecnico: { include: { usuario: true } } } },
         orden: { include: { cronometro: true } },
       },
     }),
@@ -47,15 +49,27 @@ export async function GET() {
   >();
 
   for (const t of ticketsCerrados) {
-    const key = t.tecnicoId || "sin-asignar";
-    const nombre = t.tecnico?.usuario.nombre || "Sin asignar";
-    if (!rendimientoMap.has(key)) {
-      rendimientoMap.set(key, { nombre, cerrados: 0, tiempos: [] });
-    }
-    const entry = rendimientoMap.get(key)!;
-    entry.cerrados++;
-    if (t.orden?.cronometro?.duracionSegundos) {
-      entry.tiempos.push(t.orden.cronometro.duracionSegundos);
+    const ids = tecnicoIdsFromTicket(t);
+    const duracion = t.orden?.cronometro?.duracionSegundos;
+    const targets =
+      ids.length > 0
+        ? ids.map((id) => {
+            const row = t.tecnicos?.find((r) => r.tecnicoId === id);
+            const nombre =
+              row?.tecnico.usuario.nombre ??
+              (t.tecnicoId === id ? t.tecnico?.usuario.nombre : null) ??
+              "Técnico";
+            return { id, nombre };
+          })
+        : [{ id: "sin-asignar", nombre: "Sin asignar" }];
+
+    for (const { id, nombre } of targets) {
+      if (!rendimientoMap.has(id)) {
+        rendimientoMap.set(id, { nombre, cerrados: 0, tiempos: [] });
+      }
+      const entry = rendimientoMap.get(id)!;
+      entry.cerrados++;
+      if (duracion) entry.tiempos.push(duracion);
     }
   }
 

@@ -2,9 +2,10 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getFullSession } from "@/lib/auth";
 import { getOrCreateOrden, validarCierreOrden, enviarWhatsApp } from "@/lib/tickets";
-import { tecnicoAsignadoAlTicket } from "@/lib/ticket-tecnicos";
+import { tecnicoAsignadoAlTicket, tecnicoIdsFromTicket } from "@/lib/ticket-tecnicos";
 import { esClienteInfraestructura } from "@/lib/cliente-infraestructura";
 import { esTicketInfraestructura } from "@/lib/ticket-infraestructura";
+import { asegurarReportadorOrden } from "@/lib/ticket-reporte";
 
 export async function POST(
   request: Request,
@@ -25,6 +26,14 @@ export async function POST(
     return NextResponse.json({ error: "No autorizado" }, { status: 403 });
   }
 
+  const permiso = await asegurarReportadorOrden(id, session.tecnicoId);
+  if (!permiso.ok) {
+    return NextResponse.json(
+      { error: permiso.error, reportadoPor: permiso.reportadoPorNombre },
+      { status: permiso.status }
+    );
+  }
+
   const orden = await getOrCreateOrden(id);
   const validacion = validarCierreOrden(orden, {
     esInfraestructura: esTicketInfraestructura(ticket.tipo),
@@ -36,20 +45,24 @@ export async function POST(
 
   const now = new Date();
 
-  await prisma.ordenServicio.update({
-    where: { id: orden.id },
-    data: { finalizadoEn: now },
-  });
-
-  await prisma.ticket.update({
-    where: { id },
-    data: { estado: "CERRADO" },
-  });
-
-  await prisma.tecnico.update({
-    where: { id: session.tecnicoId },
-    data: { estadoActual: "DISPONIBLE" },
-  });
+  await prisma.$transaction([
+    prisma.ordenServicio.update({
+      where: { id: orden.id },
+      data: {
+        finalizadoEn: now,
+        reportadoPorTecnicoId: orden.reportadoPorTecnicoId ?? session.tecnicoId,
+        reportadoEn: orden.reportadoEn ?? now,
+      },
+    }),
+    prisma.ticket.update({
+      where: { id },
+      data: { estado: "CERRADO" },
+    }),
+    prisma.tecnico.updateMany({
+      where: { id: { in: tecnicoIdsFromTicket(ticket) } },
+      data: { estadoActual: "DISPONIBLE" },
+    }),
+  ]);
 
   if (!esClienteInfraestructura(ticket.cliente.cedula)) {
     await enviarWhatsApp(ticket.codigo, ticket.cliente.telefono);
@@ -64,6 +77,7 @@ export async function POST(
       ticketId: id,
       usuarioId: session.id,
       accion: "TICKET_CERRADO",
+      metadata: JSON.stringify({ tecnicoId: session.tecnicoId }),
     },
   });
 

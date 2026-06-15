@@ -16,6 +16,7 @@ import { fotoImagenSrcRapida } from "@/lib/foto-image";
 import { firmaImagenSrcRapida } from "@/lib/firma-image";
 import { normalizarTextoTicket } from "@/lib/mayusculas";
 import { iniciarCronometroTicket } from "@/lib/cronometro";
+import { asegurarReportadorOrden, infoReporteOrden } from "@/lib/ticket-reporte";
 
 export async function GET(
   _request: Request,
@@ -102,14 +103,20 @@ export async function GET(
     session.tecnicoId &&
     !["CERRADO", "FINALIZADO", "CANCELADO"].includes(ticketData.estado)
   ) {
-    try {
-      await iniciarCronometroTicket({
-        ticketId: ticketData.id,
-        tecnicoId: session.tecnicoId,
-        usuarioId: session.id,
-      });
-    } catch (err) {
-      console.error("[GET ticket] cronometro auto-inicio:", err);
+    const reportePrevio = await infoReporteOrden(ticketData.id, session.tecnicoId);
+    if (reportePrevio.puedeEditar) {
+      const permiso = await asegurarReportadorOrden(ticketData.id, session.tecnicoId);
+      if (permiso.ok) {
+        try {
+          await iniciarCronometroTicket({
+            ticketId: ticketData.id,
+            tecnicoId: session.tecnicoId,
+            usuarioId: session.id,
+          });
+        } catch (err) {
+          console.error("[GET ticket] cronometro auto-inicio:", err);
+        }
+      }
     }
   }
 
@@ -166,6 +173,11 @@ export async function GET(
       ? { ...ticketData, estado: "EN_PROCESO" as const }
       : ticketData;
 
+  const reporte =
+    session.rol === "TECNICO" && session.tecnicoId
+      ? await infoReporteOrden(ticketData.id, session.tecnicoId)
+      : null;
+
   return NextResponse.json({
     ticket: {
       ...ticketRespuesta,
@@ -174,6 +186,7 @@ export async function GET(
     orden: ordenConFotos,
     duracionSegundos,
     inventario,
+    reporte,
   });
 }
 

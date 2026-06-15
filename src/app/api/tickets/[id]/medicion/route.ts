@@ -13,6 +13,7 @@ import {
 } from "@/lib/material-detalle";
 import { calcularExcedenteMaterial } from "@/lib/fibra-excedente";
 import { esTicketInfraestructura } from "@/lib/ticket-infraestructura";
+import { asegurarReportadorOrden } from "@/lib/ticket-reporte";
 import type { TipoPatchCord } from "@prisma/client";
 
 export const maxDuration = 60;
@@ -36,6 +37,14 @@ export async function POST(
   });
   if (!ticket || !tecnicoAsignadoAlTicket(ticket, session.tecnicoId)) {
     return NextResponse.json({ error: "No autorizado" }, { status: 403 });
+  }
+
+  const permiso = await asegurarReportadorOrden(id, session.tecnicoId);
+  if (!permiso.ok) {
+    return NextResponse.json(
+      { error: permiso.error, reportadoPor: permiso.reportadoPorNombre },
+      { status: permiso.status }
+    );
   }
 
   const orden = await getOrCreateOrden(id);
@@ -82,6 +91,14 @@ export async function PUT(
     });
     if (!ticket || !tecnicoAsignadoAlTicket(ticket, session.tecnicoId)) {
       return NextResponse.json({ error: "No autorizado" }, { status: 403 });
+    }
+
+    const permiso = await asegurarReportadorOrden(id, session.tecnicoId);
+    if (!permiso.ok) {
+      return NextResponse.json(
+        { error: permiso.error, reportadoPor: permiso.reportadoPorNombre },
+        { status: permiso.status }
+      );
     }
 
     const orden = await getOrCreateOrden(id);

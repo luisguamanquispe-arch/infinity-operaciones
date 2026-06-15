@@ -4,6 +4,7 @@ import { getFullSession } from "@/lib/auth";
 import { getOrCreateOrden } from "@/lib/tickets";
 import { persistTicketImage } from "@/lib/media-storage";
 import { tecnicoAsignadoAlTicket } from "@/lib/ticket-tecnicos";
+import { asegurarReportadorOrden } from "@/lib/ticket-reporte";
 import type { TipoFoto } from "@prisma/client";
 
 export const maxDuration = 60;
@@ -66,6 +67,14 @@ export async function POST(
     });
     if (!ticket || !tecnicoAsignadoAlTicket(ticket, session.tecnicoId)) {
       return NextResponse.json({ error: "No autorizado" }, { status: 403 });
+    }
+
+    const permiso = await asegurarReportadorOrden(id, session.tecnicoId);
+    if (!permiso.ok) {
+      return NextResponse.json(
+        { error: permiso.error, reportadoPor: permiso.reportadoPorNombre },
+        { status: permiso.status }
+      );
     }
 
     const orden = await getOrCreateOrden(id);
