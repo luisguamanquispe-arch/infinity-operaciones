@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { LogOut } from "lucide-react";
 
 interface AppHeaderProps {
@@ -10,10 +10,12 @@ interface AppHeaderProps {
 
 export function AppHeader({ title, subtitle }: AppHeaderProps) {
   const router = useRouter();
+  const pathname = usePathname();
 
   async function logout() {
     await fetch("/api/auth/logout", { method: "POST" });
-    router.push("/login");
+    const loginUrl = pathname.startsWith("/tecnico") ? "/login?app=tecnico" : "/login";
+    router.push(loginUrl);
     router.refresh();
   }
 

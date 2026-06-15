@@ -17,8 +17,17 @@ function dashboardPath(rol: string): string {
   }
 }
 
+/** Login de app técnico (PWA/Capacitor) vs panel web. */
+function loginRedirect(request: NextRequest, fromTecnico = false) {
+  const path = fromTecnico || request.nextUrl.pathname.startsWith("/tecnico")
+    ? "/login?app=tecnico"
+    : "/login";
+  return NextResponse.redirect(new URL(path, request.url));
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  const esRutaTecnico = pathname.startsWith("/tecnico");
 
   if (
     publicPaths.some((p) => pathname.startsWith(p)) ||
@@ -45,7 +54,7 @@ export async function middleware(request: NextRequest) {
     if (pathname.startsWith("/api/")) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
-    return NextResponse.redirect(new URL("/login", request.url));
+    return loginRedirect(request, esRutaTecnico);
   }
 
   const session = await verifyToken(token);
@@ -53,11 +62,11 @@ export async function middleware(request: NextRequest) {
     if (pathname.startsWith("/api/")) {
       return NextResponse.json({ error: "Sesión inválida" }, { status: 401 });
     }
-    return NextResponse.redirect(new URL("/login", request.url));
+    return loginRedirect(request, esRutaTecnico);
   }
 
-  if (pathname.startsWith("/tecnico") && session.rol !== "TECNICO") {
-    return NextResponse.redirect(new URL("/login", request.url));
+  if (esRutaTecnico && session.rol !== "TECNICO") {
+    return loginRedirect(request, true);
   }
   if (pathname.startsWith("/supervisor") && !["SUPERVISOR", "ADMIN"].includes(session.rol)) {
     return NextResponse.redirect(new URL("/login", request.url));

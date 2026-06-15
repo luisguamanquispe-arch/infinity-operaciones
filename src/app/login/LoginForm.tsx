@@ -9,8 +9,27 @@ interface LoginFormProps {
   esAppTecnico: boolean;
 }
 
-export function LoginForm({ esAppTecnico }: LoginFormProps) {
+export function LoginForm({ esAppTecnico: esAppTecnicoInicial }: LoginFormProps) {
   const router = useRouter();
+  const [esAppTecnico, setEsAppTecnico] = useState(esAppTecnicoInicial);
+
+  useEffect(() => {
+    if (esAppTecnicoInicial) {
+      sessionStorage.setItem("infinity-app-tecnico", "1");
+      return;
+    }
+    const cap = (window as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor;
+    const esNativa = cap?.isNativePlatform?.() ?? false;
+    const esPwa = window.matchMedia("(display-mode: standalone)").matches;
+    const sesionTecnico = sessionStorage.getItem("infinity-app-tecnico") === "1";
+    if (esNativa || esPwa || sesionTecnico) {
+      setEsAppTecnico(true);
+      sessionStorage.setItem("infinity-app-tecnico", "1");
+      if (!window.location.search.includes("app=tecnico")) {
+        window.history.replaceState(null, "", "/login?app=tecnico");
+      }
+    }
+  }, [esAppTecnicoInicial]);
 
   useEffect(() => {
     if (esAppTecnico) {
@@ -50,6 +69,10 @@ export function LoginForm({ esAppTecnico }: LoginFormProps) {
         setError("Esta app es solo para técnicos de campo.");
         await fetch("/api/auth/logout", { method: "POST" });
         return;
+      }
+
+      if (data.user?.rol === "TECNICO") {
+        sessionStorage.setItem("infinity-app-tecnico", "1");
       }
 
       router.push(data.redirect);
