@@ -19,10 +19,16 @@ export function tecnicoIdsFromTicket(ticket: {
   tecnicoId: string | null;
   tecnicos?: { tecnicoId: string }[];
 }): string[] {
-  if (ticket.tecnicos?.length) {
-    return ticket.tecnicos.map((t) => t.tecnicoId);
-  }
-  return ticket.tecnicoId ? [ticket.tecnicoId] : [];
+  const ids: string[] = [];
+  const seen = new Set<string>();
+  const add = (id: string | null | undefined) => {
+    if (!id || seen.has(id)) return;
+    seen.add(id);
+    ids.push(id);
+  };
+  add(ticket.tecnicoId);
+  for (const row of ticket.tecnicos ?? []) add(row.tecnicoId);
+  return ids;
 }
 
 export function tecnicoAsignadoAlTicket(
@@ -102,11 +108,35 @@ export async function notificarTecnicosNuevos(
   }
 }
 
-export function whereTecnicoAsignado(tecnicoId: string) {
+export function whereTecnicoAsignado(tecnicoId: string): Prisma.TicketWhereInput {
   return {
     OR: [
       { tecnicoId },
       { tecnicos: { some: { tecnicoId } } },
     ],
   };
+}
+
+/** Alinea Ticket.tecnicoId y filas TicketTecnico (repara datos inconsistentes). */
+export async function sincronizarAsignacionesTicket(ticketId: string): Promise<string[]> {
+  const ticket = await prisma.ticket.findUnique({
+    where: { id: ticketId },
+    select: {
+      tecnicoId: true,
+      tecnicos: { select: { tecnicoId: true }, orderBy: { asignadoEn: "asc" } },
+    },
+  });
+  if (!ticket) return [];
+
+  const ids = tecnicoIdsFromTicket(ticket);
+  if (ids.length === 0) return [];
+
+  const actuales = new Set(ticket.tecnicos.map((t) => t.tecnicoId));
+  const desincronizado =
+    ids.length !== actuales.size || ids.some((id) => !actuales.has(id));
+
+  if (desincronizado || ticket.tecnicoId !== ids[0]) {
+    return asignarTecnicosTicket(ticketId, ids);
+  }
+  return ids;
 }

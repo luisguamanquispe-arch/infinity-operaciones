@@ -6,6 +6,7 @@ import { parseProgramadoEn } from "@/lib/calendario";
 import {
   asignarTecnicosTicket,
   notificarTecnicosNuevos,
+  sincronizarAsignacionesTicket,
   tecnicoAsignadoAlTicket,
   tecnicoIdsFromTicket,
   ticketIncludeTecnicos,
@@ -51,18 +52,59 @@ export async function GET(
 
   if (!ticket) return NextResponse.json({ error: "Ticket no encontrado" }, { status: 404 });
 
-  if (session.rol === "TECNICO" && !tecnicoAsignadoAlTicket(ticket, session.tecnicoId)) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 403 });
+  let ticketData = ticket;
+
+  if (session.rol === "TECNICO") {
+    if (!session.tecnicoId) {
+      return NextResponse.json(
+        { error: "Su usuario no tiene perfil de técnico. Contacte a gerencia." },
+        { status: 403 }
+      );
+    }
+    await sincronizarAsignacionesTicket(ticket.id);
+    const ticketActualizado = await prisma.ticket.findUnique({
+      where: { id },
+      include: {
+        ...ticketIncludeTecnicos,
+        orden: {
+          include: {
+            cronometro: true,
+            medicion: true,
+            fotografias: {
+              select: { id: true, tipo: true, url: true, lat: true, lng: true },
+            },
+            firma: {
+              select: {
+                nombreCliente: true,
+                cedula: true,
+                imagenUrl: true,
+              },
+            },
+            materiales: { include: { inventario: true } },
+          },
+        },
+      },
+    });
+    if (!ticketActualizado) {
+      return NextResponse.json({ error: "Ticket no encontrado" }, { status: 404 });
+    }
+    if (!tecnicoAsignadoAlTicket(ticketActualizado, session.tecnicoId)) {
+      return NextResponse.json(
+        { error: "Este ticket no está asignado a usted" },
+        { status: 403 }
+      );
+    }
+    ticketData = ticketActualizado;
   }
 
   if (
     session.rol === "TECNICO" &&
     session.tecnicoId &&
-    !["CERRADO", "FINALIZADO", "CANCELADO"].includes(ticket.estado)
+    !["CERRADO", "FINALIZADO", "CANCELADO"].includes(ticketData.estado)
   ) {
     try {
       await iniciarCronometroTicket({
-        ticketId: ticket.id,
+        ticketId: ticketData.id,
         tecnicoId: session.tecnicoId,
         usuarioId: session.id,
       });
@@ -71,11 +113,11 @@ export async function GET(
     }
   }
 
-  const orden = ticket.orden || (await getOrCreateOrden(ticket.id));
+  const orden = ticketData.orden || (await getOrCreateOrden(ticketData.id));
 
   // Recargar orden tras posible auto-inicio del cronómetro
   const ordenActual = await prisma.ordenServicio.findUnique({
-    where: { ticketId: ticket.id },
+    where: { ticketId: ticketData.id },
     include: {
       cronometro: true,
       medicion: true,
@@ -119,15 +161,15 @@ export async function GET(
       : null,
   };
 
-  const ticketActualizado =
-    session.rol === "TECNICO" && ticket.estado === "PENDIENTE" && ordenFinal.cronometro?.inicio
-      ? { ...ticket, estado: "EN_PROCESO" as const }
-      : ticket;
+  const ticketRespuesta =
+    session.rol === "TECNICO" && ticketData.estado === "PENDIENTE" && ordenFinal.cronometro?.inicio
+      ? { ...ticketData, estado: "EN_PROCESO" as const }
+      : ticketData;
 
   return NextResponse.json({
     ticket: {
-      ...ticketActualizado,
-      tecnicoIds: tecnicoIdsFromTicket(ticket),
+      ...ticketRespuesta,
+      tecnicoIds: tecnicoIdsFromTicket(ticketData),
     },
     orden: ordenConFotos,
     duracionSegundos,

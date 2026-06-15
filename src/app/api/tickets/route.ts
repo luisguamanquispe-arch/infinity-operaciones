@@ -224,6 +224,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: errTecnicos }, { status: 404 });
   }
 
+  if (tecnicoIds.length === 0) {
+    return NextResponse.json(
+      { error: "Asigne al menos un técnico al ticket" },
+      { status: 400 }
+    );
+  }
+
   const slaHoras = slaHorasPorPrioridad(prio);
   const slaVenceEn = new Date(Date.now() + slaHoras * 60 * 60 * 1000);
   const codigo = await generarCodigoTicket(tipo);

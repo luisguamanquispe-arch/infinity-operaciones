@@ -49,8 +49,14 @@ function buildTicketWhere(
 
 export async function GET(request: Request) {
   const session = await getFullSession();
-  if (!session?.tecnicoId) {
+  if (!session || session.rol !== "TECNICO") {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  }
+  if (!session.tecnicoId) {
+    return NextResponse.json(
+      { error: "Su usuario no tiene perfil de técnico. Contacte a gerencia." },
+      { status: 403 }
+    );
   }
 
   const { searchParams } = new URL(request.url);
@@ -181,7 +187,7 @@ export async function GET(request: Request) {
 
 export async function PATCH(request: Request) {
   const session = await getFullSession();
-  if (!session?.tecnicoId) {
+  if (!session || session.rol !== "TECNICO" || !session.tecnicoId) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 

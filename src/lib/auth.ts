@@ -60,11 +60,13 @@ export async function getFullSession(): Promise<SessionUser | null> {
   const session = await getSession();
   if (!session) return null;
 
-  if (session.rol === "TECNICO" && !session.tecnicoId) {
+  if (session.rol === "TECNICO") {
     const tecnico = await prisma.tecnico.findUnique({
       where: { usuarioId: session.id },
+      select: { id: true },
     });
-    if (tecnico) session.tecnicoId = tecnico.id;
+    if (!tecnico) return null;
+    session.tecnicoId = tecnico.id;
   }
 
   return session;
