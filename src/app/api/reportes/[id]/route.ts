@@ -10,11 +10,13 @@ import {
   esTicketInstalacion,
   gruposFotosPorTipo,
 } from "@/lib/ticket-instalacion";
+import { materialesParaReporte } from "@/lib/materiales-reporte";
 
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  try {
   const session = await getFullSession();
   if (!session || !["SUPERVISOR", "ADMIN"].includes(session.rol)) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
@@ -53,7 +55,6 @@ export async function GET(
           },
           materiales: {
             include: { inventario: true },
-            orderBy: { inventario: { nombre: "asc" } },
           },
         },
       },
@@ -91,6 +92,7 @@ export async function GET(
   const fotografias = orden?.fotografias ?? [];
   const firma = firmaParaReporte(orden?.firma ?? null);
   const fotosEnriquecidas = fotosParaReporte(fotografias);
+  const materiales = materialesParaReporte(orden?.materiales ?? []);
 
   return NextResponse.json({
     ticket: {
@@ -100,9 +102,11 @@ export async function GET(
         ? {
             ...orden,
             firma,
+            materiales,
           }
         : null,
     },
+    materiales,
     duracionSegundos,
     evidencia: {
       antes: fotosEnriquecidas.filter((f) => (fotosAntes as string[]).includes(f.tipo)),
@@ -129,4 +133,11 @@ export async function GET(
       ? [...CLAUSULAS_POLITICA_INSTALACION]
       : null,
   });
+  } catch (err) {
+    console.error("[GET reportes/id]", err);
+    return NextResponse.json(
+      { error: "No se pudo cargar el reporte" },
+      { status: 500 }
+    );
+  }
 }

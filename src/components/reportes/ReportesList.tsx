@@ -35,6 +35,7 @@ interface ReporteItem {
   tieneFirma: boolean;
   firmaSrc: string | null;
   tieneMedicion: boolean;
+  totalMateriales: number;
 }
 
 interface ReportesData {
@@ -287,6 +288,11 @@ export function ReportesList({
                             {item.tieneMedicion && (
                               <span className="px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded text-xs">
                                 📊
+                              </span>
+                            )}
+                            {item.totalMateriales > 0 && (
+                              <span className="px-1.5 py-0.5 bg-violet-100 text-violet-700 rounded text-xs">
+                                📦 {item.totalMateriales}
                               </span>
                             )}
                           </div>

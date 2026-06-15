@@ -68,7 +68,7 @@ export async function GET(request: Request) {
           cronometro: { select: { duracionSegundos: true } },
           medicion: { select: { id: true } },
           firma: { select: { imagenUrl: true } },
-          _count: { select: { fotografias: true } },
+          _count: { select: { fotografias: true, materiales: true } },
         },
       },
     },
@@ -118,6 +118,7 @@ export async function GET(request: Request) {
     tieneFirma: !!t.orden?.firma,
     firmaSrc: firmaImagenSrcRapida(t.orden?.firma ?? null),
     tieneMedicion: !!t.orden?.medicion,
+    totalMateriales: t.orden?._count.materiales ?? 0,
   }));
 
   const tecnicos = await prisma.tecnico.findMany({

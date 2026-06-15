@@ -7,61 +7,47 @@ import {
   tipoInventarioEfectivo,
 } from "@/lib/material-detalle";
 import { FIBRA_DROP_LIMITE_M } from "@/lib/fibra-excedente";
+import type { MaterialReporteDTO } from "@/lib/materiales-reporte";
 import { TIPO_LABELS } from "@/lib/utils";
-import type { TipoInventario, TipoPatchCord } from "@prisma/client";
+import type { TipoPatchCord } from "@prisma/client";
 
-export interface MaterialReporteItem {
-  id: string;
-  cantidad: number;
-  serie: string | null;
-  modelo: string | null;
-  marca: string | null;
-  tipoPatchCord: string | null;
-  excedenteMetros: number | null;
-  inventario: { nombre: string; unidad: string; tipo?: TipoInventario };
-}
+export type { MaterialReporteDTO as MaterialReporteItem };
 
-function prioridadMaterial(m: MaterialReporteItem): number {
+function prioridadMaterial(m: MaterialReporteDTO): number {
   const tipo = tipoInventarioEfectivo(m.inventario.tipo, m.inventario.nombre);
   if (tipo === "EQUIPO") return 0;
   if (materialRequiereDetalle(tipo, m.inventario.nombre)) return 1;
   return 2;
 }
 
-export function ordenarMaterialesReporte(materiales: MaterialReporteItem[]): MaterialReporteItem[] {
-  return [...materiales].sort(
-    (a, b) =>
-      prioridadMaterial(a) - prioridadMaterial(b) ||
-      a.inventario.nombre.localeCompare(b.inventario.nombre, "es")
-  );
-}
-
-function etiquetaTipoMaterial(m: MaterialReporteItem): string {
+function etiquetaTipoMaterial(m: MaterialReporteDTO): string {
   const tipo = tipoInventarioEfectivo(m.inventario.tipo, m.inventario.nombre);
   if (tipo === "EQUIPO") return "Equipo";
   if (materialRequiereDetalle(tipo, m.inventario.nombre)) return "Trazable";
   return "Consumible";
 }
 
-function detalleIncompleto(m: MaterialReporteItem): boolean {
+function detalleIncompleto(m: MaterialReporteDTO): boolean {
   const tipo = tipoInventarioEfectivo(m.inventario.tipo, m.inventario.nombre);
   if (!materialRequiereDetalle(tipo, m.inventario.nombre)) return false;
   return !m.serie?.trim() || !m.modelo?.trim() || !m.marca?.trim();
 }
 
 interface MaterialesReporteProps {
-  materiales: MaterialReporteItem[];
+  materiales: MaterialReporteDTO[];
   tipoTicket: string;
 }
 
 export function MaterialesReporte({ materiales, tipoTicket }: MaterialesReporteProps) {
-  const ordenados = ordenarMaterialesReporte(materiales);
-  const equipos = ordenados.filter((m) => prioridadMaterial(m) <= 1);
-  const consumibles = ordenados.filter((m) => prioridadMaterial(m) === 2);
+  const equipos = materiales.filter((m) => prioridadMaterial(m) <= 1);
+  const consumibles = materiales.filter((m) => prioridadMaterial(m) === 2);
   const tipoLabel = TIPO_LABELS[tipoTicket] ?? tipoTicket;
 
   return (
-    <section className="bg-white rounded-xl border overflow-hidden print:break-inside-avoid">
+    <section
+      id="reporte-materiales"
+      className="bg-white rounded-xl border overflow-hidden print:break-inside-avoid"
+    >
       <div className="bg-gradient-to-r from-infinity-800 to-infinity-700 px-4 py-3 text-white">
         <h3 className="font-semibold flex items-center gap-2">
           <Package className="w-4 h-4" />
@@ -73,9 +59,10 @@ export function MaterialesReporte({ materiales, tipoTicket }: MaterialesReporteP
       </div>
 
       <div className="p-4 space-y-5">
-        {ordenados.length === 0 ? (
+        {materiales.length === 0 ? (
           <p className="text-sm text-slate-500 text-center py-6 bg-slate-50 rounded-lg border border-dashed border-slate-200">
-            No se registró material en esta orden
+            No se registró material en esta orden. El técnico debe usar &quot;Descontar del inventario&quot; en
+            la app antes de cerrar el ticket.
           </p>
         ) : (
           <>
@@ -94,13 +81,15 @@ export function MaterialesReporte({ materiales, tipoTicket }: MaterialesReporteP
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {ordenados.map((m) => {
+                  {materiales.map((m) => {
+                    const nombre = m.inventario?.nombre ?? "Material";
+                    const unidad = m.inventario?.unidad ?? "unidad";
                     const patchLabel = m.tipoPatchCord
                       ? TIPO_PATCHCORD_LABELS[m.tipoPatchCord as TipoPatchCord]
                       : null;
                     const requiereDetalle = materialRequiereDetalle(
-                      tipoInventarioEfectivo(m.inventario.tipo, m.inventario.nombre),
-                      m.inventario.nombre
+                      tipoInventarioEfectivo(m.inventario?.tipo, nombre),
+                      nombre
                     );
                     const incompleto = detalleIncompleto(m);
                     const esEquipo = prioridadMaterial(m) <= 1;
@@ -115,7 +104,7 @@ export function MaterialesReporte({ materiales, tipoTicket }: MaterialesReporteP
                         }
                       >
                         <td className="p-3">
-                          <p className="font-semibold text-slate-900">{m.inventario.nombre}</p>
+                          <p className="font-semibold text-slate-900">{nombre}</p>
                           {incompleto && (
                             <p className="text-[10px] text-amber-700 flex items-center gap-1 mt-0.5">
                               <AlertTriangle className="w-3 h-3" />
@@ -135,7 +124,7 @@ export function MaterialesReporte({ materiales, tipoTicket }: MaterialesReporteP
                           </span>
                         </td>
                         <td className="p-3 text-right font-medium text-slate-800 whitespace-nowrap">
-                          {m.cantidad} {m.inventario.unidad}
+                          {m.cantidad} {unidad}
                         </td>
                         <td className="p-3 font-mono text-xs">
                           {requiereDetalle ? (
@@ -184,22 +173,16 @@ export function MaterialesReporte({ materiales, tipoTicket }: MaterialesReporteP
               </table>
             </div>
 
-            {(equipos.length > 0 || consumibles.length > 0) && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-slate-600">
-                {equipos.length > 0 && (
-                  <div className="rounded-lg bg-infinity-50 border border-infinity-100 px-3 py-2">
-                    <span className="font-semibold text-infinity-800">{equipos.length}</span>{" "}
-                    equipo(s) / material(es) trazable(s) con serie, modelo y marca
-                  </div>
-                )}
-                {consumibles.length > 0 && (
-                  <div className="rounded-lg bg-slate-50 border border-slate-200 px-3 py-2">
-                    <span className="font-semibold text-slate-800">{consumibles.length}</span>{" "}
-                    consumible(s) e insumo(s)
-                  </div>
-                )}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-slate-600">
+              <div className="rounded-lg bg-infinity-50 border border-infinity-100 px-3 py-2">
+                <span className="font-semibold text-infinity-800">{equipos.length}</span>{" "}
+                equipo(s) / material(es) trazable(s)
               </div>
-            )}
+              <div className="rounded-lg bg-slate-50 border border-slate-200 px-3 py-2">
+                <span className="font-semibold text-slate-800">{consumibles.length}</span>{" "}
+                consumible(s) e insumo(s)
+              </div>
+            </div>
           </>
         )}
       </div>

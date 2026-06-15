@@ -32,7 +32,8 @@ import {
 } from "@/lib/utils";
 import { MOTIVO_INFRA_LABELS, esTicketInfraestructura } from "@/lib/ticket-infraestructura";
 import { esTicketInstalacion, CLAUSULAS_POLITICA_INSTALACION } from "@/lib/ticket-instalacion";
-import type { MotivoInfraestructura, TipoInventario } from "@prisma/client";
+import type { MotivoInfraestructura } from "@prisma/client";
+import type { MaterialReporteDTO } from "@/lib/materiales-reporte";
 
 interface Foto {
   id: string;
@@ -87,16 +88,7 @@ interface ReporteData {
         lat?: number | null;
         lng?: number | null;
       } | null;
-      materiales: {
-        id: string;
-        cantidad: number;
-        serie: string | null;
-        modelo: string | null;
-        marca: string | null;
-        tipoPatchCord: string | null;
-        excedenteMetros: number | null;
-        inventario: { nombre: string; unidad: string; tipo: TipoInventario };
-      }[];
+      materiales: MaterialReporteDTO[];
       tipoConexionInstalacion?: string | null;
       direccionIp?: string | null;
       pppoeUsuario?: string | null;
@@ -112,6 +104,7 @@ interface ReporteData {
     }[];
   };
   duracionSegundos: number;
+  materiales?: MaterialReporteDTO[];
   evidencia: {
     antes: Foto[];
     durante: Foto[];
@@ -160,9 +153,16 @@ export function ReporteDetalle({ backHref, backLabel }: ReporteDetalleProps) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`/api/reportes/${id}`)
-      .then((r) => r.json())
-      .then(setData)
+    fetch(`/api/reportes/${id}`, { cache: "no-store" })
+      .then(async (r) => {
+        const json = await r.json();
+        if (!r.ok) {
+          setData({ error: json.error || "No se pudo cargar el reporte" } as ReporteData);
+          return;
+        }
+        setData(json);
+      })
+      .catch(() => setData({ error: "Sin conexión al cargar el reporte" } as ReporteData))
       .finally(() => setLoading(false));
   }, [id]);
 
@@ -186,8 +186,9 @@ export function ReporteDetalle({ backHref, backLabel }: ReporteDetalleProps) {
     );
   }
 
-  const { ticket, duracionSegundos, evidencia, checklist, clausulasInstalacion } = data;
+  const { ticket, duracionSegundos, evidencia, checklist, clausulasInstalacion, materiales: materialesApi } = data;
   const orden = ticket.orden;
+  const materiales = materialesApi ?? orden?.materiales ?? [];
   const esInstalacion = esTicketInstalacion(ticket.tipo);
   const esInfra = esTicketInfraestructura(ticket.tipo);
   const clausulas =
@@ -378,12 +379,7 @@ export function ReporteDetalle({ backHref, backLabel }: ReporteDetalleProps) {
           </ReporteSection>
         )}
 
-        {(esInstalacion || ticket.tipo === "SOPORTE" || esInfra) && (
-          <MaterialesReporte
-            materiales={orden?.materiales ?? []}
-            tipoTicket={ticket.tipo}
-          />
-        )}
+        <MaterialesReporte materiales={materiales} tipoTicket={ticket.tipo} />
 
         {esInstalacion && clausulas.length > 0 && (
           <ReporteSection
