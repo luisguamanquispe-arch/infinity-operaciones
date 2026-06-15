@@ -22,6 +22,7 @@ import { PhotoGallery } from "./PhotoGallery";
 import { FirmaReporte } from "./FirmaReporte";
 import { MaterialesReporte } from "./MaterialesReporte";
 import { ReporteSection } from "./ReporteSection";
+import { ReporteQr } from "./ReporteQr";
 import {
   TIPO_LABELS,
   ESTADO_LABELS,
@@ -239,8 +240,8 @@ export function ReporteDetalle({ backHref, backLabel }: ReporteDetalleProps) {
         <div className="bg-white rounded-xl border shadow-sm overflow-hidden print:shadow-none print:border-0">
           <div className="h-1.5 bg-gradient-to-r from-infinity-600 via-infinity-500 to-emerald-500" />
           <div className="p-5 sm:p-6">
-            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-              <div>
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-5">
+              <div className="flex-1 min-w-0">
                 <p className="text-xs font-semibold text-infinity-600 uppercase tracking-widest">
                   Infinity Internet
                 </p>
@@ -264,17 +265,21 @@ export function ReporteDetalle({ backHref, backLabel }: ReporteDetalleProps) {
                   )}
                 </div>
               </div>
-              <div className="sm:text-right shrink-0">
-                <span className="inline-flex items-center rounded-lg bg-emerald-50 border border-emerald-200 px-3 py-1.5 text-sm font-semibold text-emerald-800">
-                  {ESTADO_LABELS[ticket.estado]}
-                </span>
-                <p className="text-xs text-slate-500 mt-2">
-                  Cerrado: {formatDateTime(orden?.finalizadoEn || ticket.updatedAt)}
-                </p>
-                <p className="text-sm font-medium text-slate-700 mt-1 flex sm:justify-end items-center gap-1.5">
-                  <Clock className="w-4 h-4 text-infinity-500" />
-                  {formatDuration(duracionSegundos)}
-                </p>
+
+              <div className="flex flex-row sm:flex-col items-center sm:items-end gap-4 sm:gap-3 shrink-0">
+                <ReporteQr ticketId={ticket.id} codigo={ticket.codigo} tipo={ticket.tipo} />
+                <div className="sm:text-right flex-1 sm:flex-none">
+                  <span className="inline-flex items-center rounded-lg bg-emerald-50 border border-emerald-200 px-3 py-1.5 text-sm font-semibold text-emerald-800">
+                    {ESTADO_LABELS[ticket.estado]}
+                  </span>
+                  <p className="text-xs text-slate-500 mt-2">
+                    Cerrado: {formatDateTime(orden?.finalizadoEn || ticket.updatedAt)}
+                  </p>
+                  <p className="text-sm font-medium text-slate-700 mt-1 flex sm:justify-end items-center gap-1.5">
+                    <Clock className="w-4 h-4 text-infinity-500" />
+                    {formatDuration(duracionSegundos)}
+                  </p>
+                </div>
               </div>
             </div>
           </div>
