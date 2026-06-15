@@ -18,6 +18,8 @@ interface TicketListProps {
   tickets: Ticket[];
   filtro: string;
   onFiltroChange: (f: string) => void;
+  /** Panel técnico: solo lista pendientes, sin chips de filtro */
+  soloPendientes?: boolean;
 }
 
 const FILTROS = [
@@ -45,27 +47,29 @@ const prioridadColor: Record<string, string> = {
   BAJA: "text-slate-500",
 };
 
-export function TicketList({ tickets, filtro, onFiltroChange }: TicketListProps) {
+export function TicketList({ tickets, filtro, onFiltroChange, soloPendientes }: TicketListProps) {
   const router = useRouter();
 
   return (
     <div className="space-y-4">
-      <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
-        {FILTROS.map((f) => (
-          <button
-            key={f.id}
-            onClick={() => onFiltroChange(f.id)}
-            className={cn(
-              "px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition",
-              filtro === f.id
-                ? "bg-infinity-600 text-white"
-                : "bg-white border text-slate-600 hover:bg-slate-50"
-            )}
-          >
-            {f.label}
-          </button>
-        ))}
-      </div>
+      {!soloPendientes && (
+        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+          {FILTROS.map((f) => (
+            <button
+              key={f.id}
+              onClick={() => onFiltroChange(f.id)}
+              className={cn(
+                "px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition",
+                filtro === f.id
+                  ? "bg-infinity-600 text-white"
+                  : "bg-white border text-slate-600 hover:bg-slate-50"
+              )}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="bg-white rounded-xl border overflow-hidden">
         <div className="overflow-x-auto">
@@ -84,7 +88,9 @@ export function TicketList({ tickets, filtro, onFiltroChange }: TicketListProps)
               {tickets.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="p-6 text-center text-slate-400">
-                    No hay órdenes con este filtro
+                    {soloPendientes
+                      ? "No tiene órdenes pendientes asignadas"
+                      : "No hay órdenes con este filtro"}
                   </td>
                 </tr>
               ) : (

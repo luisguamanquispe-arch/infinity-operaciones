@@ -50,7 +50,13 @@ interface AgendaTicket {
   estado: string;
   programadoEn: string;
   motivo?: string | null;
-  cliente: { nombre: string; sector: string; direccion: string };
+  cliente: {
+    nombre: string;
+    sector: string;
+    direccion: string;
+    lat?: number | null;
+    lng?: number | null;
+  };
 }
 
 export default function TecnicoDashboard() {
@@ -58,7 +64,7 @@ export default function TecnicoDashboard() {
   const [tickets, setTickets] = useState<Parameters<typeof TicketList>[0]["tickets"]>([]);
   const [agenda, setAgenda] = useState<AgendaTicket[]>([]);
   const [proximaOrden, setProximaOrden] = useState<AgendaTicket | null>(null);
-  const [filtro, setFiltro] = useState("todos");
+  const [activosMapa, setActivosMapa] = useState<AgendaTicket[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [showMap, setShowMap] = useState(false);
@@ -67,7 +73,7 @@ export default function TecnicoDashboard() {
     setError("");
     try {
       const res = await fetchWithRetry(
-        `/api/tecnico/dashboard?filtro=${filtro}`,
+        `/api/tecnico/dashboard?filtro=pendientes`,
         { method: "GET", cache: "no-store" },
         3
       );
@@ -84,12 +90,13 @@ export default function TecnicoDashboard() {
       setTickets(data.tickets);
       setAgenda(data.agenda ?? []);
       setProximaOrden(data.proximaOrden ?? null);
+      setActivosMapa(data.activosMapa ?? []);
     } catch {
       setError("Sin conexión. Verifique internet e intente de nuevo.");
     } finally {
       setLoading(false);
     }
-  }, [filtro]);
+  }, []);
 
   useEffect(() => {
     setLoading(true);
@@ -195,21 +202,25 @@ export default function TecnicoDashboard() {
             <h2 className="font-semibold mb-3">Mapa de trabajos</h2>
             <WorkMap
               tecnicoLocation={resumen?.ubicacion}
-              clientes={tickets
-                .filter((t) => t.estado !== "CERRADO")
-                .map((t) => ({
-                  lat: (t.cliente as { lat?: number | null }).lat ?? null,
-                  lng: (t.cliente as { lng?: number | null }).lng ?? null,
-                  nombre: t.cliente.nombre,
-                  codigo: t.codigo,
-                }))}
+              clientes={activosMapa.map((t) => ({
+                lat: t.cliente.lat ?? null,
+                lng: t.cliente.lng ?? null,
+                nombre: t.cliente.nombre,
+                codigo: t.codigo,
+              }))}
             />
           </section>
         )}
 
         <section>
-          <h2 className="font-semibold mb-3">Mis órdenes de trabajo</h2>
-          <TicketList tickets={tickets} filtro={filtro} onFiltroChange={setFiltro} />
+          <h2 className="font-semibold mb-1">Mis órdenes de trabajo</h2>
+          <p className="text-sm text-slate-500 mb-3">Solo órdenes pendientes asignadas a usted</p>
+          <TicketList
+            tickets={tickets}
+            filtro="pendientes"
+            onFiltroChange={() => {}}
+            soloPendientes
+          />
         </section>
       </main>
     </div>

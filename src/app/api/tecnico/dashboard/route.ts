@@ -160,6 +160,16 @@ export async function GET(request: Request) {
     },
   });
 
+  const serializeActivoMapa = (t: (typeof activos)[0]) => ({
+    id: t.id,
+    codigo: t.codigo,
+    tipo: t.tipo,
+    prioridad: t.prioridad,
+    estado: t.estado,
+    programadoEn: t.programadoEn?.toISOString() ?? null,
+    cliente: t.cliente,
+  });
+
   return NextResponse.json(
     {
       resumen: {
@@ -175,6 +185,7 @@ export async function GET(request: Request) {
       },
       proximaOrden: proxima ? serializeAgenda(proxima) : null,
       agenda: agendaRaw.map(serializeAgenda),
+      activosMapa: activos.map(serializeActivoMapa),
       tickets: tickets.map(serializeTicket),
     },
     {
