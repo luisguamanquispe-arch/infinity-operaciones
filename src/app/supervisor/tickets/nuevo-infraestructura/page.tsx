@@ -6,7 +6,7 @@ import Link from "next/link";
 import { ArrowLeft, CheckCircle, Loader2, Server } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
 import { TecnicoMultiSelect } from "@/components/TecnicoMultiSelect";
-import { enMayusculas, inputMayusculasClass } from "@/lib/mayusculas";
+import { inputMayusculasClass } from "@/lib/mayusculas";
 import { MOTIVO_INFRA_LABELS, MOTIVOS_INFRA, minTecnicosInfraestructura } from "@/lib/ticket-infraestructura";
 import type { MotivoInfraestructura } from "@prisma/client";
 
@@ -139,7 +139,7 @@ export default function NuevoTicketInfraestructuraPage() {
                   placeholder="Ej: NODO CENTRO, OLT-03"
                   value={form.nodoAfectado}
                   onChange={(e) =>
-                    setForm({ ...form, nodoAfectado: enMayusculas(e.target.value) })
+                    setForm({ ...form, nodoAfectado: e.target.value })
                   }
                   className={`w-full px-3 py-2 border rounded-lg text-sm mt-0.5 ${inputMayusculasClass}`}
                 />
@@ -151,7 +151,7 @@ export default function NuevoTicketInfraestructuraPage() {
                   placeholder="Ej: NORTE, URB. LA FLORESTA"
                   value={form.zonaInfra}
                   onChange={(e) =>
-                    setForm({ ...form, zonaInfra: enMayusculas(e.target.value) })
+                    setForm({ ...form, zonaInfra: e.target.value })
                   }
                   className={`w-full px-3 py-2 border rounded-lg text-sm mt-0.5 ${inputMayusculasClass}`}
                 />
@@ -166,7 +166,7 @@ export default function NuevoTicketInfraestructuraPage() {
                 placeholder="Detalle: tramo afectado, equipos involucrados, acciones requeridas…"
                 value={form.descripcion}
                 onChange={(e) =>
-                  setForm({ ...form, descripcion: enMayusculas(e.target.value) })
+                  setForm({ ...form, descripcion: e.target.value })
                 }
                 className={`w-full px-3 py-2 border rounded-lg text-sm mt-0.5 resize-none ${inputMayusculasClass}`}
               />

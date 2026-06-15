@@ -12,7 +12,7 @@ import {
   normalizarCedula,
   validarCedulaEcuatoriana,
 } from "@/lib/cedula-ec";
-import { enMayusculas, inputMayusculasClass } from "@/lib/mayusculas";
+import { inputMayusculasClass } from "@/lib/mayusculas";
 
 interface Cliente {
   id: string;
@@ -247,7 +247,7 @@ export default function NuevoTicketPage() {
                       const val = e.target.value;
                       setCliente({
                         ...cliente,
-                        [key]: CAMPOS_MAYUS_CLIENTE.has(key) ? enMayusculas(val) : val,
+                        [key]: val,
                       });
                     }}
                     className={`w-full px-3 py-2 border rounded-lg text-sm mt-0.5 ${
@@ -269,7 +269,7 @@ export default function NuevoTicketPage() {
                 placeholder="Ej: Frente al parque central, casa azul de dos pisos, portón negro..."
                 value={cliente.referencia}
                 onChange={(e) =>
-                  setCliente({ ...cliente, referencia: enMayusculas(e.target.value) })
+                  setCliente({ ...cliente, referencia: e.target.value })
                 }
                 className={`w-full px-3 py-2 border rounded-lg text-sm mt-0.5 resize-none ${inputMayusculasClass}`}
               />
@@ -321,7 +321,7 @@ export default function NuevoTicketPage() {
                 required
                 placeholder="Ej: Sin servicio, luz roja en ONU"
                 value={ticket.motivo}
-                onChange={(e) => setTicket({ ...ticket, motivo: enMayusculas(e.target.value) })}
+                onChange={(e) => setTicket({ ...ticket, motivo: e.target.value })}
                 className={`w-full px-3 py-2 border rounded-lg text-sm mt-0.5 ${inputMayusculasClass}`}
               />
             </div>
@@ -333,7 +333,7 @@ export default function NuevoTicketPage() {
                 placeholder="Detalle reportado por el cliente..."
                 value={ticket.descripcion}
                 onChange={(e) =>
-                  setTicket({ ...ticket, descripcion: enMayusculas(e.target.value) })
+                  setTicket({ ...ticket, descripcion: e.target.value })
                 }
                 className={`w-full px-3 py-2 border rounded-lg text-sm mt-0.5 resize-none ${inputMayusculasClass}`}
               />

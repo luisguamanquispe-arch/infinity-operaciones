@@ -8,7 +8,7 @@ import {
   normalizarCedula,
   validarCedulaEcuatoriana,
 } from "@/lib/cedula-ec";
-import { enMayusculas, inputMayusculasClass } from "@/lib/mayusculas";
+import { inputMayusculasClass } from "@/lib/mayusculas";
 
 interface SignatureCaptureProps {
   ticketId: string;
@@ -129,7 +129,7 @@ export function SignatureCapture({
       <div className="grid grid-cols-2 gap-3">
         <input
           value={nombre}
-          onChange={(e) => setNombre(enMayusculas(e.target.value))}
+          onChange={(e) => setNombre(e.target.value)}
           placeholder="Nombre cliente"
           className={`px-3 py-2 border rounded-lg text-sm ${inputMayusculasClass}`}
         />

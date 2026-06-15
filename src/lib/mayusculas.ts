@@ -64,5 +64,5 @@ export function normalizarTextoTicket(input: {
   };
 }
 
-/** Clase Tailwind para inputs con ingreso en mayúsculas. */
+/** Clase Tailwind: mayúsculas visuales al escribir (no transformar el valor en onChange). */
 export const inputMayusculasClass = "uppercase";
