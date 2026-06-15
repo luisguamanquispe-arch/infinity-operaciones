@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Loader2, Search, Trash2, AlertTriangle } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
+import { GerenciaQuickNav } from "@/components/DeployVersionBanner";
 import {
   ESTADO_LABELS,
   PRIORIDAD_LABELS,
@@ -96,6 +97,8 @@ export default function GerenciaSoportesPage() {
       <AppHeader title="Soportes" subtitle="Eliminar tickets de soporte" />
 
       <main className="max-w-6xl mx-auto p-4 space-y-4">
+        <GerenciaQuickNav />
+
         <Link
           href="/gerencia"
           className="inline-flex items-center gap-1 text-sm text-infinity-600 hover:underline"

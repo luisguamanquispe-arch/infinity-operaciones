@@ -59,6 +59,47 @@ export function DeployVersionBanner() {
   );
 }
 
+/** Accesos rápidos del panel gerencial (admin). */
+export function GerenciaQuickNav({ totalTecnicos }: { totalTecnicos?: number }) {
+  return (
+    <nav
+      aria-label="Menú gerencial"
+      className="flex flex-wrap gap-2"
+    >
+      <Link
+        href="/gerencia/tecnicos/nuevo"
+        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-infinity-600 hover:bg-infinity-700 text-white text-sm font-medium"
+      >
+        + Nuevo técnico
+      </Link>
+      <Link
+        href="/gerencia/tecnicos"
+        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-infinity-600 text-infinity-700 text-sm font-medium hover:bg-infinity-50"
+      >
+        Técnicos{totalTecnicos != null ? ` (${totalTecnicos})` : ""}
+      </Link>
+      <Link
+        href="/gerencia/soportes"
+        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border-2 border-red-400 bg-red-50 text-red-800 text-sm font-semibold hover:bg-red-100"
+      >
+        Eliminar soportes
+      </Link>
+      <Link
+        href="/gerencia/usuarios"
+        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-purple-600 text-purple-700 text-sm font-medium hover:bg-purple-50"
+      >
+        Usuarios y claves
+      </Link>
+      <Link
+        href="/reportes"
+        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-emerald-600 text-emerald-700 text-sm font-medium hover:bg-emerald-50"
+      >
+        Reportes
+      </Link>
+    </nav>
+  );
+}
+
 /** Accesos rápidos del supervisor (infraestructura, calendario, reportes). */
 export function SupervisorQuickNav() {
   return (
