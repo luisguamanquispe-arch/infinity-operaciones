@@ -7,6 +7,11 @@ import { ArrowLeft, Loader2, Phone, MapPin, CalendarClock } from "lucide-react";
 import { Cronometro } from "@/components/Cronometro";
 import { PhotoCapture } from "@/components/PhotoCapture";
 import { SignatureCapture } from "@/components/SignatureCapture";
+import {
+  InstalacionOrdenSection,
+  instalacionFormVacio,
+  type InstalacionFormState,
+} from "@/components/tecnico/InstalacionOrdenSection";
 import { TIPO_LABELS, ESTADO_LABELS, formatDateTime, formatDuration } from "@/lib/utils";
 import { fetchWithRetry } from "@/lib/compress-image";
 import {
@@ -161,14 +166,7 @@ export default function OrdenPage() {
   const [materialError, setMaterialError] = useState("");
   const [instalacionError, setInstalacionError] = useState("");
 
-  const [instalacion, setInstalacion] = useState({
-    tipoConexion: "" as TipoConexionInstalacion | "",
-    direccionIp: "",
-    pppoeUsuario: "",
-    pppoeClave: "",
-    nombreRedWifi: "",
-    claveRedWifi: "",
-  });
+  const [instalacion, setInstalacion] = useState<InstalacionFormState>(instalacionFormVacio());
 
   const [checklist, setChecklist] = useState({
     servicioOk: false,
@@ -424,6 +422,11 @@ export default function OrdenPage() {
             <h1 className="font-bold">{ticket.codigo}</h1>
             <p className="text-infinity-200 text-sm">
               {TIPO_LABELS[ticket.tipo]} — {ESTADO_LABELS[ticket.estado]}
+              {esInstalacion && (
+                <span className="ml-2 inline-block px-2 py-0.5 rounded bg-sky-500/30 text-sky-100 text-xs font-semibold">
+                  Nueva instalación
+                </span>
+              )}
             </p>
           </div>
         </div>
@@ -538,6 +541,25 @@ export default function OrdenPage() {
               readOnly={!puedeEditar}
             />
 
+            {esInstalacion && puedeEditar && (
+              <InstalacionOrdenSection
+                instalacion={instalacion}
+                onChange={setInstalacion}
+                onSave={guardarInstalacion}
+                error={instalacionError || undefined}
+              />
+            )}
+
+            {esInstalacion && !puedeEditar && (
+              <InstalacionOrdenSection
+                instalacion={instalacion}
+                onChange={setInstalacion}
+                onSave={() => {}}
+                readOnly
+                showClausulas={false}
+              />
+            )}
+
             {puedeEditar ? (
               <>
             {/* Fotos antes */}
@@ -597,116 +619,6 @@ export default function OrdenPage() {
                 className="w-full py-2 bg-infinity-600 text-white rounded-lg text-sm font-medium"
               >
                 Guardar medición
-              </button>
-            </section>
-            )}
-
-            {esInstalacion && (
-            <section className="bg-white rounded-xl border border-sky-200 p-4 space-y-3">
-              <h3 className="font-semibold text-sky-900">Datos de instalación entregados al cliente</h3>
-              <p className="text-xs text-slate-500">
-                Registre la conexión (IP o PPPoE) y la red WiFi configurada para el cliente.
-              </p>
-
-              <div>
-                <label className="text-xs text-slate-500">Tipo de conexión *</label>
-                <select
-                  value={instalacion.tipoConexion}
-                  onChange={(e) =>
-                    setInstalacion({
-                      ...instalacion,
-                      tipoConexion: e.target.value as TipoConexionInstalacion | "",
-                      direccionIp: "",
-                      pppoeUsuario: "",
-                      pppoeClave: "",
-                    })
-                  }
-                  className="w-full px-3 py-2 border rounded-lg text-sm mt-0.5"
-                >
-                  <option value="">Seleccionar…</option>
-                  <option value="IP">Dirección IP</option>
-                  <option value="PPPOE">PPPoE (usuario y clave)</option>
-                </select>
-              </div>
-
-              {instalacion.tipoConexion === "IP" && (
-                <div>
-                  <label className="text-xs text-slate-500">Dirección IP *</label>
-                  <input
-                    type="text"
-                    value={instalacion.direccionIp}
-                    onChange={(e) =>
-                      setInstalacion({ ...instalacion, direccionIp: e.target.value })
-                    }
-                    placeholder="Ej: 192.168.1.100"
-                    className="w-full px-3 py-2 border rounded-lg text-sm mt-0.5 font-mono"
-                  />
-                </div>
-              )}
-
-              {instalacion.tipoConexion === "PPPOE" && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-xs text-slate-500">Usuario PPPoE *</label>
-                    <input
-                      type="text"
-                      value={instalacion.pppoeUsuario}
-                      onChange={(e) =>
-                        setInstalacion({ ...instalacion, pppoeUsuario: e.target.value })
-                      }
-                      className="w-full px-3 py-2 border rounded-lg text-sm mt-0.5"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs text-slate-500">Clave PPPoE *</label>
-                    <input
-                      type="text"
-                      value={instalacion.pppoeClave}
-                      onChange={(e) =>
-                        setInstalacion({ ...instalacion, pppoeClave: e.target.value })
-                      }
-                      className="w-full px-3 py-2 border rounded-lg text-sm mt-0.5 font-mono"
-                    />
-                  </div>
-                </div>
-              )}
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs text-slate-500">Nombre de red WiFi *</label>
-                  <input
-                    type="text"
-                    value={instalacion.nombreRedWifi}
-                    onChange={(e) =>
-                      setInstalacion({ ...instalacion, nombreRedWifi: e.target.value })
-                    }
-                    placeholder="SSID entregado al cliente"
-                    className="w-full px-3 py-2 border rounded-lg text-sm mt-0.5"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs text-slate-500">Clave WiFi *</label>
-                  <input
-                    type="text"
-                    value={instalacion.claveRedWifi}
-                    onChange={(e) =>
-                      setInstalacion({ ...instalacion, claveRedWifi: e.target.value })
-                    }
-                    className="w-full px-3 py-2 border rounded-lg text-sm mt-0.5 font-mono"
-                  />
-                </div>
-              </div>
-
-              {instalacionError && (
-                <div className="bg-red-50 text-red-700 text-sm p-3 rounded-lg">{instalacionError}</div>
-              )}
-
-              <button
-                type="button"
-                onClick={guardarInstalacion}
-                className="w-full py-2 bg-sky-600 text-white rounded-lg text-sm font-medium"
-              >
-                Guardar datos de instalación
               </button>
             </section>
             )}
@@ -934,20 +846,6 @@ export default function OrdenPage() {
                   </section>
                 )}
 
-                {esInstalacion && orden.tipoConexionInstalacion && (
-                  <section className="bg-white rounded-xl border p-4 space-y-2">
-                    <h3 className="font-semibold">Datos de instalación</h3>
-                    <p className="text-sm">
-                      Conexión:{" "}
-                      {orden.tipoConexionInstalacion === "IP"
-                        ? `IP ${orden.direccionIp}`
-                        : `PPPoE ${orden.pppoeUsuario}`}
-                    </p>
-                    <p className="text-sm">Red WiFi: {orden.nombreRedWifi}</p>
-                    <p className="text-sm font-mono">Clave WiFi: {orden.claveRedWifi}</p>
-                  </section>
-                )}
-
                 {orden.materiales.length > 0 && (
                   <section className="bg-white rounded-xl border p-4 space-y-2">
                     <h3 className="font-semibold">Material utilizado</h3>
@@ -973,14 +871,25 @@ export default function OrdenPage() {
         )}
 
         {cerrado && (
-          <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 p-4 rounded-xl text-center font-medium space-y-2">
-            <p>✅ Ticket cerrado exitosamente</p>
-            {data.duracionSegundos > 0 && (
-              <p className="text-sm font-normal">
-                Tiempo registrado: {formatDuration(data.duracionSegundos)}
-              </p>
+          <>
+            <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 p-4 rounded-xl text-center font-medium space-y-2">
+              <p>✅ Ticket cerrado exitosamente</p>
+              {data.duracionSegundos > 0 && (
+                <p className="text-sm font-normal">
+                  Tiempo registrado: {formatDuration(data.duracionSegundos)}
+                </p>
+              )}
+            </div>
+            {esInstalacion && instalacion.tipoConexion && (
+              <InstalacionOrdenSection
+                instalacion={instalacion}
+                onChange={setInstalacion}
+                onSave={() => {}}
+                readOnly
+                showClausulas
+              />
             )}
-          </div>
+          </>
         )}
       </main>
     </div>

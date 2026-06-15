@@ -76,15 +76,34 @@ export function validarDatosInstalacion(
 }
 
 export function normalizarDatosInstalacion(datos: DatosInstalacionInput) {
-  const tipo = datos.tipoConexion as TipoConexionInstalacion;
+  const tipo = datos.tipoConexion as TipoConexionInstalacion | undefined;
   return {
-    tipoConexionInstalacion: tipo,
-    direccionIp: tipo === "IP" ? datos.direccionIp?.trim() || null : null,
-    pppoeUsuario: tipo === "PPPOE" ? datos.pppoeUsuario?.trim() || null : null,
-    pppoeClave: tipo === "PPPOE" ? datos.pppoeClave?.trim() || null : null,
-    nombreRedWifi: datos.nombreRedWifi?.trim() || null,
-    claveRedWifi: datos.claveRedWifi?.trim() || null,
+    ...(tipo ? { tipoConexionInstalacion: tipo } : {}),
+    ...(tipo === "IP"
+      ? {
+          direccionIp: datos.direccionIp?.trim() || null,
+          pppoeUsuario: null,
+          pppoeClave: null,
+        }
+      : tipo === "PPPOE"
+        ? {
+            direccionIp: null,
+            pppoeUsuario: datos.pppoeUsuario?.trim() || null,
+            pppoeClave: datos.pppoeClave?.trim() || null,
+          }
+        : {}),
+    ...(datos.nombreRedWifi !== undefined
+      ? { nombreRedWifi: datos.nombreRedWifi?.trim() || null }
+      : {}),
+    ...(datos.claveRedWifi !== undefined
+      ? { claveRedWifi: datos.claveRedWifi?.trim() || null }
+      : {}),
   };
+}
+
+/** Guardado parcial desde la app (validación completa solo al cerrar). */
+export function datosInstalacionParaGuardar(datos: DatosInstalacionInput) {
+  return normalizarDatosInstalacion(datos);
 }
 
 export function gruposFotosPorTipo(tipo: string): {

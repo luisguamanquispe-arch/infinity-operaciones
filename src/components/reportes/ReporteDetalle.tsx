@@ -24,7 +24,7 @@ import {
 } from "@/lib/utils";
 import { TIPO_PATCHCORD_LABELS } from "@/lib/material-detalle";
 import { MOTIVO_INFRA_LABELS, esTicketInfraestructura } from "@/lib/ticket-infraestructura";
-import { esTicketInstalacion } from "@/lib/ticket-instalacion";
+import { esTicketInstalacion, CLAUSULAS_POLITICA_INSTALACION } from "@/lib/ticket-instalacion";
 import { FIBRA_DROP_LIMITE_M } from "@/lib/fibra-excedente";
 import type { MotivoInfraestructura, TipoPatchCord } from "@prisma/client";
 
@@ -162,6 +162,12 @@ export function ReporteDetalle({ backHref, backLabel }: ReporteDetalleProps) {
   const { ticket, duracionSegundos, evidencia, checklist, clausulasInstalacion } = data;
   const orden = ticket.orden;
   const esInstalacion = esTicketInstalacion(ticket.tipo);
+  const clausulas =
+    clausulasInstalacion && clausulasInstalacion.length > 0
+      ? clausulasInstalacion
+      : esInstalacion
+        ? [...CLAUSULAS_POLITICA_INSTALACION]
+        : [];
 
   return (
     <div className="min-h-dvh bg-slate-50 print:bg-white">
@@ -330,11 +336,11 @@ export function ReporteDetalle({ backHref, backLabel }: ReporteDetalleProps) {
           </div>
         )}
 
-        {esInstalacion && clausulasInstalacion && clausulasInstalacion.length > 0 && (
+        {esInstalacion && clausulas.length > 0 && (
           <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 print:border print:bg-white">
             <h3 className="font-semibold text-amber-900 mb-3">Políticas del servicio — Instalación</h3>
             <ul className="space-y-2 text-sm text-amber-950">
-              {clausulasInstalacion.map((clausula) => (
+              {clausulas.map((clausula) => (
                 <li key={clausula} className="flex gap-2">
                   <span className="text-amber-600 shrink-0">•</span>
                   <span>{clausula}</span>

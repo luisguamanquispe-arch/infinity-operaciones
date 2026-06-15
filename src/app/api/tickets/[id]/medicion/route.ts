@@ -15,6 +15,7 @@ import { calcularExcedenteMaterial } from "@/lib/fibra-excedente";
 import { esTicketInfraestructura } from "@/lib/ticket-infraestructura";
 import {
   normalizarDatosInstalacion,
+  datosInstalacionParaGuardar,
   validarDatosInstalacion,
   type DatosInstalacionInput,
 } from "@/lib/ticket-instalacion";
@@ -216,14 +217,10 @@ export async function PUT(
       }
 
       const datos = body.instalacion as DatosInstalacionInput;
-      const errInst = validarDatosInstalacion(datos);
-      if (errInst.length) {
-        return NextResponse.json({ error: errInst.join(". ") }, { status: 400 });
-      }
 
       await prisma.ordenServicio.update({
         where: { id: orden.id },
-        data: normalizarDatosInstalacion(datos),
+        data: datosInstalacionParaGuardar(datos),
       });
       return NextResponse.json({ ok: true });
     }
