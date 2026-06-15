@@ -125,23 +125,6 @@ export function LoginForm({ esAppTecnico }: LoginFormProps) {
           >
             {loading ? "Ingresando..." : "Iniciar sesión"}
           </button>
-
-          {!esAppTecnico && (
-            <div className="text-xs text-slate-500 pt-2 border-t space-y-1">
-              <p>
-                <strong>Supervisor:</strong> supervisor@infinity.ec / super123
-              </p>
-              <p>
-                <strong>Gerencia:</strong> admin@infinity.ec / admin123
-              </p>
-            </div>
-          )}
-
-          {esAppTecnico && (
-            <p className="text-xs text-slate-500 text-center pt-2">
-              Use las credenciales de técnico asignadas por gerencia.
-            </p>
-          )}
         </form>
       </div>
     </div>
