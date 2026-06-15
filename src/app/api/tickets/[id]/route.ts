@@ -15,8 +15,7 @@ import {
 import { fotoImagenSrcRapida } from "@/lib/foto-image";
 import { firmaImagenSrcRapida } from "@/lib/firma-image";
 import { normalizarTextoTicket } from "@/lib/mayusculas";
-import { iniciarCronometroTicket } from "@/lib/cronometro";
-import { asegurarReportadorOrden, infoReporteOrden } from "@/lib/ticket-reporte";
+import { infoReporteOrden } from "@/lib/ticket-reporte";
 
 export async function GET(
   _request: Request,
@@ -98,31 +97,9 @@ export async function GET(
     ticketData = ticketActualizado;
   }
 
-  if (
-    session.rol === "TECNICO" &&
-    session.tecnicoId &&
-    !["CERRADO", "FINALIZADO", "CANCELADO"].includes(ticketData.estado)
-  ) {
-    const reportePrevio = await infoReporteOrden(ticketData.id, session.tecnicoId);
-    if (reportePrevio.puedeEditar) {
-      const permiso = await asegurarReportadorOrden(ticketData.id, session.tecnicoId);
-      if (permiso.ok) {
-        try {
-          await iniciarCronometroTicket({
-            ticketId: ticketData.id,
-            tecnicoId: session.tecnicoId,
-            usuarioId: session.id,
-          });
-        } catch (err) {
-          console.error("[GET ticket] cronometro auto-inicio:", err);
-        }
-      }
-    }
-  }
-
   const orden = ticketData.orden || (await getOrCreateOrden(ticketData.id));
 
-  // Recargar orden tras posible auto-inicio del cronómetro
+  // Orden completa (GET idempotente; el cronómetro se inicia vía POST /abrir).
   const ordenActual = await prisma.ordenServicio.findUnique({
     where: { ticketId: ticketData.id },
     include: {

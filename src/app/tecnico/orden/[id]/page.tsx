@@ -151,7 +151,10 @@ export default function OrdenPage() {
   const router = useRouter();
   const [data, setData] = useState<OrdenData | null>(null);
   const [loading, setLoading] = useState(true);
-  const cargaInicialHecha = useRef(false);
+  const [initialLoaded, setInitialLoaded] = useState(false);
+  const initialLoadedRef = useRef(false);
+  const abrirHecho = useRef(false);
+  const cargandoRef = useRef(false);
   const [cerrando, setCerrando] = useState(false);
   const [error, setError] = useState("");
 
@@ -177,10 +180,54 @@ export default function OrdenPage() {
     firmaOk: false,
   });
 
-  const cargar = useCallback(async (opts?: { silent?: boolean }) => {
-    const silent = opts?.silent ?? cargaInicialHecha.current;
+  const aplicarDatosFormulario = useCallback((d: OrdenData) => {
+    if (d.orden.medicion) {
+      setMedicion({
+        rxDbm: String(d.orden.medicion.rxDbm),
+        txDbm: String(d.orden.medicion.txDbm),
+        pingMs: String(d.orden.medicion.pingMs ?? ""),
+        downloadMbps: String(d.orden.medicion.downloadMbps),
+        uploadMbps: String(d.orden.medicion.uploadMbps),
+      });
+    }
+    setChecklist({
+      servicioOk: d.orden.servicioOk ?? false,
+      potenciaOk: d.orden.potenciaOk ?? false,
+      fotosOk: d.orden.fotosOk ?? false,
+      clienteConforme: d.orden.clienteConforme ?? false,
+      firmaOk: d.orden.firmaOk ?? false,
+    });
+    if (d.orden.materiales?.length) {
+      setMateriales(
+        d.orden.materiales.map(
+          (m: OrdenData["orden"]["materiales"][number]): MaterialForm => ({
+            inventarioId: m.inventarioId,
+            cantidad: String(m.cantidad),
+            serie: m.serie ?? "",
+            modelo: m.modelo ?? "",
+            marca: m.marca ?? "",
+            tipoPatchCord: m.tipoPatchCord ?? "",
+          })
+        )
+      );
+    }
+    setInstalacion({
+      tipoConexion: d.orden.tipoConexionInstalacion ?? "",
+      direccionIp: d.orden.direccionIp ?? "",
+      pppoeUsuario: d.orden.pppoeUsuario ?? "",
+      pppoeClave: d.orden.pppoeClave ?? "",
+      nombreRedWifi: d.orden.nombreRedWifi ?? "",
+      claveRedWifi: d.orden.claveRedWifi ?? "",
+    });
+  }, []);
+
+  const cargar = useCallback(async (opts?: { silent?: boolean }): Promise<boolean> => {
+    const silent = opts?.silent ?? initialLoadedRef.current;
+    if (cargandoRef.current && silent) return initialLoadedRef.current;
+    cargandoRef.current = true;
+
     if (!silent) setLoading(true);
-    setError("");
+    if (!silent) setError("");
     try {
       const res = await fetchWithRetry(
         `/api/tickets/${id}`,
@@ -189,76 +236,94 @@ export default function OrdenPage() {
       );
       const d = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setData(null);
-        setError(
-          res.status === 403
-            ? "No tiene acceso a esta orden. Verifique que el ticket esté asignado a usted."
-            : res.status === 503
-              ? "El servidor está iniciando. Espere unos segundos e intente de nuevo."
-              : d.error || "No se pudo cargar la orden"
-        );
-        return;
+        if (!silent) {
+          setData(null);
+          setError(
+            res.status === 403
+              ? "No tiene acceso a esta orden. Verifique que el ticket esté asignado a usted."
+              : res.status === 503
+                ? "El servidor está iniciando. Espere unos segundos e intente de nuevo."
+                : d.error || "No se pudo cargar la orden"
+          );
+        }
+        return false;
       }
       if (!d.ticket || !d.orden) {
-        setData(null);
-        setError("Respuesta inválida del servidor");
-        return;
+        if (!silent) {
+          setData(null);
+          setError("Respuesta inválida del servidor");
+        }
+        return false;
       }
       setData(d);
       if (!silent) {
-        if (d.orden.medicion) {
-          setMedicion({
-            rxDbm: String(d.orden.medicion.rxDbm),
-            txDbm: String(d.orden.medicion.txDbm),
-            pingMs: String(d.orden.medicion.pingMs ?? ""),
-            downloadMbps: String(d.orden.medicion.downloadMbps),
-            uploadMbps: String(d.orden.medicion.uploadMbps),
-          });
-        }
-        setChecklist({
-          servicioOk: d.orden.servicioOk ?? false,
-          potenciaOk: d.orden.potenciaOk ?? false,
-          fotosOk: d.orden.fotosOk ?? false,
-          clienteConforme: d.orden.clienteConforme ?? false,
-          firmaOk: d.orden.firmaOk ?? false,
-        });
-        if (d.orden.materiales?.length) {
-          setMateriales(
-            d.orden.materiales.map(
-              (m: OrdenData["orden"]["materiales"][number]): MaterialForm => ({
-                inventarioId: m.inventarioId,
-                cantidad: String(m.cantidad),
-                serie: m.serie ?? "",
-                modelo: m.modelo ?? "",
-                marca: m.marca ?? "",
-                tipoPatchCord: m.tipoPatchCord ?? "",
-              })
-            )
-          );
-        }
-        setInstalacion({
-          tipoConexion: d.orden.tipoConexionInstalacion ?? "",
-          direccionIp: d.orden.direccionIp ?? "",
-          pppoeUsuario: d.orden.pppoeUsuario ?? "",
-          pppoeClave: d.orden.pppoeClave ?? "",
-          nombreRedWifi: d.orden.nombreRedWifi ?? "",
-          claveRedWifi: d.orden.claveRedWifi ?? "",
-        });
+        aplicarDatosFormulario(d);
       }
+      if (!initialLoadedRef.current) {
+        initialLoadedRef.current = true;
+        setInitialLoaded(true);
+      }
+      return true;
     } catch {
-      setData(null);
-      setError("Sin conexión. Verifique internet e intente de nuevo.");
+      if (!silent) {
+        setData(null);
+        setError("Sin conexión. Verifique internet e intente de nuevo.");
+      }
+      return false;
     } finally {
-      cargaInicialHecha.current = true;
-      setLoading(false);
+      cargandoRef.current = false;
+      if (!silent) setLoading(false);
     }
-  }, [id]);
+  }, [id, aplicarDatosFormulario]);
 
-  const refrescar = useCallback(() => cargar({ silent: true }), [cargar]);
+  const refrescar = useCallback(() => {
+    void cargar({ silent: true });
+  }, [cargar]);
 
   useEffect(() => {
-    cargar();
-  }, [cargar]);
+    abrirHecho.current = false;
+    initialLoadedRef.current = false;
+    setInitialLoaded(false);
+    setData(null);
+    setLoading(true);
+    void cargar();
+  }, [id, cargar]);
+
+  useEffect(() => {
+    if (!initialLoaded || !data || abrirHecho.current) return;
+
+    const cerrado = ["CERRADO", "FINALIZADO", "CANCELADO"].includes(data.ticket.estado);
+    if (cerrado) return;
+
+    abrirHecho.current = true;
+
+    async function abrirOrden() {
+      const gps = await new Promise<{ lat: number; lng: number }>((resolve) => {
+        if (!navigator.geolocation) {
+          resolve({ lat: -1.2491, lng: -78.6168 });
+          return;
+        }
+        navigator.geolocation.getCurrentPosition(
+          (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+          () => resolve({ lat: -1.2491, lng: -78.6168 }),
+          { enableHighAccuracy: true, timeout: 5000 }
+        );
+      });
+
+      try {
+        await fetch(`/api/tickets/${id}/abrir`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(gps),
+        });
+      } catch {
+        // El técnico puede iniciar el cronómetro manualmente si falla.
+      }
+      await cargar({ silent: true });
+    }
+
+    void abrirOrden();
+  }, [initialLoaded, data?.ticket.estado, id, cargar]);
 
   async function guardarMedicion() {
     await fetch(`/api/tickets/${id}/medicion`, {
@@ -343,7 +408,7 @@ export default function OrdenPage() {
     router.push("/tecnico");
   }
 
-  if (loading) {
+  if (!initialLoaded && loading) {
     return (
       <div className="min-h-dvh flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-infinity-600" />
@@ -366,7 +431,7 @@ export default function OrdenPage() {
           <p className="text-center text-slate-700 max-w-sm">{error}</p>
           <button
             type="button"
-            onClick={() => cargar()}
+            onClick={() => void cargar()}
             className="px-4 py-2 bg-infinity-600 text-white rounded-lg font-medium"
           >
             Reintentar
@@ -380,11 +445,7 @@ export default function OrdenPage() {
   }
 
   if (!data) {
-    return (
-      <div className="min-h-dvh flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-infinity-600" />
-      </div>
-    );
+    return null;
   }
 
   const { ticket, orden, reporte } = data;

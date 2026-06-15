@@ -15,8 +15,6 @@ interface CronometroProps {
   duracionInicial: number;
   onUpdate?: () => void;
   readOnly?: boolean;
-  /** Si true, no dispara recarga al registrar GPS inicial (evita parpadeo). */
-  skipGpsAutoSync?: boolean;
 }
 
 function getGps(): Promise<{ lat: number; lng: number }> {
@@ -39,14 +37,15 @@ export function Cronometro({
   duracionInicial,
   onUpdate,
   readOnly = false,
-  skipGpsAutoSync = false,
 }: CronometroProps) {
   const [duracion, setDuracion] = useState(duracionInicial);
   const [loading, setLoading] = useState(false);
-  const gpsEnviadoRef = useRef(false);
 
+  // Sincronizar solo si hay desfase notable (evita parpadeo en refrescos silenciosos).
   useEffect(() => {
-    setDuracion(duracionInicial);
+    setDuracion((prev) =>
+      Math.abs(prev - duracionInicial) > 2 ? duracionInicial : prev
+    );
   }, [duracionInicial]);
 
   useEffect(() => {
@@ -74,28 +73,6 @@ export function Cronometro({
     [ticketId, onUpdate]
   );
 
-  // Registra GPS una sola vez sin recargar toda la pantalla (el cronómetro ya arrancó en el servidor).
-  useEffect(() => {
-    if (
-      readOnly ||
-      skipGpsAutoSync ||
-      !cronometro?.inicio ||
-      cronometro.fin ||
-      gpsEnviadoRef.current
-    ) {
-      return;
-    }
-    gpsEnviadoRef.current = true;
-    void (async () => {
-      const gps = await getGps();
-      await fetch(`/api/tickets/${ticketId}/cronometro`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ accion: "iniciar", ...gps }),
-      });
-    })();
-  }, [readOnly, skipGpsAutoSync, cronometro?.inicio, cronometro?.fin, ticketId]);
-
   const finalizado = !!cronometro?.fin;
   const activo = cronometro?.activo && !finalizado;
   const pausado = cronometro?.pausado;
@@ -109,7 +86,7 @@ export function Cronometro({
           {readOnly
             ? "Tiempo registrado por el técnico que reportó el ticket"
             : pendienteInicio
-              ? "Preparando registro de tiempo…"
+              ? "Iniciando registro de tiempo…"
               : finalizado
                 ? "Tiempo efectivo registrado para este soporte"
                 : "Contando desde que abrió el ticket"}
@@ -132,64 +109,64 @@ export function Cronometro({
           </p>
         ) : (
           <>
-        {pendienteInicio && (
-          <button
-            onClick={() => ejecutar("iniciar")}
-            disabled={loading}
-            className="flex-1 flex items-center justify-center gap-2 py-3 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-700 disabled:opacity-50"
-          >
-            <Play className="w-4 h-4" />
-            {loading ? "Iniciando…" : "Iniciar manualmente"}
-          </button>
-        )}
+            {pendienteInicio && (
+              <button
+                onClick={() => ejecutar("iniciar")}
+                disabled={loading}
+                className="flex-1 flex items-center justify-center gap-2 py-3 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-700 disabled:opacity-50"
+              >
+                <Play className="w-4 h-4" />
+                {loading ? "Iniciando…" : "Iniciar manualmente"}
+              </button>
+            )}
 
-        {activo && !pausado && (
-          <>
-            <button
-              onClick={() => ejecutar("pausar")}
-              disabled={loading}
-              className="flex-1 flex items-center justify-center gap-2 py-3 bg-amber-500 text-white rounded-xl font-medium hover:bg-amber-600 disabled:opacity-50"
-            >
-              <Pause className="w-4 h-4" />
-              Pausar
-            </button>
-            <button
-              onClick={() => ejecutar("finalizar")}
-              disabled={loading}
-              className="flex-1 flex items-center justify-center gap-2 py-3 bg-infinity-600 text-white rounded-xl font-medium hover:bg-infinity-700 disabled:opacity-50"
-            >
-              <Square className="w-4 h-4" />
-              Finalizar
-            </button>
-          </>
-        )}
+            {activo && !pausado && (
+              <>
+                <button
+                  onClick={() => ejecutar("pausar")}
+                  disabled={loading}
+                  className="flex-1 flex items-center justify-center gap-2 py-3 bg-amber-500 text-white rounded-xl font-medium hover:bg-amber-600 disabled:opacity-50"
+                >
+                  <Pause className="w-4 h-4" />
+                  Pausar
+                </button>
+                <button
+                  onClick={() => ejecutar("finalizar")}
+                  disabled={loading}
+                  className="flex-1 flex items-center justify-center gap-2 py-3 bg-infinity-600 text-white rounded-xl font-medium hover:bg-infinity-700 disabled:opacity-50"
+                >
+                  <Square className="w-4 h-4" />
+                  Finalizar
+                </button>
+              </>
+            )}
 
-        {activo && pausado && (
-          <>
-            <button
-              onClick={() => ejecutar("reanudar")}
-              disabled={loading}
-              className="flex-1 flex items-center justify-center gap-2 py-3 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-700 disabled:opacity-50"
-            >
-              <Play className="w-4 h-4" />
-              Reanudar
-            </button>
-            <button
-              onClick={() => ejecutar("finalizar")}
-              disabled={loading}
-              className="flex-1 flex items-center justify-center gap-2 py-3 bg-infinity-600 text-white rounded-xl font-medium hover:bg-infinity-700 disabled:opacity-50"
-            >
-              <Square className="w-4 h-4" />
-              Finalizar
-            </button>
-          </>
-        )}
+            {activo && pausado && (
+              <>
+                <button
+                  onClick={() => ejecutar("reanudar")}
+                  disabled={loading}
+                  className="flex-1 flex items-center justify-center gap-2 py-3 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-700 disabled:opacity-50"
+                >
+                  <Play className="w-4 h-4" />
+                  Reanudar
+                </button>
+                <button
+                  onClick={() => ejecutar("finalizar")}
+                  disabled={loading}
+                  className="flex-1 flex items-center justify-center gap-2 py-3 bg-infinity-600 text-white rounded-xl font-medium hover:bg-infinity-700 disabled:opacity-50"
+                >
+                  <Square className="w-4 h-4" />
+                  Finalizar
+                </button>
+              </>
+            )}
 
-        {finalizado && (
-          <p className="flex-1 text-center text-emerald-600 font-medium py-3">
-            Trabajo finalizado — {formatDuration(duracion)}
-          </p>
-        )}
+            {finalizado && (
+              <p className="flex-1 text-center text-emerald-600 font-medium py-3">
+                Trabajo finalizado — {formatDuration(duracion)}
+              </p>
+            )}
           </>
         )}
       </div>
