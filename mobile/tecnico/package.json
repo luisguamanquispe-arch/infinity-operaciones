@@ -5,7 +5,8 @@
   "description": "App Android/iOS para técnicos de campo — LGB Operaciones",
   "scripts": {
     "icons": "npx @capacitor/assets generate --iconBackgroundColor \"#1e40af\" --splashBackgroundColor \"#1e40af\"",
-    "sync": "npx cap sync",
+    "prepare:www": "node scripts/prepare-www.cjs",
+    "sync": "npm run prepare:www && npx cap sync",
     "open:android": "npx cap open android",
     "open:ios": "npx cap open ios",
     "run:android": "npx cap run android",

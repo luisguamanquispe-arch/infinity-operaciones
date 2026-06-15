@@ -8,7 +8,8 @@
     />
     <meta name="theme-color" content="#1e40af" />
     <meta name="background-color" content="#1e40af" />
-    <title>LGB Técnicos</title>
+    <title>Infinity Técnicos</title>
+    <script src="config.js"></script>
     <style>
       * {
         box-sizing: border-box;
@@ -51,11 +52,6 @@
         line-height: 1.5;
         max-width: 300px;
       }
-      .hint {
-        margin-top: 12px;
-        font-size: 0.8rem;
-        opacity: 0.7;
-      }
       .spinner {
         width: 32px;
         height: 32px;
@@ -74,38 +70,55 @@
   </head>
   <body>
     <div class="logo">📡</div>
-    <h1>LGB Técnicos</h1>
-    <p id="msg">Conectando con el servidor…</p>
-    <p class="hint">La primera carga puede tardar unos segundos</p>
+    <h1>Infinity Técnicos</h1>
+    <p id="msg">Iniciando aplicación…</p>
     <div class="spinner" aria-hidden="true"></div>
     <script>
       (function () {
         var server =
-          "https://infinity-operaciones.onrender.com/login?app=tecnico";
+          (window.__INFINITY_SERVER__ || "https://infinity-operaciones.onrender.com").replace(
+            /\/$/,
+            ""
+          );
+        var loginUrl = server + "/login?app=tecnico";
         var msg = document.getElementById("msg");
         var tries = 0;
-        function go() {
-          window.location.replace(server);
+        var maxTries = 10;
+
+        function hideSplash() {
+          try {
+            var cap = window.Capacitor;
+            if (cap && cap.Plugins && cap.Plugins.SplashScreen) {
+              cap.Plugins.SplashScreen.hide();
+            }
+          } catch (e) {}
         }
+
+        function go() {
+          hideSplash();
+          window.location.replace(loginUrl);
+        }
+
         function ping() {
           tries++;
-          fetch("https://infinity-operaciones.onrender.com/api/health", {
-            cache: "no-store",
-          })
+          fetch(server + "/api/health", { cache: "no-store", mode: "cors" })
             .then(function (r) {
               if (r.ok) go();
-              else if (tries < 8) retry();
+              else if (tries < maxTries) retry();
               else go();
             })
             .catch(function () {
-              if (tries < 8) retry();
+              if (tries < maxTries) retry();
               else go();
             });
         }
+
         function retry() {
-          if (msg) msg.textContent = "Despertando servidor… (" + tries + "/8)";
-          setTimeout(ping, 2000);
+          if (msg) msg.textContent = "Conectando… (" + tries + "/" + maxTries + ")";
+          setTimeout(ping, 1800);
         }
+
+        hideSplash();
         ping();
       })();
     </script>

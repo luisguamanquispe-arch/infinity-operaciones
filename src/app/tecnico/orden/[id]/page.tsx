@@ -8,6 +8,7 @@ import { Cronometro } from "@/components/Cronometro";
 import { PhotoCapture } from "@/components/PhotoCapture";
 import { SignatureCapture } from "@/components/SignatureCapture";
 import { TIPO_LABELS, ESTADO_LABELS, formatDateTime } from "@/lib/utils";
+import { fetchWithRetry } from "@/lib/compress-image";
 import {
   materialEsPatchcord,
   materialRequiereDetalle,
@@ -143,40 +144,68 @@ export default function OrdenPage() {
   });
 
   const cargar = useCallback(async () => {
-    const res = await fetch(`/api/tickets/${id}`);
-    const d = await res.json();
-    setData(d);
-    if (d.orden?.medicion) {
-      setMedicion({
-        rxDbm: String(d.orden.medicion.rxDbm),
-        txDbm: String(d.orden.medicion.txDbm),
-        pingMs: String(d.orden.medicion.pingMs ?? ""),
-        downloadMbps: String(d.orden.medicion.downloadMbps),
-        uploadMbps: String(d.orden.medicion.uploadMbps),
-      });
-    }
-    setChecklist({
-      servicioOk: d.orden.servicioOk,
-      potenciaOk: d.orden.potenciaOk,
-      fotosOk: d.orden.fotosOk,
-      clienteConforme: d.orden.clienteConforme,
-      firmaOk: d.orden.firmaOk,
-    });
-    if (d.orden?.materiales?.length) {
-      setMateriales(
-        d.orden.materiales.map(
-          (m: OrdenData["orden"]["materiales"][number]): MaterialForm => ({
-            inventarioId: m.inventarioId,
-            cantidad: String(m.cantidad),
-            serie: m.serie ?? "",
-            modelo: m.modelo ?? "",
-            marca: m.marca ?? "",
-            tipoPatchCord: m.tipoPatchCord ?? "",
-          })
-        )
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetchWithRetry(
+        `/api/tickets/${id}`,
+        { method: "GET", cache: "no-store" },
+        3
       );
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setData(null);
+        setError(
+          res.status === 403
+            ? "No tiene acceso a esta orden. Verifique que el ticket esté asignado a usted."
+            : res.status === 503
+              ? "El servidor está iniciando. Espere unos segundos e intente de nuevo."
+              : d.error || "No se pudo cargar la orden"
+        );
+        return;
+      }
+      if (!d.ticket || !d.orden) {
+        setData(null);
+        setError("Respuesta inválida del servidor");
+        return;
+      }
+      setData(d);
+      if (d.orden.medicion) {
+        setMedicion({
+          rxDbm: String(d.orden.medicion.rxDbm),
+          txDbm: String(d.orden.medicion.txDbm),
+          pingMs: String(d.orden.medicion.pingMs ?? ""),
+          downloadMbps: String(d.orden.medicion.downloadMbps),
+          uploadMbps: String(d.orden.medicion.uploadMbps),
+        });
+      }
+      setChecklist({
+        servicioOk: d.orden.servicioOk ?? false,
+        potenciaOk: d.orden.potenciaOk ?? false,
+        fotosOk: d.orden.fotosOk ?? false,
+        clienteConforme: d.orden.clienteConforme ?? false,
+        firmaOk: d.orden.firmaOk ?? false,
+      });
+      if (d.orden.materiales?.length) {
+        setMateriales(
+          d.orden.materiales.map(
+            (m: OrdenData["orden"]["materiales"][number]): MaterialForm => ({
+              inventarioId: m.inventarioId,
+              cantidad: String(m.cantidad),
+              serie: m.serie ?? "",
+              modelo: m.modelo ?? "",
+              marca: m.marca ?? "",
+              tipoPatchCord: m.tipoPatchCord ?? "",
+            })
+          )
+        );
+      }
+    } catch {
+      setData(null);
+      setError("Sin conexión. Verifique internet e intente de nuevo.");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, [id]);
 
   useEffect(() => {
@@ -251,7 +280,43 @@ export default function OrdenPage() {
     router.push("/tecnico");
   }
 
-  if (loading || !data) {
+  if (loading) {
+    return (
+      <div className="min-h-dvh flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-infinity-600" />
+      </div>
+    );
+  }
+
+  if (error && !data) {
+    return (
+      <div className="min-h-dvh bg-slate-50 flex flex-col">
+        <header className="bg-infinity-800 text-white px-4 py-4">
+          <div className="max-w-3xl mx-auto flex items-center gap-3">
+            <Link href="/tecnico" className="p-1 hover:bg-white/10 rounded-lg">
+              <ArrowLeft className="w-5 h-5" />
+            </Link>
+            <h1 className="font-bold">Orden de trabajo</h1>
+          </div>
+        </header>
+        <main className="flex-1 flex flex-col items-center justify-center p-6 gap-4">
+          <p className="text-center text-slate-700 max-w-sm">{error}</p>
+          <button
+            type="button"
+            onClick={cargar}
+            className="px-4 py-2 bg-infinity-600 text-white rounded-lg font-medium"
+          >
+            Reintentar
+          </button>
+          <Link href="/tecnico" className="text-sm text-infinity-600 hover:underline">
+            Volver al panel
+          </Link>
+        </main>
+      </div>
+    );
+  }
+
+  if (!data) {
     return (
       <div className="min-h-dvh flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-infinity-600" />

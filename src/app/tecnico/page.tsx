@@ -129,7 +129,7 @@ export default function TecnicoDashboard() {
   return (
     <div className="min-h-dvh bg-slate-50">
       <DeployVersionBanner />
-      <AppHeader title="LGB Técnicos" subtitle="Panel del Técnico" />
+      <AppHeader title="Infinity Técnicos" subtitle="Panel del Técnico" />
 
       <main className="max-w-6xl mx-auto p-4 space-y-6">
         {error && (

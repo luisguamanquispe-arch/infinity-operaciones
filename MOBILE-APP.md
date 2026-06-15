@@ -21,6 +21,18 @@ Requiere HTTPS (Render ya lo tiene).
 | **Android** | [Android Studio](https://developer.android.com/studio), JDK 17+ |
 | **iOS** | Mac con [Xcode](https://developer.apple.com/xcode/) (solo macOS) |
 
+### Arranque sin pantalla de Render
+
+Por defecto la app muestra un **splash local** (`www/index.html` — Infinity Técnicos) y conecta al servidor en segundo plano. Así no aparece la página de “waking up” de Render al abrir la app.
+
+1. Tras cambiar `.env`, ejecute:
+   ```powershell
+   npm run sync
+   ```
+2. Recompile el APK/IPA en Android Studio / Xcode.
+
+**Desarrollo en vivo** (WebView apunta directo al servidor): en `.env` agregue `CAPACITOR_DIRECT_SERVER=true`.
+
 ### 1. Instalar dependencias
 
 ```powershell

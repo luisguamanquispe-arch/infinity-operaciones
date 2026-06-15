@@ -60,11 +60,15 @@ export async function GET(
     session.tecnicoId &&
     !["CERRADO", "FINALIZADO", "CANCELADO"].includes(ticket.estado)
   ) {
-    await iniciarCronometroTicket({
-      ticketId: ticket.id,
-      tecnicoId: session.tecnicoId,
-      usuarioId: session.id,
-    });
+    try {
+      await iniciarCronometroTicket({
+        ticketId: ticket.id,
+        tecnicoId: session.tecnicoId,
+        usuarioId: session.id,
+      });
+    } catch (err) {
+      console.error("[GET ticket] cronometro auto-inicio:", err);
+    }
   }
 
   const orden = ticket.orden || (await getOrCreateOrden(ticket.id));

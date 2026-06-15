@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { ESTADO_LABELS, PRIORIDAD_LABELS, TIPO_LABELS, formatDateTime } from "@/lib/utils";
 
@@ -46,6 +46,8 @@ const prioridadColor: Record<string, string> = {
 };
 
 export function TicketList({ tickets, filtro, onFiltroChange }: TicketListProps) {
+  const router = useRouter();
+
   return (
     <div className="space-y-4">
       <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
@@ -87,14 +89,13 @@ export function TicketList({ tickets, filtro, onFiltroChange }: TicketListProps)
                 </tr>
               ) : (
                 tickets.map((t) => (
-                  <tr key={t.id} className="border-t hover:bg-slate-50">
+                  <tr
+                    key={t.id}
+                    className="border-t hover:bg-slate-50 cursor-pointer active:bg-slate-100"
+                    onClick={() => router.push(`/tecnico/orden/${t.id}`)}
+                  >
                     <td className="p-3">
-                      <Link
-                        href={`/tecnico/orden/${t.id}`}
-                        className="text-infinity-600 font-semibold hover:underline"
-                      >
-                        {t.codigo}
-                      </Link>
+                      <span className="text-infinity-600 font-semibold">{t.codigo}</span>
                       <p className="text-xs text-slate-400 sm:hidden">
                         {TIPO_LABELS[t.tipo]}
                       </p>
