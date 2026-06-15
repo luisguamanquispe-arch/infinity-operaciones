@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Loader2, Users, Ticket, Wrench, RefreshCw, UserPlus, FileText, KeyRound } from "lucide-react";
+import { Loader2, Users, Ticket, Wrench, RefreshCw, UserPlus, FileText, KeyRound, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { AppHeader } from "@/components/AppHeader";
 import { StatCard } from "@/components/StatCard";
@@ -48,7 +48,7 @@ export default function GerenciaDashboard() {
       <AppHeader title="Panel Gerencial" subtitle="Infinity Internet" />
 
       <main className="max-w-6xl mx-auto p-4 space-y-6">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
           <Link
             href="/gerencia/tecnicos/nuevo"
             className="flex items-center justify-center gap-2 py-3 bg-infinity-600 hover:bg-infinity-700 text-white font-semibold rounded-xl transition"
@@ -62,6 +62,13 @@ export default function GerenciaDashboard() {
           >
             <Users className="w-5 h-5" />
             Técnicos ({data.totalTecnicos})
+          </Link>
+          <Link
+            href="/gerencia/soportes"
+            className="flex items-center justify-center gap-2 py-3 border border-red-300 text-red-700 font-semibold rounded-xl hover:bg-red-50 transition"
+          >
+            <Trash2 className="w-5 h-5" />
+            Eliminar soportes
           </Link>
           <Link
             href="/gerencia/usuarios"

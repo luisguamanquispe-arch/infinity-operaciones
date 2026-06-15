@@ -278,3 +278,25 @@ export async function PATCH(
     ticket: { ...updated, tecnicoIds: idsNuevos },
   });
 }
+
+export async function DELETE(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const session = await getFullSession();
+  if (!session || session.rol !== "ADMIN") {
+    return NextResponse.json({ error: "No autorizado" }, { status: 403 });
+  }
+
+  const { id } = await params;
+
+  try {
+    const { eliminarTicketPorId } = await import("@/lib/eliminar-ticket");
+    const result = await eliminarTicketPorId(id, { soloTipo: "SOPORTE" });
+    return NextResponse.json(result);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "No se pudo eliminar el ticket";
+    const status = message.includes("no encontrado") ? 404 : 400;
+    return NextResponse.json({ error: message }, { status });
+  }
+}
