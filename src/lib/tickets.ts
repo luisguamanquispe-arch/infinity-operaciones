@@ -1,7 +1,12 @@
 import { prisma } from "./prisma";
 import type { TipoFoto, TipoTrabajo } from "@prisma/client";
-import { FOTOS_OBLIGATORIAS } from "./utils";
+import { FOTOS_OBLIGATORIAS_DEFAULT } from "./fotos-ticket";
 import { FOTOS_OBLIGATORIAS_INFRA } from "./ticket-infraestructura";
+import {
+  FOTOS_OBLIGATORIAS_INSTALACION,
+  validarDatosInstalacion,
+  type DatosInstalacionInput,
+} from "./ticket-instalacion";
 import { enviarWhatsAppTicketCerrado } from "./whatsapp";
 export async function getOrCreateOrden(ticketId: string) {
   const fotoLite = {
@@ -78,11 +83,18 @@ export function validarCierreOrden(
     medicion: unknown;
     firma: unknown;
     fotografias: { tipo: TipoFoto }[];
+    tipoConexionInstalacion?: string | null;
+    direccionIp?: string | null;
+    pppoeUsuario?: string | null;
+    pppoeClave?: string | null;
+    nombreRedWifi?: string | null;
+    claveRedWifi?: string | null;
   },
-  options?: { esInfraestructura?: boolean }
+  options?: { esInfraestructura?: boolean; esInstalacion?: boolean }
 ): { valido: boolean; errores: string[] } {
   const errores: string[] = [];
   const esInfra = options?.esInfraestructura ?? false;
+  const esInstalacion = options?.esInstalacion ?? false;
 
   if (!orden.cronometro?.fin) errores.push("El cronómetro debe estar finalizado");
 
@@ -99,10 +111,23 @@ export function validarCierreOrden(
     if (!orden.medicion) errores.push("Debe registrar mediciones técnicas");
     if (!orden.firma) errores.push("Debe registrar la firma del cliente");
 
-    for (const tipo of FOTOS_OBLIGATORIAS) {
+    const fotosReq = esInstalacion ? FOTOS_OBLIGATORIAS_INSTALACION : FOTOS_OBLIGATORIAS_DEFAULT;
+    for (const tipo of fotosReq) {
       if (!orden.fotografias.some((f) => f.tipo === tipo)) {
         errores.push(`Falta foto: ${tipo}`);
       }
+    }
+
+    if (esInstalacion) {
+      const datosInstalacion: DatosInstalacionInput = {
+        tipoConexion: orden.tipoConexionInstalacion,
+        direccionIp: orden.direccionIp,
+        pppoeUsuario: orden.pppoeUsuario,
+        pppoeClave: orden.pppoeClave,
+        nombreRedWifi: orden.nombreRedWifi,
+        claveRedWifi: orden.claveRedWifi,
+      };
+      errores.push(...validarDatosInstalacion(datosInstalacion));
     }
 
     if (!orden.servicioOk) errores.push("Checklist: Servicio funcionando");

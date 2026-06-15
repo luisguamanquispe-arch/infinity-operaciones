@@ -1,0 +1,120 @@
+import type { TipoConexionInstalacion, TipoFoto } from "@prisma/client";
+import {
+  FOTOS_ANTES_DEFAULT,
+  FOTOS_DURANTE_DEFAULT,
+  FOTOS_FINAL_DEFAULT,
+  FOTOS_OBLIGATORIAS_DEFAULT,
+} from "./fotos-ticket";
+import {
+  FOTOS_ANTES_INFRA,
+  FOTOS_DURANTE_INFRA,
+  FOTOS_FINAL_INFRA,
+  FOTOS_OBLIGATORIAS_INFRA,
+  esTicketInfraestructura,
+} from "./ticket-infraestructura";
+
+export function esTicketInstalacion(tipo: string): boolean {
+  return tipo === "INSTALACION";
+}
+
+/** Fotos para tickets de instalación (sin poste ni empalme). */
+export const FOTOS_ANTES_INSTALACION: TipoFoto[] = ["FACHADA", "NAP"];
+export const FOTOS_DURANTE_INSTALACION: TipoFoto[] = ["TRABAJO", "CAJA_TERMINAL"];
+export const FOTOS_FINAL_INSTALACION: TipoFoto[] = ["ONU", "SPEEDTEST", "CLIENTE_CONFORME"];
+
+export const FOTOS_OBLIGATORIAS_INSTALACION: TipoFoto[] = [
+  "FACHADA",
+  "NAP",
+  "TRABAJO",
+  "ONU",
+  "SPEEDTEST",
+  "CLIENTE_CONFORME",
+];
+
+export const CLAUSULAS_POLITICA_INSTALACION = [
+  "Tiempo de permanencia mínimo: 18 meses.",
+  "Pagos: del 1 al 10 de cada mes.",
+  "Corte de servicio por mora: a partir del día 11 de cada mes.",
+  "Soporte técnico: 0995870168.",
+] as const;
+
+export interface DatosInstalacionInput {
+  tipoConexion?: TipoConexionInstalacion | string | null;
+  direccionIp?: string | null;
+  pppoeUsuario?: string | null;
+  pppoeClave?: string | null;
+  nombreRedWifi?: string | null;
+  claveRedWifi?: string | null;
+}
+
+export function validarDatosInstalacion(
+  datos: DatosInstalacionInput | null | undefined
+): string[] {
+  const errores: string[] = [];
+  if (!datos?.tipoConexion) {
+    errores.push("Indique si la conexión es por IP o PPPoE");
+    return errores;
+  }
+
+  if (datos.tipoConexion === "IP") {
+    if (!datos.direccionIp?.trim()) {
+      errores.push("Indique la dirección IP del cliente");
+    }
+  } else if (datos.tipoConexion === "PPPOE") {
+    if (!datos.pppoeUsuario?.trim()) errores.push("Indique el usuario PPPoE");
+    if (!datos.pppoeClave?.trim()) errores.push("Indique la clave PPPoE");
+  }
+
+  if (!datos.nombreRedWifi?.trim()) {
+    errores.push("Indique el nombre de la red WiFi entregada al cliente");
+  }
+  if (!datos.claveRedWifi?.trim()) {
+    errores.push("Indique la clave de la red WiFi entregada al cliente");
+  }
+
+  return errores;
+}
+
+export function normalizarDatosInstalacion(datos: DatosInstalacionInput) {
+  const tipo = datos.tipoConexion as TipoConexionInstalacion;
+  return {
+    tipoConexionInstalacion: tipo,
+    direccionIp: tipo === "IP" ? datos.direccionIp?.trim() || null : null,
+    pppoeUsuario: tipo === "PPPOE" ? datos.pppoeUsuario?.trim() || null : null,
+    pppoeClave: tipo === "PPPOE" ? datos.pppoeClave?.trim() || null : null,
+    nombreRedWifi: datos.nombreRedWifi?.trim() || null,
+    claveRedWifi: datos.claveRedWifi?.trim() || null,
+  };
+}
+
+export function gruposFotosPorTipo(tipo: string): {
+  antes: TipoFoto[];
+  durante: TipoFoto[];
+  final: TipoFoto[];
+} {
+  if (esTicketInfraestructura(tipo)) {
+    return {
+      antes: FOTOS_ANTES_INFRA,
+      durante: FOTOS_DURANTE_INFRA,
+      final: FOTOS_FINAL_INFRA,
+    };
+  }
+  if (esTicketInstalacion(tipo)) {
+    return {
+      antes: FOTOS_ANTES_INSTALACION,
+      durante: FOTOS_DURANTE_INSTALACION,
+      final: FOTOS_FINAL_INSTALACION,
+    };
+  }
+  return {
+    antes: FOTOS_ANTES_DEFAULT,
+    durante: FOTOS_DURANTE_DEFAULT,
+    final: FOTOS_FINAL_DEFAULT,
+  };
+}
+
+export function fotosObligatoriasPorTipo(tipo: string): TipoFoto[] {
+  if (esTicketInfraestructura(tipo)) return FOTOS_OBLIGATORIAS_INFRA;
+  if (esTicketInstalacion(tipo)) return FOTOS_OBLIGATORIAS_INSTALACION;
+  return FOTOS_OBLIGATORIAS_DEFAULT;
+}

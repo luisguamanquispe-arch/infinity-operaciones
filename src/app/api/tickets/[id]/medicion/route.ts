@@ -13,6 +13,11 @@ import {
 } from "@/lib/material-detalle";
 import { calcularExcedenteMaterial } from "@/lib/fibra-excedente";
 import { esTicketInfraestructura } from "@/lib/ticket-infraestructura";
+import {
+  normalizarDatosInstalacion,
+  validarDatosInstalacion,
+  type DatosInstalacionInput,
+} from "@/lib/ticket-instalacion";
 import { asegurarReportadorOrden } from "@/lib/ticket-reporte";
 import type { TipoPatchCord } from "@prisma/client";
 
@@ -202,6 +207,24 @@ export async function PUT(
         });
       }
 
+      return NextResponse.json({ ok: true });
+    }
+
+    if (body.instalacion) {
+      if (ticket.tipo !== "INSTALACION") {
+        return NextResponse.json({ error: "Solo tickets de instalación registran estos datos" }, { status: 400 });
+      }
+
+      const datos = body.instalacion as DatosInstalacionInput;
+      const errInst = validarDatosInstalacion(datos);
+      if (errInst.length) {
+        return NextResponse.json({ error: errInst.join(". ") }, { status: 400 });
+      }
+
+      await prisma.ordenServicio.update({
+        where: { id: orden.id },
+        data: normalizarDatosInstalacion(datos),
+      });
       return NextResponse.json({ ok: true });
     }
 

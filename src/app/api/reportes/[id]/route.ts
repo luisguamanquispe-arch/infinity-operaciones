@@ -5,6 +5,11 @@ import { calcularDuracionCronometro } from "@/lib/tickets";
 import { firmaParaReporte } from "@/lib/firma-image";
 import { fotosParaReporte } from "@/lib/foto-image";
 import { nombresTecnicosTicket, ticketIncludeTecnicos } from "@/lib/ticket-tecnicos";
+import {
+  CLAUSULAS_POLITICA_INSTALACION,
+  esTicketInstalacion,
+  gruposFotosPorTipo,
+} from "@/lib/ticket-instalacion";
 
 export async function GET(
   _request: Request,
@@ -76,9 +81,9 @@ export async function GET(
       )
     : 0;
 
-  const fotosAntes = ["FACHADA", "POSTE", "NAP"];
-  const fotosDurante = ["TRABAJO", "EMPALME", "CAJA_TERMINAL"];
-  const fotosFinal = ["ONU", "SPEEDTEST", "CLIENTE_CONFORME"];
+  const { antes: fotosAntes, durante: fotosDurante, final: fotosFinal } = gruposFotosPorTipo(
+    ticket.tipo
+  );
 
   const fotografias = orden?.fotografias ?? [];
   const firma = firmaParaReporte(orden?.firma ?? null);
@@ -97,12 +102,14 @@ export async function GET(
     },
     duracionSegundos,
     evidencia: {
-      antes: fotosEnriquecidas.filter((f) => fotosAntes.includes(f.tipo)),
-      durante: fotosEnriquecidas.filter((f) => fotosDurante.includes(f.tipo)),
-      final: fotosEnriquecidas.filter((f) => fotosFinal.includes(f.tipo)),
+      antes: fotosEnriquecidas.filter((f) => (fotosAntes as string[]).includes(f.tipo)),
+      durante: fotosEnriquecidas.filter((f) => (fotosDurante as string[]).includes(f.tipo)),
+      final: fotosEnriquecidas.filter((f) => (fotosFinal as string[]).includes(f.tipo)),
       otras: fotosEnriquecidas.filter(
         (f) =>
-          ![...fotosAntes, ...fotosDurante, ...fotosFinal].includes(f.tipo)
+          ![...fotosAntes, ...fotosDurante, ...fotosFinal].includes(
+            f.tipo as (typeof fotosAntes)[number]
+          )
       ),
     },
     checklist: orden
@@ -114,6 +121,9 @@ export async function GET(
           firmaOk: orden.firmaOk,
           whatsappEnviado: orden.whatsappEnviado,
         }
+      : null,
+    clausulasInstalacion: esTicketInstalacion(ticket.tipo)
+      ? [...CLAUSULAS_POLITICA_INSTALACION]
       : null,
   });
 }

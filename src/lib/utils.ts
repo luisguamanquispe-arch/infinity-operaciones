@@ -1,5 +1,6 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import { FOTOS_OBLIGATORIAS_DEFAULT } from "./fotos-ticket";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -89,15 +90,7 @@ export const FOTO_LABELS: Record<string, string> = {
   CLIENTE_CONFORME: "Foto cliente conforme",
 };
 
-export const FOTOS_OBLIGATORIAS = [
-  "FACHADA",
-  "POSTE",
-  "NAP",
-  "TRABAJO",
-  "ONU",
-  "SPEEDTEST",
-  "CLIENTE_CONFORME",
-] as const;
+export const FOTOS_OBLIGATORIAS = FOTOS_OBLIGATORIAS_DEFAULT;
 
 export function haversineKm(
   lat1: number,

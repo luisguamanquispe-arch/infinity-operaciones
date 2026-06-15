@@ -51,6 +51,11 @@ enum EstadoTicket {
   CANCELADO
 }
 
+enum TipoConexionInstalacion {
+  IP
+  PPPOE
+}
+
 enum TipoFoto {
   FACHADA
   POSTE
@@ -175,6 +180,12 @@ model OrdenServicio {
   whatsappEnviado Boolean             @default(false)
   reportadoPorTecnicoId String?
   reportadoEn         DateTime?
+  tipoConexionInstalacion TipoConexionInstalacion?
+  direccionIp         String?
+  pppoeUsuario        String?
+  pppoeClave          String?
+  nombreRedWifi       String?
+  claveRedWifi        String?
   ticket          Ticket              @relation(fields: [ticketId], references: [id], onDelete: Cascade)
   reportadoPor    Tecnico?            @relation("OrdenReportadaPor", fields: [reportadoPorTecnicoId], references: [id])
   cronometro      Cronometro?

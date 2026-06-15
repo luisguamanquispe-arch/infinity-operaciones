@@ -24,6 +24,7 @@ import {
 } from "@/lib/utils";
 import { TIPO_PATCHCORD_LABELS } from "@/lib/material-detalle";
 import { MOTIVO_INFRA_LABELS, esTicketInfraestructura } from "@/lib/ticket-infraestructura";
+import { esTicketInstalacion } from "@/lib/ticket-instalacion";
 import { FIBRA_DROP_LIMITE_M } from "@/lib/fibra-excedente";
 import type { MotivoInfraestructura, TipoPatchCord } from "@prisma/client";
 
@@ -90,6 +91,12 @@ interface ReporteData {
         excedenteMetros: number | null;
         inventario: { nombre: string; unidad: string };
       }[];
+      tipoConexionInstalacion?: string | null;
+      direccionIp?: string | null;
+      pppoeUsuario?: string | null;
+      pppoeClave?: string | null;
+      nombreRedWifi?: string | null;
+      claveRedWifi?: string | null;
     } | null;
     eventos: {
       id: string;
@@ -112,6 +119,7 @@ interface ReporteData {
     firmaOk: boolean;
     whatsappEnviado: boolean;
   } | null;
+  clausulasInstalacion?: string[] | null;
 }
 
 interface ReporteDetalleProps {
@@ -151,8 +159,9 @@ export function ReporteDetalle({ backHref, backLabel }: ReporteDetalleProps) {
     );
   }
 
-  const { ticket, duracionSegundos, evidencia, checklist } = data;
+  const { ticket, duracionSegundos, evidencia, checklist, clausulasInstalacion } = data;
   const orden = ticket.orden;
+  const esInstalacion = esTicketInstalacion(ticket.tipo);
 
   return (
     <div className="min-h-dvh bg-slate-50 print:bg-white">
@@ -286,6 +295,52 @@ export function ReporteDetalle({ backHref, backLabel }: ReporteDetalleProps) {
                 <p className="font-bold text-lg">{orden.medicion.uploadMbps} Mbps</p>
               </div>
             </div>
+          </div>
+        )}
+
+        {esInstalacion && orden?.tipoConexionInstalacion && (
+          <div className="bg-white rounded-xl border border-sky-200 p-4 space-y-3">
+            <h3 className="font-semibold text-sky-900">Datos de instalación entregados</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+              <p>
+                <span className="text-slate-500">Conexión:</span>{" "}
+                {orden.tipoConexionInstalacion === "IP"
+                  ? `IP — ${orden.direccionIp}`
+                  : "PPPoE"}
+              </p>
+              {orden.tipoConexionInstalacion === "PPPOE" && (
+                <>
+                  <p>
+                    <span className="text-slate-500">Usuario PPPoE:</span> {orden.pppoeUsuario}
+                  </p>
+                  <p>
+                    <span className="text-slate-500">Clave PPPoE:</span>{" "}
+                    <span className="font-mono">{orden.pppoeClave}</span>
+                  </p>
+                </>
+              )}
+              <p>
+                <span className="text-slate-500">Red WiFi:</span> {orden.nombreRedWifi}
+              </p>
+              <p>
+                <span className="text-slate-500">Clave WiFi:</span>{" "}
+                <span className="font-mono">{orden.claveRedWifi}</span>
+              </p>
+            </div>
+          </div>
+        )}
+
+        {esInstalacion && clausulasInstalacion && clausulasInstalacion.length > 0 && (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 print:border print:bg-white">
+            <h3 className="font-semibold text-amber-900 mb-3">Políticas del servicio — Instalación</h3>
+            <ul className="space-y-2 text-sm text-amber-950">
+              {clausulasInstalacion.map((clausula) => (
+                <li key={clausula} className="flex gap-2">
+                  <span className="text-amber-600 shrink-0">•</span>
+                  <span>{clausula}</span>
+                </li>
+              ))}
+            </ul>
           </div>
         )}
 

@@ -5,6 +5,7 @@ import { getOrCreateOrden, validarCierreOrden, enviarWhatsApp } from "@/lib/tick
 import { tecnicoAsignadoAlTicket, tecnicoIdsFromTicket } from "@/lib/ticket-tecnicos";
 import { esClienteInfraestructura } from "@/lib/cliente-infraestructura";
 import { esTicketInfraestructura } from "@/lib/ticket-infraestructura";
+import { esTicketInstalacion } from "@/lib/ticket-instalacion";
 import { asegurarReportadorOrden } from "@/lib/ticket-reporte";
 
 export async function POST(
@@ -37,6 +38,7 @@ export async function POST(
   const orden = await getOrCreateOrden(id);
   const validacion = validarCierreOrden(orden, {
     esInfraestructura: esTicketInfraestructura(ticket.tipo),
+    esInstalacion: esTicketInstalacion(ticket.tipo),
   });
 
   if (!validacion.valido) {
