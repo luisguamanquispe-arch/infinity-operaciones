@@ -4,7 +4,7 @@ import { getFullSession } from "@/lib/auth";
 import { calcularDuracionCronometro } from "@/lib/tickets";
 import { diaKey } from "@/lib/calendario";
 import { whereTecnicoAsignado } from "@/lib/ticket-tecnicos";
-import type { Prisma, TipoTrabajo } from "@prisma/client";
+import type { Prisma } from "@prisma/client";
 
 export const runtime = "nodejs";
 
@@ -18,32 +18,10 @@ const clienteSelect = {
   },
 } as const;
 
-function buildTicketWhere(
-  filtro: string,
-  tecnicoId: string,
-  hoy: Date
-): Prisma.TicketWhereInput {
-  const base: Prisma.TicketWhereInput = whereTecnicoAsignado(tecnicoId);
-
-  if (filtro === "pendientes") return { ...base, estado: "PENDIENTE" };
-  if (filtro === "en_proceso") return { ...base, estado: "EN_PROCESO" };
-  if (filtro === "finalizadas") return { ...base, estado: { in: ["FINALIZADO", "CERRADO"] } };
-  if (["INSTALACION", "SOPORTE", "INFRAESTRUCTURA", "CORTE", "RECONEXION", "RETIRO", "MIGRACION"].includes(filtro)) {
-    return { ...base, tipo: filtro as TipoTrabajo };
-  }
-
-  const semana = new Date(hoy);
-  semana.setDate(semana.getDate() - 14);
-
+function buildTicketWherePendientes(tecnicoId: string): Prisma.TicketWhereInput {
   return {
-    ...base,
-    OR: [
-      { estado: { in: ["PENDIENTE", "EN_PROCESO"] } },
-      {
-        estado: { in: ["FINALIZADO", "CERRADO"] },
-        updatedAt: { gte: semana },
-      },
-    ],
+    ...whereTecnicoAsignado(tecnicoId),
+    estado: "PENDIENTE",
   };
 }
 
@@ -59,15 +37,12 @@ export async function GET(request: Request) {
     );
   }
 
-  const { searchParams } = new URL(request.url);
-  const filtro = searchParams.get("filtro") || "todos";
+  const ticketWhere = buildTicketWherePendientes(session.tecnicoId);
 
   const hoy = new Date();
   hoy.setHours(0, 0, 0, 0);
   const finHoy = new Date(hoy);
   finHoy.setHours(23, 59, 59, 999);
-
-  const ticketWhere = buildTicketWhere(filtro, session.tecnicoId, hoy);
 
   const [tecnico, activos, tickets, finalizadasHoy] = await Promise.all([
     prisma.tecnico.findUnique({
@@ -186,6 +161,7 @@ export async function GET(request: Request) {
       proximaOrden: proxima ? serializeAgenda(proxima) : null,
       agenda: agendaRaw.map(serializeAgenda),
       activosMapa: activos.map(serializeActivoMapa),
+      ordenesPendientes: tickets.map(serializeTicket),
       tickets: tickets.map(serializeTicket),
     },
     {

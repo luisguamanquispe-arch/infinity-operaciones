@@ -13,7 +13,8 @@ import {
 import { AppHeader } from "@/components/AppHeader";
 import { DeployVersionBanner } from "@/components/DeployVersionBanner";
 import { StatCard } from "@/components/StatCard";
-import { TicketList } from "@/components/TicketList";
+import { TecnicoOrdenesPendientes } from "@/components/tecnico/TecnicoOrdenesPendientes";
+import type { OrdenPendiente } from "@/components/tecnico/TecnicoOrdenesPendientes";
 import { TecnicoAgenda } from "@/components/TecnicoAgenda";
 import { TecnicoDashboardSkeleton } from "@/components/tecnico/TecnicoDashboardSkeleton";
 import { formatDate } from "@/lib/utils";
@@ -61,7 +62,7 @@ interface AgendaTicket {
 
 export default function TecnicoDashboard() {
   const [resumen, setResumen] = useState<Resumen | null>(null);
-  const [tickets, setTickets] = useState<Parameters<typeof TicketList>[0]["tickets"]>([]);
+  const [ordenesPendientes, setOrdenesPendientes] = useState<OrdenPendiente[]>([]);
   const [agenda, setAgenda] = useState<AgendaTicket[]>([]);
   const [proximaOrden, setProximaOrden] = useState<AgendaTicket | null>(null);
   const [activosMapa, setActivosMapa] = useState<AgendaTicket[]>([]);
@@ -73,7 +74,7 @@ export default function TecnicoDashboard() {
     setError("");
     try {
       const res = await fetchWithRetry(
-        `/api/tecnico/dashboard?filtro=pendientes`,
+        `/api/tecnico/dashboard`,
         { method: "GET", cache: "no-store" },
         3
       );
@@ -87,7 +88,7 @@ export default function TecnicoDashboard() {
         return;
       }
       setResumen(data.resumen);
-      setTickets(data.tickets);
+      setOrdenesPendientes(data.ordenesPendientes ?? data.tickets ?? []);
       setAgenda(data.agenda ?? []);
       setProximaOrden(data.proximaOrden ?? null);
       setActivosMapa(data.activosMapa ?? []);
@@ -215,12 +216,7 @@ export default function TecnicoDashboard() {
         <section>
           <h2 className="font-semibold mb-1">Mis órdenes de trabajo</h2>
           <p className="text-sm text-slate-500 mb-3">Solo órdenes pendientes asignadas a usted</p>
-          <TicketList
-            tickets={tickets}
-            filtro="pendientes"
-            onFiltroChange={() => {}}
-            soloPendientes
-          />
+          <TecnicoOrdenesPendientes ordenes={ordenesPendientes} />
         </section>
       </main>
     </div>
