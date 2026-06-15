@@ -13,8 +13,10 @@ interface CronometroProps {
     pausado: boolean;
   } | null;
   duracionInicial: number;
-  onUpdate: () => void;
+  onUpdate?: () => void;
   readOnly?: boolean;
+  /** Si true, no dispara recarga al registrar GPS inicial (evita parpadeo). */
+  skipGpsAutoSync?: boolean;
 }
 
 function getGps(): Promise<{ lat: number; lng: number }> {
@@ -37,6 +39,7 @@ export function Cronometro({
   duracionInicial,
   onUpdate,
   readOnly = false,
+  skipGpsAutoSync = false,
 }: CronometroProps) {
   const [duracion, setDuracion] = useState(duracionInicial);
   const [loading, setLoading] = useState(false);
@@ -66,17 +69,32 @@ export function Cronometro({
         body: JSON.stringify({ accion, ...gps }),
       });
       setLoading(false);
-      onUpdate();
+      onUpdate?.();
     },
     [ticketId, onUpdate]
   );
 
-  // Registra GPS al abrir el ticket (el cronómetro ya arrancó en el servidor)
+  // Registra GPS una sola vez sin recargar toda la pantalla (el cronómetro ya arrancó en el servidor).
   useEffect(() => {
-    if (readOnly || !cronometro?.inicio || cronometro.fin || gpsEnviadoRef.current) return;
+    if (
+      readOnly ||
+      skipGpsAutoSync ||
+      !cronometro?.inicio ||
+      cronometro.fin ||
+      gpsEnviadoRef.current
+    ) {
+      return;
+    }
     gpsEnviadoRef.current = true;
-    void ejecutar("iniciar");
-  }, [readOnly, cronometro?.inicio, cronometro?.fin, ejecutar]);
+    void (async () => {
+      const gps = await getGps();
+      await fetch(`/api/tickets/${ticketId}/cronometro`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ accion: "iniciar", ...gps }),
+      });
+    })();
+  }, [readOnly, skipGpsAutoSync, cronometro?.inicio, cronometro?.fin, ticketId]);
 
   const finalizado = !!cronometro?.fin;
   const activo = cronometro?.activo && !finalizado;

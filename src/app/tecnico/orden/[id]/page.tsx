@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Loader2, Phone, MapPin, CalendarClock } from "lucide-react";
@@ -151,6 +151,7 @@ export default function OrdenPage() {
   const router = useRouter();
   const [data, setData] = useState<OrdenData | null>(null);
   const [loading, setLoading] = useState(true);
+  const cargaInicialHecha = useRef(false);
   const [cerrando, setCerrando] = useState(false);
   const [error, setError] = useState("");
 
@@ -176,8 +177,9 @@ export default function OrdenPage() {
     firmaOk: false,
   });
 
-  const cargar = useCallback(async () => {
-    setLoading(true);
+  const cargar = useCallback(async (opts?: { silent?: boolean }) => {
+    const silent = opts?.silent ?? cargaInicialHecha.current;
+    if (!silent) setLoading(true);
     setError("");
     try {
       const res = await fetchWithRetry(
@@ -203,51 +205,56 @@ export default function OrdenPage() {
         return;
       }
       setData(d);
-      if (d.orden.medicion) {
-        setMedicion({
-          rxDbm: String(d.orden.medicion.rxDbm),
-          txDbm: String(d.orden.medicion.txDbm),
-          pingMs: String(d.orden.medicion.pingMs ?? ""),
-          downloadMbps: String(d.orden.medicion.downloadMbps),
-          uploadMbps: String(d.orden.medicion.uploadMbps),
+      if (!silent) {
+        if (d.orden.medicion) {
+          setMedicion({
+            rxDbm: String(d.orden.medicion.rxDbm),
+            txDbm: String(d.orden.medicion.txDbm),
+            pingMs: String(d.orden.medicion.pingMs ?? ""),
+            downloadMbps: String(d.orden.medicion.downloadMbps),
+            uploadMbps: String(d.orden.medicion.uploadMbps),
+          });
+        }
+        setChecklist({
+          servicioOk: d.orden.servicioOk ?? false,
+          potenciaOk: d.orden.potenciaOk ?? false,
+          fotosOk: d.orden.fotosOk ?? false,
+          clienteConforme: d.orden.clienteConforme ?? false,
+          firmaOk: d.orden.firmaOk ?? false,
+        });
+        if (d.orden.materiales?.length) {
+          setMateriales(
+            d.orden.materiales.map(
+              (m: OrdenData["orden"]["materiales"][number]): MaterialForm => ({
+                inventarioId: m.inventarioId,
+                cantidad: String(m.cantidad),
+                serie: m.serie ?? "",
+                modelo: m.modelo ?? "",
+                marca: m.marca ?? "",
+                tipoPatchCord: m.tipoPatchCord ?? "",
+              })
+            )
+          );
+        }
+        setInstalacion({
+          tipoConexion: d.orden.tipoConexionInstalacion ?? "",
+          direccionIp: d.orden.direccionIp ?? "",
+          pppoeUsuario: d.orden.pppoeUsuario ?? "",
+          pppoeClave: d.orden.pppoeClave ?? "",
+          nombreRedWifi: d.orden.nombreRedWifi ?? "",
+          claveRedWifi: d.orden.claveRedWifi ?? "",
         });
       }
-      setChecklist({
-        servicioOk: d.orden.servicioOk ?? false,
-        potenciaOk: d.orden.potenciaOk ?? false,
-        fotosOk: d.orden.fotosOk ?? false,
-        clienteConforme: d.orden.clienteConforme ?? false,
-        firmaOk: d.orden.firmaOk ?? false,
-      });
-      if (d.orden.materiales?.length) {
-        setMateriales(
-          d.orden.materiales.map(
-            (m: OrdenData["orden"]["materiales"][number]): MaterialForm => ({
-              inventarioId: m.inventarioId,
-              cantidad: String(m.cantidad),
-              serie: m.serie ?? "",
-              modelo: m.modelo ?? "",
-              marca: m.marca ?? "",
-              tipoPatchCord: m.tipoPatchCord ?? "",
-            })
-          )
-        );
-      }
-      setInstalacion({
-        tipoConexion: d.orden.tipoConexionInstalacion ?? "",
-        direccionIp: d.orden.direccionIp ?? "",
-        pppoeUsuario: d.orden.pppoeUsuario ?? "",
-        pppoeClave: d.orden.pppoeClave ?? "",
-        nombreRedWifi: d.orden.nombreRedWifi ?? "",
-        claveRedWifi: d.orden.claveRedWifi ?? "",
-      });
     } catch {
       setData(null);
       setError("Sin conexión. Verifique internet e intente de nuevo.");
     } finally {
+      cargaInicialHecha.current = true;
       setLoading(false);
     }
   }, [id]);
+
+  const refrescar = useCallback(() => cargar({ silent: true }), [cargar]);
 
   useEffect(() => {
     cargar();
@@ -259,7 +266,7 @@ export default function OrdenPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(medicion),
     });
-    cargar();
+    refrescar();
   }
 
   async function guardarInstalacion() {
@@ -274,7 +281,7 @@ export default function OrdenPage() {
       setInstalacionError(result.error || "No se pudo guardar los datos de instalación");
       return;
     }
-    cargar();
+    refrescar();
   }
 
   async function guardarMateriales() {
@@ -292,7 +299,7 @@ export default function OrdenPage() {
       setMaterialError(result.error || "No se pudo guardar el material");
       return;
     }
-    cargar();
+    refrescar();
   }
 
   function nombreMaterial(inventarioId: string): string {
@@ -359,7 +366,7 @@ export default function OrdenPage() {
           <p className="text-center text-slate-700 max-w-sm">{error}</p>
           <button
             type="button"
-            onClick={cargar}
+            onClick={() => cargar()}
             className="px-4 py-2 bg-infinity-600 text-white rounded-lg font-medium"
           >
             Reintentar
@@ -537,7 +544,7 @@ export default function OrdenPage() {
               ticketId={id}
               cronometro={orden.cronometro}
               duracionInicial={data.duracionSegundos}
-              onUpdate={cargar}
+              onUpdate={refrescar}
               readOnly={!puedeEditar}
             />
 
@@ -571,7 +578,7 @@ export default function OrdenPage() {
                   ticketId={id}
                   tipo={t}
                   existing={fotoMap[t]}
-                  onUploaded={cargar}
+                  onUploaded={refrescar}
                 />
               ))}
             </section>
@@ -584,7 +591,7 @@ export default function OrdenPage() {
                   ticketId={id}
                   tipo={t}
                   existing={fotoMap[t]}
-                  onUploaded={cargar}
+                  onUploaded={refrescar}
                 />
               ))}
             </section>
@@ -774,7 +781,7 @@ export default function OrdenPage() {
                   ticketId={id}
                   tipo={t}
                   existing={fotoMap[t]}
-                  onUploaded={cargar}
+                  onUploaded={refrescar}
                 />
               ))}
             </section>
@@ -785,7 +792,7 @@ export default function OrdenPage() {
               existing={orden.firma}
               clienteNombre={ticket.cliente.nombre}
               clienteCedula={ticket.cliente.cedula}
-              onSaved={cargar}
+              onSaved={refrescar}
             />
             )}
 
@@ -827,7 +834,7 @@ export default function OrdenPage() {
                       ticketId={id}
                       tipo={t}
                       existing={fotoMap[t]}
-                      onUploaded={cargar}
+                      onUploaded={refrescar}
                       readOnly
                     />
                   ))}
