@@ -12,9 +12,16 @@ import {
   Clock,
   User,
   Wrench,
+  Gauge,
+  Wifi,
+  FileText,
+  Camera,
+  History,
 } from "lucide-react";
 import { PhotoGallery } from "./PhotoGallery";
 import { FirmaReporte } from "./FirmaReporte";
+import { MaterialesReporte } from "./MaterialesReporte";
+import { ReporteSection } from "./ReporteSection";
 import {
   TIPO_LABELS,
   ESTADO_LABELS,
@@ -22,11 +29,9 @@ import {
   formatDateTime,
   formatDuration,
 } from "@/lib/utils";
-import { TIPO_PATCHCORD_LABELS } from "@/lib/material-detalle";
 import { MOTIVO_INFRA_LABELS, esTicketInfraestructura } from "@/lib/ticket-infraestructura";
 import { esTicketInstalacion, CLAUSULAS_POLITICA_INSTALACION } from "@/lib/ticket-instalacion";
-import { FIBRA_DROP_LIMITE_M } from "@/lib/fibra-excedente";
-import type { MotivoInfraestructura, TipoPatchCord } from "@prisma/client";
+import type { MotivoInfraestructura, TipoInventario } from "@prisma/client";
 
 interface Foto {
   id: string;
@@ -89,7 +94,7 @@ interface ReporteData {
         marca: string | null;
         tipoPatchCord: string | null;
         excedenteMetros: number | null;
-        inventario: { nombre: string; unidad: string };
+        inventario: { nombre: string; unidad: string; tipo: TipoInventario };
       }[];
       tipoConexionInstalacion?: string | null;
       direccionIp?: string | null;
@@ -127,6 +132,27 @@ interface ReporteDetalleProps {
   backLabel: string;
 }
 
+function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div className="flex flex-col sm:flex-row sm:gap-2 text-sm py-1.5 border-b border-slate-100 last:border-0">
+      <span className="text-slate-500 sm:w-36 shrink-0">{label}</span>
+      <span className="text-slate-800 font-medium">{value}</span>
+    </div>
+  );
+}
+
+function MetricCard({ label, value, unit }: { label: string; value: string | number; unit?: string }) {
+  return (
+    <div className="rounded-lg border border-slate-200 bg-gradient-to-b from-slate-50 to-white p-3 text-center">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{label}</p>
+      <p className="font-bold text-xl text-infinity-800 mt-1">
+        {value}
+        {unit && <span className="text-sm font-normal text-slate-500 ml-0.5">{unit}</span>}
+      </p>
+    </div>
+  );
+}
+
 export function ReporteDetalle({ backHref, backLabel }: ReporteDetalleProps) {
   const { id } = useParams<{ id: string }>();
   const [data, setData] = useState<ReporteData | null>(null);
@@ -162,6 +188,7 @@ export function ReporteDetalle({ backHref, backLabel }: ReporteDetalleProps) {
   const { ticket, duracionSegundos, evidencia, checklist, clausulasInstalacion } = data;
   const orden = ticket.orden;
   const esInstalacion = esTicketInstalacion(ticket.tipo);
+  const esInfra = esTicketInfraestructura(ticket.tipo);
   const clausulas =
     clausulasInstalacion && clausulasInstalacion.length > 0
       ? clausulasInstalacion
@@ -169,9 +196,24 @@ export function ReporteDetalle({ backHref, backLabel }: ReporteDetalleProps) {
         ? [...CLAUSULAS_POLITICA_INSTALACION]
         : [];
 
+  const checklistItems = esInfra
+    ? [
+        { key: "servicioOk", label: "Infraestructura restablecida" },
+        { key: "potenciaOk", label: "Enlaces / nodo validados" },
+        { key: "fotosOk", label: "Fotos cargadas" },
+      ]
+    : [
+        { key: "servicioOk", label: "Servicio funcionando" },
+        { key: "potenciaOk", label: "Potencia validada" },
+        { key: "fotosOk", label: "Fotos cargadas" },
+        { key: "clienteConforme", label: "Cliente conforme" },
+        { key: "firmaOk", label: "Firma registrada" },
+        { key: "whatsappEnviado", label: "WhatsApp enviado" },
+      ];
+
   return (
-    <div className="min-h-dvh bg-slate-50 print:bg-white">
-      <header className="bg-infinity-800 text-white px-4 py-4 sticky top-0 z-50 print:hidden">
+    <div className="min-h-dvh bg-slate-100 print:bg-white">
+      <header className="bg-infinity-800 text-white px-4 py-4 sticky top-0 z-50 print:hidden shadow-md">
         <div className="max-w-4xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Link href={backHref} className="p-1 hover:bg-white/10 rounded-lg">
@@ -184,7 +226,7 @@ export function ReporteDetalle({ backHref, backLabel }: ReporteDetalleProps) {
           </div>
           <button
             onClick={imprimir}
-            className="flex items-center gap-1 px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-sm"
+            className="flex items-center gap-1.5 px-3 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-sm font-medium"
           >
             <Printer className="w-4 h-4" />
             Imprimir
@@ -192,277 +234,241 @@ export function ReporteDetalle({ backHref, backLabel }: ReporteDetalleProps) {
         </div>
       </header>
 
-      <main className="max-w-4xl mx-auto p-4 space-y-4 print:p-0">
-        <div className="bg-white rounded-xl border p-4 print:border-0 print:rounded-none">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="text-xs text-slate-500 uppercase tracking-wide">Infinity Internet</p>
-              <h2 className="text-xl font-bold text-infinity-800 mt-1">
-                Reporte de orden de servicio
-              </h2>
-              <p className="text-2xl font-mono font-bold mt-2">{ticket.codigo}</p>
-            </div>
-            <div className="text-right text-sm">
-              <p className="font-medium text-emerald-700">{ESTADO_LABELS[ticket.estado]}</p>
-              <p className="text-slate-500 text-xs mt-1">
-                Cerrado: {formatDateTime(orden?.finalizadoEn || ticket.updatedAt)}
-              </p>
+      <main className="max-w-4xl mx-auto p-4 sm:p-6 space-y-5 print:p-0 print:space-y-4">
+        {/* Encabezado del reporte */}
+        <div className="bg-white rounded-xl border shadow-sm overflow-hidden print:shadow-none print:border-0">
+          <div className="h-1.5 bg-gradient-to-r from-infinity-600 via-infinity-500 to-emerald-500" />
+          <div className="p-5 sm:p-6">
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+              <div>
+                <p className="text-xs font-semibold text-infinity-600 uppercase tracking-widest">
+                  Infinity Internet
+                </p>
+                <h2 className="text-2xl font-bold text-slate-900 mt-1">
+                  Orden de servicio
+                </h2>
+                <p className="text-3xl font-mono font-bold text-infinity-800 mt-2 tracking-tight">
+                  {ticket.codigo}
+                </p>
+                <div className="flex flex-wrap gap-2 mt-3">
+                  <span className="inline-flex items-center rounded-full bg-infinity-100 px-3 py-1 text-xs font-semibold text-infinity-800">
+                    {TIPO_LABELS[ticket.tipo]}
+                  </span>
+                  <span className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">
+                    {PRIORIDAD_LABELS[ticket.prioridad]}
+                  </span>
+                  {esInstalacion && (
+                    <span className="inline-flex items-center rounded-full bg-sky-100 px-3 py-1 text-xs font-semibold text-sky-800">
+                      Nueva instalación
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div className="sm:text-right shrink-0">
+                <span className="inline-flex items-center rounded-lg bg-emerald-50 border border-emerald-200 px-3 py-1.5 text-sm font-semibold text-emerald-800">
+                  {ESTADO_LABELS[ticket.estado]}
+                </span>
+                <p className="text-xs text-slate-500 mt-2">
+                  Cerrado: {formatDateTime(orden?.finalizadoEn || ticket.updatedAt)}
+                </p>
+                <p className="text-sm font-medium text-slate-700 mt-1 flex sm:justify-end items-center gap-1.5">
+                  <Clock className="w-4 h-4 text-infinity-500" />
+                  {formatDuration(duracionSegundos)}
+                </p>
+              </div>
             </div>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="bg-white rounded-xl border p-4 space-y-2">
-            <h3 className="font-semibold flex items-center gap-2 text-sm">
-              <User className="w-4 h-4" />
-              Cliente
-            </h3>
-            <p className="font-medium">{ticket.cliente.nombre}</p>
-            <p className="text-sm text-slate-600">Cédula: {ticket.cliente.cedula}</p>
-            <p className="text-sm text-slate-600">Tel: {ticket.cliente.telefono}</p>
-            <p className="text-sm text-slate-600">Plan: {ticket.cliente.plan}</p>
-            <p className="text-sm text-slate-600">{ticket.cliente.direccion}</p>
+        {/* Cliente + Trabajo */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+          <ReporteSection title="Datos del cliente" icon={User} accent="default">
+            <p className="font-semibold text-lg text-slate-900 mb-3">{ticket.cliente.nombre}</p>
+            <InfoRow label="Cédula" value={ticket.cliente.cedula} />
+            <InfoRow label="Teléfono" value={ticket.cliente.telefono} />
+            <InfoRow label="Plan" value={ticket.cliente.plan} />
+            <InfoRow label="Dirección" value={ticket.cliente.direccion} />
+            <InfoRow label="Sector" value={ticket.cliente.sector} />
             {ticket.cliente.referencia && (
-              <p className="text-sm bg-amber-50 border border-amber-200 rounded-lg p-2">
-                <span className="text-slate-500 font-medium">Referencia: </span>
-                {ticket.cliente.referencia}
-              </p>
+              <div className="mt-3 rounded-lg bg-amber-50 border border-amber-200 p-3 text-sm">
+                <span className="font-medium text-amber-900">Referencia: </span>
+                <span className="text-amber-950">{ticket.cliente.referencia}</span>
+              </div>
             )}
-            <p className="text-sm text-slate-500">Sector: {ticket.cliente.sector}</p>
-          </div>
+          </ReporteSection>
 
-          <div className="bg-white rounded-xl border p-4 space-y-2">
-            <h3 className="font-semibold flex items-center gap-2 text-sm">
-              <Wrench className="w-4 h-4" />
-              Trabajo realizado
-            </h3>
-            <p className="text-sm">
-              <span className="text-slate-500">Tipo:</span> {TIPO_LABELS[ticket.tipo]}
-            </p>
-            <p className="text-sm">
-              <span className="text-slate-500">Prioridad:</span>{" "}
-              {PRIORIDAD_LABELS[ticket.prioridad]}
-            </p>
-            <p className="text-sm">
-              <span className="text-slate-500">Técnicos:</span>{" "}
-              {ticket.tecnicosLabel}
-            </p>
-            <p className="text-sm">
-              <span className="text-slate-500">Motivo:</span> {ticket.motivo}
-            </p>
-            {esTicketInfraestructura(ticket.tipo) && ticket.nodoAfectado && (
-              <>
-                <p className="text-sm">
-                  <span className="text-slate-500">Nodo:</span> {ticket.nodoAfectado}
-                </p>
-                {ticket.zonaInfra && (
-                  <p className="text-sm">
-                    <span className="text-slate-500">Zona:</span> {ticket.zonaInfra}
-                  </p>
-                )}
-                {ticket.motivoInfraestructura && (
-                  <p className="text-sm">
-                    <span className="text-slate-500">Incidente:</span>{" "}
-                    {MOTIVO_INFRA_LABELS[ticket.motivoInfraestructura]}
-                  </p>
-                )}
-              </>
+          <ReporteSection title="Trabajo realizado" icon={Wrench} accent="default">
+            <InfoRow label="Tipo" value={TIPO_LABELS[ticket.tipo]} />
+            <InfoRow label="Técnicos" value={ticket.tecnicosLabel} />
+            <InfoRow label="Motivo" value={ticket.motivo || "—"} />
+            {esInfra && ticket.nodoAfectado && (
+              <InfoRow label="Nodo" value={ticket.nodoAfectado} />
             )}
-            <p className="text-sm text-slate-600">{ticket.descripcion}</p>
-            <p className="text-sm flex items-center gap-1 mt-2">
-              <Clock className="w-3.5 h-3.5 text-slate-400" />
-              Duración: <strong>{formatDuration(duracionSegundos)}</strong>
-            </p>
-          </div>
+            {esInfra && ticket.zonaInfra && (
+              <InfoRow label="Zona" value={ticket.zonaInfra} />
+            )}
+            {esInfra && ticket.motivoInfraestructura && (
+              <InfoRow
+                label="Incidente"
+                value={MOTIVO_INFRA_LABELS[ticket.motivoInfraestructura]}
+              />
+            )}
+            {ticket.descripcion && (
+              <div className="mt-3 rounded-lg bg-slate-50 border border-slate-100 p-3 text-sm text-slate-700">
+                <p className="text-xs font-semibold text-slate-500 uppercase mb-1">Descripción</p>
+                {ticket.descripcion}
+              </div>
+            )}
+          </ReporteSection>
         </div>
 
         {orden?.medicion && (
-          <div className="bg-white rounded-xl border p-4">
-            <h3 className="font-semibold mb-3">Medición técnica</h3>
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-sm">
-              <div className="bg-slate-50 rounded-lg p-3 text-center">
-                <p className="text-xs text-slate-500">RX</p>
-                <p className="font-bold text-lg">{orden.medicion.rxDbm} dBm</p>
-              </div>
-              <div className="bg-slate-50 rounded-lg p-3 text-center">
-                <p className="text-xs text-slate-500">TX</p>
-                <p className="font-bold text-lg">{orden.medicion.txDbm} dBm</p>
-              </div>
-              <div className="bg-slate-50 rounded-lg p-3 text-center">
-                <p className="text-xs text-slate-500">Ping</p>
-                <p className="font-bold text-lg">{orden.medicion.pingMs ?? "—"} ms</p>
-              </div>
-              <div className="bg-slate-50 rounded-lg p-3 text-center">
-                <p className="text-xs text-slate-500">Descarga</p>
-                <p className="font-bold text-lg">{orden.medicion.downloadMbps} Mbps</p>
-              </div>
-              <div className="bg-slate-50 rounded-lg p-3 text-center">
-                <p className="text-xs text-slate-500">Subida</p>
-                <p className="font-bold text-lg">{orden.medicion.uploadMbps} Mbps</p>
-              </div>
+          <ReporteSection
+            title="Medición técnica"
+            subtitle="Potencia óptica y velocidad medida en sitio"
+            icon={Gauge}
+            accent="emerald"
+          >
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+              <MetricCard label="RX" value={orden.medicion.rxDbm} unit="dBm" />
+              <MetricCard label="TX" value={orden.medicion.txDbm} unit="dBm" />
+              <MetricCard label="Ping" value={orden.medicion.pingMs ?? "—"} unit="ms" />
+              <MetricCard label="Descarga" value={orden.medicion.downloadMbps} unit="Mbps" />
+              <MetricCard label="Subida" value={orden.medicion.uploadMbps} unit="Mbps" />
             </div>
-          </div>
+          </ReporteSection>
         )}
 
         {esInstalacion && orden?.tipoConexionInstalacion && (
-          <div className="bg-white rounded-xl border border-sky-200 p-4 space-y-3">
-            <h3 className="font-semibold text-sky-900">Datos de instalación entregados</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-              <p>
-                <span className="text-slate-500">Conexión:</span>{" "}
-                {orden.tipoConexionInstalacion === "IP"
-                  ? `IP — ${orden.direccionIp}`
-                  : "PPPoE"}
-              </p>
+          <ReporteSection
+            title="Datos de instalación entregados"
+            subtitle="Credenciales y configuración entregadas al cliente"
+            icon={Wifi}
+            accent="sky"
+          >
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6">
+              <InfoRow
+                label="Conexión"
+                value={
+                  orden.tipoConexionInstalacion === "IP"
+                    ? `IP fija — ${orden.direccionIp}`
+                    : "PPPoE"
+                }
+              />
               {orden.tipoConexionInstalacion === "PPPOE" && (
                 <>
-                  <p>
-                    <span className="text-slate-500">Usuario PPPoE:</span> {orden.pppoeUsuario}
-                  </p>
-                  <p>
-                    <span className="text-slate-500">Clave PPPoE:</span>{" "}
-                    <span className="font-mono">{orden.pppoeClave}</span>
-                  </p>
+                  <InfoRow label="Usuario PPPoE" value={orden.pppoeUsuario} />
+                  <InfoRow
+                    label="Clave PPPoE"
+                    value={<span className="font-mono">{orden.pppoeClave}</span>}
+                  />
                 </>
               )}
-              <p>
-                <span className="text-slate-500">Red WiFi:</span> {orden.nombreRedWifi}
-              </p>
-              <p>
-                <span className="text-slate-500">Clave WiFi:</span>{" "}
-                <span className="font-mono">{orden.claveRedWifi}</span>
-              </p>
+              <InfoRow label="Red WiFi" value={orden.nombreRedWifi} />
+              <InfoRow
+                label="Clave WiFi"
+                value={<span className="font-mono">{orden.claveRedWifi}</span>}
+              />
             </div>
-          </div>
+          </ReporteSection>
+        )}
+
+        {orden?.materiales && orden.materiales.length > 0 && (
+          <MaterialesReporte materiales={orden.materiales} />
         )}
 
         {esInstalacion && clausulas.length > 0 && (
-          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 print:border print:bg-white">
-            <h3 className="font-semibold text-amber-900 mb-3">Políticas del servicio — Instalación</h3>
-            <ul className="space-y-2 text-sm text-amber-950">
+          <ReporteSection
+            title="Políticas del servicio — Instalación"
+            icon={FileText}
+            accent="amber"
+            className="print:border"
+          >
+            <ul className="space-y-2.5 text-sm text-slate-700">
               {clausulas.map((clausula) => (
-                <li key={clausula} className="flex gap-2">
-                  <span className="text-amber-600 shrink-0">•</span>
+                <li key={clausula} className="flex gap-3 leading-relaxed">
+                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" />
                   <span>{clausula}</span>
                 </li>
               ))}
             </ul>
-          </div>
+          </ReporteSection>
         )}
 
         {orden?.firma && <FirmaReporte firma={orden.firma} />}
 
-        <div className="bg-white rounded-xl border p-4 space-y-6">
-          <h3 className="font-semibold text-lg">Evidencia fotográfica</h3>
-          <PhotoGallery titulo="Antes de iniciar" fotos={evidencia.antes} />
-          <PhotoGallery titulo="Durante la reparación" fotos={evidencia.durante} />
-          <PhotoGallery titulo="Al finalizar" fotos={evidencia.final} />
-          {evidencia.antes.length === 0 &&
-            evidencia.durante.length === 0 &&
-            evidencia.final.length === 0 && (
-              <p className="text-slate-400 text-sm text-center py-4">
-                Sin fotografías registradas
-              </p>
-            )}
-        </div>
-
-        {orden?.materiales && orden.materiales.length > 0 && (
-          <div className="bg-white rounded-xl border p-4">
-            <h3 className="font-semibold mb-3">Material utilizado</h3>
-            <table className="w-full text-sm">
-              <thead className="bg-slate-50">
-                <tr>
-                  <th className="text-left p-2">Material</th>
-                  <th className="text-left p-2">Serie / Modelo / Marca</th>
-                  <th className="text-left p-2">Patch cord</th>
-                  <th className="text-right p-2">Cantidad</th>
-                  <th className="text-right p-2">Excedente fibra</th>
-                </tr>
-              </thead>
-              <tbody>
-                {orden.materiales.map((m) => (
-                  <tr key={m.id} className="border-t">
-                    <td className="p-2">{m.inventario.nombre}</td>
-                    <td className="p-2 text-slate-600">
-                      {m.serie || m.modelo || m.marca
-                        ? [m.serie, m.modelo, m.marca].filter(Boolean).join(" · ")
-                        : "—"}
-                    </td>
-                    <td className="p-2 text-slate-600">
-                      {m.tipoPatchCord
-                        ? TIPO_PATCHCORD_LABELS[m.tipoPatchCord as TipoPatchCord]
-                        : "—"}
-                    </td>
-                    <td className="p-2 text-right">
-                      {m.cantidad} {m.inventario.unidad}
-                    </td>
-                    <td className="p-2 text-right">
-                      {m.excedenteMetros && m.excedenteMetros > 0 ? (
-                        <span className="text-red-700 font-semibold" title={`Sobre ${FIBRA_DROP_LIMITE_M} m incluidos`}>
-                          +{m.excedenteMetros} m
-                        </span>
-                      ) : (
-                        "—"
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        <ReporteSection
+          title="Evidencia fotográfica"
+          subtitle="Registro visual antes, durante y al finalizar el trabajo"
+          icon={Camera}
+        >
+          <div className="space-y-6">
+            <PhotoGallery titulo="Antes de iniciar" fotos={evidencia.antes} />
+            <PhotoGallery titulo="Durante la reparación" fotos={evidencia.durante} />
+            <PhotoGallery titulo="Al finalizar" fotos={evidencia.final} />
+            {evidencia.antes.length === 0 &&
+              evidencia.durante.length === 0 &&
+              evidencia.final.length === 0 && (
+                <p className="text-slate-400 text-sm text-center py-6 bg-slate-50 rounded-lg">
+                  Sin fotografías registradas
+                </p>
+              )}
           </div>
-        )}
+        </ReporteSection>
 
         {checklist && (
-          <div className="bg-white rounded-xl border p-4">
-            <h3 className="font-semibold mb-3">Checklist de cierre</h3>
+          <ReporteSection title="Checklist de cierre" icon={CheckCircle} accent="emerald">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {[
-                { key: "servicioOk", label: "Servicio funcionando" },
-                { key: "potenciaOk", label: "Potencia validada" },
-                { key: "fotosOk", label: "Fotos cargadas" },
-                { key: "clienteConforme", label: "Cliente conforme" },
-                { key: "firmaOk", label: "Firma registrada" },
-                { key: "whatsappEnviado", label: "WhatsApp enviado" },
-              ].map(({ key, label }) => {
+              {checklistItems.map(({ key, label }) => {
                 const ok = checklist[key as keyof typeof checklist];
                 return (
                   <div
                     key={key}
-                    className={`flex items-center gap-2 text-sm p-2 rounded-lg ${
-                      ok ? "bg-emerald-50 text-emerald-800" : "bg-red-50 text-red-700"
+                    className={`flex items-center gap-2.5 text-sm p-3 rounded-lg border ${
+                      ok
+                        ? "bg-emerald-50 border-emerald-200 text-emerald-900"
+                        : "bg-red-50 border-red-200 text-red-800"
                     }`}
                   >
                     {ok ? (
-                      <CheckCircle className="w-4 h-4 shrink-0" />
+                      <CheckCircle className="w-4 h-4 shrink-0 text-emerald-600" />
                     ) : (
-                      <XCircle className="w-4 h-4 shrink-0" />
+                      <XCircle className="w-4 h-4 shrink-0 text-red-500" />
                     )}
-                    {label}
+                    <span className="font-medium">{label}</span>
                   </div>
                 );
               })}
             </div>
-          </div>
+          </ReporteSection>
         )}
 
         {ticket.eventos.length > 0 && (
-          <div className="bg-white rounded-xl border p-4 print:hidden">
-            <h3 className="font-semibold mb-3">Historial</h3>
-            <div className="space-y-2">
+          <ReporteSection title="Historial" icon={History} className="print:hidden">
+            <div className="space-y-3">
               {ticket.eventos.map((ev) => (
-                <div key={ev.id} className="flex gap-3 text-sm border-l-2 border-infinity-200 pl-3">
+                <div
+                  key={ev.id}
+                  className="flex gap-3 text-sm border-l-2 border-infinity-300 pl-4 py-0.5"
+                >
                   <div>
-                    <p className="font-medium">{ev.accion.replace(/_/g, " ")}</p>
-                    <p className="text-xs text-slate-400">
+                    <p className="font-medium text-slate-800">
+                      {ev.accion.replace(/_/g, " ")}
+                    </p>
+                    <p className="text-xs text-slate-400 mt-0.5">
                       {formatDateTime(ev.createdAt)}
-                      {ev.usuario ? ` — ${ev.usuario.nombre}` : ""}
+                      {ev.usuario ? ` · ${ev.usuario.nombre}` : ""}
                     </p>
                   </div>
                 </div>
               ))}
             </div>
-          </div>
+          </ReporteSection>
         )}
+
+        <footer className="text-center text-xs text-slate-400 py-4 print:pt-6">
+          Documento generado por Infinity Operaciones · {ticket.codigo}
+        </footer>
       </main>
     </div>
   );
