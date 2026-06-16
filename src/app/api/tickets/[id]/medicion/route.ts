@@ -20,6 +20,7 @@ import {
   type DatosInstalacionInput,
 } from "@/lib/ticket-instalacion";
 import { asegurarReportadorOrden } from "@/lib/ticket-reporte";
+import { verificarTicketEditable } from "@/lib/ticket-cerrado";
 import type { TipoPatchCord } from "@prisma/client";
 
 export const maxDuration = 60;
@@ -43,6 +44,11 @@ export async function POST(
   });
   if (!ticket || !tecnicoAsignadoAlTicket(ticket, session.tecnicoId)) {
     return NextResponse.json({ error: "No autorizado" }, { status: 403 });
+  }
+
+  const editable = await verificarTicketEditable(id);
+  if (!editable.ok) {
+    return NextResponse.json({ error: editable.error }, { status: editable.status });
   }
 
   const permiso = await asegurarReportadorOrden(id, session.tecnicoId);
@@ -97,6 +103,11 @@ export async function PUT(
     });
     if (!ticket || !tecnicoAsignadoAlTicket(ticket, session.tecnicoId)) {
       return NextResponse.json({ error: "No autorizado" }, { status: 403 });
+    }
+
+    const editable = await verificarTicketEditable(id);
+    if (!editable.ok) {
+      return NextResponse.json({ error: editable.error }, { status: editable.status });
     }
 
     const permiso = await asegurarReportadorOrden(id, session.tecnicoId);

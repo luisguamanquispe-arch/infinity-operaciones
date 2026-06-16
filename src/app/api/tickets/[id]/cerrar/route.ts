@@ -7,6 +7,7 @@ import { esClienteInfraestructura } from "@/lib/cliente-infraestructura";
 import { esTicketInfraestructura } from "@/lib/ticket-infraestructura";
 import { esTicketInstalacion } from "@/lib/ticket-instalacion";
 import { asegurarReportadorOrden } from "@/lib/ticket-reporte";
+import { ordenServicioCerrada } from "@/lib/ticket-cerrado";
 
 export async function POST(
   request: Request,
@@ -36,6 +37,11 @@ export async function POST(
   }
 
   const orden = await getOrCreateOrden(id);
+
+  if (ordenServicioCerrada(orden)) {
+    return NextResponse.json({ ok: true, yaCerrado: true });
+  }
+
   const validacion = validarCierreOrden(orden, {
     esInfraestructura: esTicketInfraestructura(ticket.tipo),
     esInstalacion: esTicketInstalacion(ticket.tipo),

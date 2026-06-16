@@ -72,6 +72,8 @@ interface OrdenData {
     codigo: string;
     tipo: string;
     estado: string;
+    ordenCerrada?: boolean;
+    editable?: boolean;
     motivo: string | null;
     descripcion: string | null;
     motivoInfraestructura: MotivoInfraestructura | null;
@@ -450,8 +452,9 @@ export default function OrdenPage() {
 
   const { ticket, orden, reporte } = data;
   const fotoMap = Object.fromEntries(orden.fotografias.map((f) => [f.tipo, f]));
-  const cerrado = ticket.estado === "CERRADO";
-  const puedeEditar = reporte?.puedeEditar !== false && !cerrado;
+  const cerrado = ticket.estado === "CERRADO" || !!ticket.ordenCerrada;
+  const puedeEditar =
+    ticket.editable !== false && reporte?.puedeEditar !== false && !cerrado;
   const esInfra = esTicketInfraestructura(ticket.tipo);
   const esInstalacion = esTicketInstalacion(ticket.tipo);
   const fotosAntes = esInfra

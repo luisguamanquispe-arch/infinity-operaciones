@@ -16,6 +16,12 @@ import { fotoImagenSrcRapida } from "@/lib/foto-image";
 import { firmaImagenSrcRapida } from "@/lib/firma-image";
 import { normalizarTextoTicket } from "@/lib/mayusculas";
 import { infoReporteOrden } from "@/lib/ticket-reporte";
+import {
+  estadoTicketEfectivo,
+  sincronizarTicketSiOrdenCerrada,
+  ticketPermiteEdicion,
+  verificarTicketEditable,
+} from "@/lib/ticket-cerrado";
 
 export async function GET(
   _request: Request,
@@ -121,6 +127,17 @@ export async function GET(
 
   const ordenFinal = ordenActual ?? orden;
 
+  await sincronizarTicketSiOrdenCerrada(ticketData.id);
+
+  const ticketDb = await prisma.ticket.findUnique({
+    where: { id: ticketData.id },
+    select: { estado: true },
+  });
+  const estadoEfectivo = estadoTicketEfectivo(
+    { estado: ticketDb?.estado ?? ticketData.estado },
+    ordenFinal
+  );
+
   const duracionSegundos = ordenFinal.cronometro
     ? calcularDuracionCronometro(
         ordenFinal.cronometro.inicio,
@@ -145,10 +162,18 @@ export async function GET(
       : null,
   };
 
-  const ticketRespuesta =
-    session.rol === "TECNICO" && ticketData.estado === "PENDIENTE" && ordenFinal.cronometro?.inicio
-      ? { ...ticketData, estado: "EN_PROCESO" as const }
-      : ticketData;
+  let ticketRespuesta = {
+    ...ticketData,
+    estado: estadoEfectivo as typeof ticketData.estado,
+  };
+
+  if (
+    session.rol === "TECNICO" &&
+    ticketRespuesta.estado === "PENDIENTE" &&
+    ordenFinal.cronometro?.inicio
+  ) {
+    ticketRespuesta = { ...ticketRespuesta, estado: "EN_PROCESO" };
+  }
 
   const reporte =
     session.rol === "TECNICO" && session.tecnicoId
@@ -159,6 +184,11 @@ export async function GET(
     ticket: {
       ...ticketRespuesta,
       tecnicoIds: tecnicoIdsFromTicket(ticketData),
+      ordenCerrada: !!ordenFinal.finalizadoEn,
+      editable: ticketPermiteEdicion(
+        { estado: estadoEfectivo },
+        ordenFinal
+      ),
     },
     orden: ordenConFotos,
     duracionSegundos,
@@ -195,6 +225,11 @@ export async function PATCH(
 
   const { id } = await params;
   const body = await request.json();
+
+  const editable = await verificarTicketEditable(id);
+  if (!editable.ok) {
+    return NextResponse.json({ error: editable.error }, { status: editable.status });
+  }
 
   const ticket = await prisma.ticket.findUnique({
     where: { id },

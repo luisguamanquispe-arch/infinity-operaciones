@@ -5,6 +5,7 @@ import { getOrCreateOrden, calcularDuracionCronometro } from "@/lib/tickets";
 import { iniciarCronometroTicket } from "@/lib/cronometro";
 import { tecnicoAsignadoAlTicket } from "@/lib/ticket-tecnicos";
 import { asegurarReportadorOrden } from "@/lib/ticket-reporte";
+import { verificarTicketEditable } from "@/lib/ticket-cerrado";
 
 export async function POST(
   request: Request,
@@ -24,6 +25,11 @@ export async function POST(
   });
   if (!ticket || !tecnicoAsignadoAlTicket(ticket, session.tecnicoId)) {
     return NextResponse.json({ error: "No autorizado" }, { status: 403 });
+  }
+
+  const editable = await verificarTicketEditable(id);
+  if (!editable.ok) {
+    return NextResponse.json({ error: editable.error }, { status: editable.status });
   }
 
   const permiso = await asegurarReportadorOrden(id, session.tecnicoId);

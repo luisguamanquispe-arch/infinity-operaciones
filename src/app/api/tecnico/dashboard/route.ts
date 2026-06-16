@@ -4,6 +4,7 @@ import { getFullSession } from "@/lib/auth";
 import { calcularDuracionCronometro } from "@/lib/tickets";
 import { diaKey } from "@/lib/calendario";
 import { whereTecnicoAsignado } from "@/lib/ticket-tecnicos";
+import { sincronizarTicketsConOrdenCerrada } from "@/lib/ticket-cerrado";
 import type { Prisma } from "@prisma/client";
 
 export const runtime = "nodejs";
@@ -36,6 +37,8 @@ export async function GET(request: Request) {
       { status: 403 }
     );
   }
+
+  await sincronizarTicketsConOrdenCerrada();
 
   const ticketWhere = buildTicketWherePendientes(session.tecnicoId);
 

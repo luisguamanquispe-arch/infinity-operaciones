@@ -1,6 +1,7 @@
 import { prisma } from "./prisma";
 import { getOrCreateOrden } from "./tickets";
 import { tecnicoIdsFromTicket } from "./ticket-tecnicos";
+import { ticketEstaCerrado, ticketPermiteEdicion } from "./ticket-cerrado";
 
 export function esTicketMultiTecnico(ticket: {
   tecnicoId: string | null;
@@ -35,12 +36,13 @@ export async function asegurarReportadorOrden(
     return { ok: true, esReportador: true };
   }
 
-  if (["CERRADO", "FINALIZADO"].includes(ticket.estado)) {
-    const orden = await prisma.ordenServicio.findUnique({
-      where: { ticketId },
-      select: { reportadoPorTecnicoId: true },
-    });
-    const quien = await nombreTecnico(orden?.reportadoPorTecnicoId);
+  const ordenExistente = await prisma.ordenServicio.findUnique({
+    where: { ticketId },
+    select: { finalizadoEn: true, reportadoPorTecnicoId: true },
+  });
+
+  if (ticketEstaCerrado(ticket, ordenExistente)) {
+    const quien = await nombreTecnico(ordenExistente?.reportadoPorTecnicoId);
     return {
       ok: false,
       status: 409,
@@ -89,9 +91,14 @@ export async function infoReporteOrden(ticketId: string, tecnicoId: string | nul
     include: { tecnicos: { select: { tecnicoId: true } } },
   });
   if (!ticket || !esTicketMultiTecnico(ticket)) {
+    const orden = await prisma.ordenServicio.findUnique({
+      where: { ticketId },
+      select: { finalizadoEn: true },
+    });
+    const puedeEditar = ticket ? ticketPermiteEdicion(ticket, orden) : true;
     return {
       multiTecnico: false,
-      puedeEditar: true,
+      puedeEditar,
       esReportador: true,
       reportadoPor: null as { id: string; nombre: string } | null,
       reportadoEn: null as string | null,
@@ -104,6 +111,7 @@ export async function infoReporteOrden(ticketId: string, tecnicoId: string | nul
     select: {
       reportadoPorTecnicoId: true,
       reportadoEn: true,
+      finalizadoEn: true,
       reportadoPor: { include: { usuario: { select: { nombre: true } } } },
     },
   });
@@ -115,9 +123,9 @@ export async function infoReporteOrden(ticketId: string, tecnicoId: string | nul
       }
     : null;
 
-  const cerrado = ["CERRADO", "FINALIZADO"].includes(ticket.estado);
+  const cerrado = ticketEstaCerrado(ticket, orden);
   const esReportador = !orden?.reportadoPorTecnicoId || orden.reportadoPorTecnicoId === tecnicoId;
-  const puedeEditar = esReportador && !cerrado;
+  const puedeEditar = esReportador && ticketPermiteEdicion(ticket, orden);
 
   let mensaje: string | null = null;
   if (cerrado && reportadoPor) {

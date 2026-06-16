@@ -29,6 +29,7 @@ export default function EditarTicketPage() {
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState("");
   const [exito, setExito] = useState("");
+  const [editable, setEditable] = useState(true);
 
   const [form, setForm] = useState({
     tipo: "SOPORTE",
@@ -53,6 +54,7 @@ export default function EditarTicketPage() {
       const t = ticketData.ticket;
       setCodigo(t.codigo);
       setClienteNombre(t.cliente.nombre);
+      setEditable(t.editable !== false);
       setForm({
         tipo: t.tipo,
         prioridad: t.prioridad,
@@ -73,6 +75,7 @@ export default function EditarTicketPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!editable) return;
     setGuardando(true);
     setError("");
     setExito("");
@@ -130,7 +133,14 @@ export default function EditarTicketPage() {
           </div>
         )}
 
+        {!editable && (
+          <div className="bg-amber-50 text-amber-900 border border-amber-200 p-3 rounded-xl text-sm">
+            La orden de servicio está cerrada. Este ticket no se puede modificar.
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="bg-white rounded-xl border p-4 space-y-4">
+          <fieldset disabled={!editable} className="space-y-4 disabled:opacity-60">
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-xs text-slate-500">Tipo de trabajo</label>
@@ -215,11 +225,12 @@ export default function EditarTicketPage() {
 
           <button
             type="submit"
-            disabled={guardando}
+            disabled={guardando || !editable}
             className="w-full py-3 bg-infinity-600 hover:bg-infinity-700 text-white font-semibold rounded-xl disabled:opacity-50"
           >
             {guardando ? "Guardando..." : "Guardar cambios"}
           </button>
+          </fieldset>
         </form>
       </main>
     </div>

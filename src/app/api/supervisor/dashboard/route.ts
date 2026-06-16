@@ -3,12 +3,15 @@ import { prisma } from "@/lib/prisma";
 import { getFullSession } from "@/lib/auth";
 
 import { nombresTecnicosTicket, ticketIncludeTecnicos } from "@/lib/ticket-tecnicos";
+import { sincronizarTicketsConOrdenCerrada } from "@/lib/ticket-cerrado";
 
 export async function GET() {
   const session = await getFullSession();
   if (!session || !["SUPERVISOR", "ADMIN"].includes(session.rol)) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
+
+  await sincronizarTicketsConOrdenCerrada();
 
   const now = new Date();
   const hoy = new Date(now);
