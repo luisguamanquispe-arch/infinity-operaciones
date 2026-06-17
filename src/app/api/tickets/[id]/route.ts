@@ -22,6 +22,7 @@ import {
   ticketPermiteEdicion,
   verificarTicketEditable,
 } from "@/lib/ticket-cerrado";
+import { TIPOS_ELIMINABLES_GERENCIA } from "@/lib/ticket-gerencia";
 
 export async function GET(
   _request: Request,
@@ -327,7 +328,9 @@ export async function DELETE(
 
   try {
     const { eliminarTicketPorId } = await import("@/lib/eliminar-ticket");
-    const result = await eliminarTicketPorId(id, { soloTipo: "SOPORTE" });
+    const result = await eliminarTicketPorId(id, {
+      tiposPermitidos: TIPOS_ELIMINABLES_GERENCIA,
+    });
     return NextResponse.json(result);
   } catch (err) {
     const message = err instanceof Error ? err.message : "No se pudo eliminar el ticket";

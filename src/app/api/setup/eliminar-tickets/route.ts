@@ -26,7 +26,7 @@ export async function POST(request: Request) {
 
     const body = await request.json().catch(() => ({}));
     const codigos = Array.isArray(body.codigos)
-      ? body.codigos.filter((c): c is string => typeof c === "string" && c.trim().length > 0)
+      ? body.codigos.filter((c: unknown): c is string => typeof c === "string" && c.trim().length > 0)
       : [];
 
     if (codigos.length === 0) {

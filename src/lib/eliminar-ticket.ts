@@ -1,5 +1,6 @@
 import { prisma } from "./prisma";
 import { tecnicoIdsFromTicket } from "./ticket-tecnicos";
+import type { TipoTrabajo } from "@prisma/client";
 
 export interface EliminarTicketResult {
   ok: true;
@@ -10,7 +11,7 @@ export interface EliminarTicketResult {
 /** Elimina un ticket y restaura stock de materiales descontados. */
 export async function eliminarTicketPorId(
   ticketId: string,
-  opts?: { soloTipo?: "SOPORTE" }
+  opts?: { tiposPermitidos?: TipoTrabajo[] }
 ): Promise<EliminarTicketResult> {
   const ticket = await prisma.ticket.findUnique({
     where: { id: ticketId },
@@ -27,8 +28,12 @@ export async function eliminarTicketPorId(
     throw new Error("Ticket no encontrado");
   }
 
-  if (opts?.soloTipo && ticket.tipo !== opts.soloTipo) {
-    throw new Error(`Solo se pueden eliminar tickets de tipo ${opts.soloTipo}`);
+  if (opts?.tiposPermitidos?.length) {
+    if (!opts.tiposPermitidos.includes(ticket.tipo)) {
+      throw new Error(
+        `No se puede eliminar un ticket de tipo ${ticket.tipo} desde esta pantalla`
+      );
+    }
   }
 
   const materiales = ticket.orden?.materiales ?? [];

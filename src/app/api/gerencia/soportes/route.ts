@@ -2,6 +2,21 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getFullSession } from "@/lib/auth";
 import { nombresTecnicosTicket, ticketIncludeTecnicos } from "@/lib/ticket-tecnicos";
+import { sincronizarTicketsConOrdenCerrada } from "@/lib/ticket-cerrado";
+import {
+  ESTADOS_ACTIVOS_TICKET,
+  TIPOS_ELIMINABLES_GERENCIA,
+  esCodigoTicketExacto,
+} from "@/lib/ticket-gerencia";
+import type { EstadoTicket, Prisma } from "@prisma/client";
+
+const ESTADOS_VALIDOS: EstadoTicket[] = [
+  "PENDIENTE",
+  "EN_PROCESO",
+  "FINALIZADO",
+  "CERRADO",
+  "CANCELADO",
+];
 
 export async function GET(request: Request) {
   const session = await getFullSession();
@@ -9,31 +24,46 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 
+  await sincronizarTicketsConOrdenCerrada();
+
   const { searchParams } = new URL(request.url);
   const q = searchParams.get("q")?.trim();
-  const estado = searchParams.get("estado")?.trim();
+  const estado = searchParams.get("estado")?.trim() || "activos";
 
-  const and: Record<string, unknown>[] = [{ tipo: "SOPORTE" }];
+  const and: Prisma.TicketWhereInput[] = [
+    { tipo: { in: TIPOS_ELIMINABLES_GERENCIA } },
+  ];
 
-  if (estado && estado !== "todos") {
-    and.push({ estado });
+  const busquedaExacta = q ? esCodigoTicketExacto(q) : false;
+
+  if (!busquedaExacta) {
+    if (estado === "activos") {
+      and.push({ estado: { in: [...ESTADOS_ACTIVOS_TICKET] } });
+    } else if (estado !== "todos" && ESTADOS_VALIDOS.includes(estado as EstadoTicket)) {
+      and.push({ estado: estado as EstadoTicket });
+    }
   }
 
   if (q) {
-    and.push({
-      OR: [
-        { codigo: { contains: q, mode: "insensitive" } },
-        { motivo: { contains: q, mode: "insensitive" } },
-        { cliente: { nombre: { contains: q, mode: "insensitive" } } },
-        { cliente: { cedula: { contains: q } } },
-      ],
-    });
+    if (busquedaExacta) {
+      and.push({ codigo: { equals: q.toUpperCase(), mode: "insensitive" } });
+    } else {
+      and.push({
+        OR: [
+          { codigo: { contains: q, mode: "insensitive" } },
+          { motivo: { contains: q, mode: "insensitive" } },
+          { cliente: { nombre: { contains: q, mode: "insensitive" } } },
+          { cliente: { cedula: { contains: q } } },
+        ],
+      });
+    }
   }
 
   const tickets = await prisma.ticket.findMany({
     where: { AND: and },
     include: {
       ...ticketIncludeTecnicos,
+      cliente: { select: { nombre: true, cedula: true, sector: true } },
       orden: {
         select: {
           finalizadoEn: true,
@@ -42,13 +72,14 @@ export async function GET(request: Request) {
       },
     },
     orderBy: { createdAt: "desc" },
-    take: 100,
   });
 
   return NextResponse.json({
+    total: tickets.length,
     items: tickets.map((t) => ({
       id: t.id,
       codigo: t.codigo,
+      tipo: t.tipo,
       estado: t.estado,
       prioridad: t.prioridad,
       motivo: t.motivo,

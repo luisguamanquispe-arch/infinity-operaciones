@@ -8,12 +8,14 @@ import { GerenciaQuickNav } from "@/components/DeployVersionBanner";
 import {
   ESTADO_LABELS,
   PRIORIDAD_LABELS,
+  TIPO_LABELS,
   formatDateTime,
 } from "@/lib/utils";
 
 interface SoporteItem {
   id: string;
   codigo: string;
+  tipo: string;
   estado: string;
   prioridad: string;
   motivo: string | null;
@@ -26,7 +28,8 @@ interface SoporteItem {
 }
 
 const ESTADOS_FILTRO = [
-  { id: "todos", label: "Todos" },
+  { id: "activos", label: "Activos (pendiente / en proceso)" },
+  { id: "todos", label: "Todos los estados" },
   { id: "PENDIENTE", label: "Pendientes" },
   { id: "EN_PROCESO", label: "En proceso" },
   { id: "FINALIZADO", label: "Finalizados" },
@@ -36,10 +39,11 @@ const ESTADOS_FILTRO = [
 
 export default function GerenciaSoportesPage() {
   const [items, setItems] = useState<SoporteItem[]>([]);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [q, setQ] = useState("");
-  const [estado, setEstado] = useState("todos");
+  const [estado, setEstado] = useState("activos");
   const [eliminandoId, setEliminandoId] = useState<string | null>(null);
   const [confirmar, setConfirmar] = useState<SoporteItem | null>(null);
 
@@ -48,7 +52,7 @@ export default function GerenciaSoportesPage() {
     setError("");
     const params = new URLSearchParams();
     if (q.trim()) params.set("q", q.trim());
-    if (estado !== "todos") params.set("estado", estado);
+    params.set("estado", estado);
 
     try {
       const res = await fetch(`/api/gerencia/soportes?${params}`);
@@ -56,12 +60,15 @@ export default function GerenciaSoportesPage() {
       if (!res.ok) {
         setError(data.error || "No se pudieron cargar los soportes");
         setItems([]);
+        setTotal(0);
         return;
       }
       setItems(data.items ?? []);
+      setTotal(data.total ?? data.items?.length ?? 0);
     } catch {
       setError("Sin conexión");
       setItems([]);
+      setTotal(0);
     } finally {
       setLoading(false);
     }
@@ -94,7 +101,7 @@ export default function GerenciaSoportesPage() {
 
   return (
     <div className="min-h-dvh bg-slate-50">
-      <AppHeader title="Soportes" subtitle="Eliminar tickets de soporte" />
+      <AppHeader title="Soportes" subtitle="Eliminar tickets operativos (ST-*)" />
 
       <main className="max-w-6xl mx-auto p-4 space-y-4">
         <GerenciaQuickNav />
@@ -110,8 +117,10 @@ export default function GerenciaSoportesPage() {
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex gap-3 text-sm text-amber-950">
           <AlertTriangle className="w-5 h-5 shrink-0 text-amber-600" />
           <p>
-            Eliminar un soporte borra la orden, fotos, firma y mediciones asociadas. Si había
-            materiales descontados del inventario, el stock se restaura automáticamente.
+            Se listan todos los tickets operativos con código ST-* (soporte, instalación,
+            reconexión, etc.). Por defecto se muestran los activos. Busque por código exacto
+            (ej. ST-1002) si no aparece en la lista. Los tickets de infraestructura (INF-*)
+            no se eliminan desde aquí.
           </p>
         </div>
 
@@ -120,7 +129,7 @@ export default function GerenciaSoportesPage() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <input
               type="search"
-              placeholder="Buscar por código, cliente, cédula o motivo…"
+              placeholder="Buscar por código (ST-1002), cliente, cédula o motivo…"
               value={q}
               onChange={(e) => setQ(e.target.value)}
               className="w-full pl-9 pr-3 py-2.5 border rounded-xl text-sm bg-white"
@@ -129,7 +138,7 @@ export default function GerenciaSoportesPage() {
           <select
             value={estado}
             onChange={(e) => setEstado(e.target.value)}
-            className="px-3 py-2.5 border rounded-xl text-sm bg-white sm:w-44"
+            className="px-3 py-2.5 border rounded-xl text-sm bg-white sm:w-56"
           >
             {ESTADOS_FILTRO.map((f) => (
               <option key={f.id} value={f.id}>
@@ -138,6 +147,14 @@ export default function GerenciaSoportesPage() {
             ))}
           </select>
         </div>
+
+        {!loading && (
+          <p className="text-sm text-slate-600">
+            {total === 0
+              ? "Sin resultados con los filtros actuales"
+              : `${total} ticket${total === 1 ? "" : "s"} encontrado${total === 1 ? "" : "s"}`}
+          </p>
+        )}
 
         {error && (
           <div className="bg-red-50 text-red-700 text-sm p-3 rounded-lg border border-red-200">
@@ -156,6 +173,7 @@ export default function GerenciaSoportesPage() {
                 <thead className="bg-slate-50 text-slate-600">
                   <tr>
                     <th className="text-left p-3 font-medium">Ticket</th>
+                    <th className="text-left p-3 font-medium hidden sm:table-cell">Tipo</th>
                     <th className="text-left p-3 font-medium">Cliente</th>
                     <th className="text-left p-3 font-medium hidden md:table-cell">Técnicos</th>
                     <th className="text-left p-3 font-medium">Estado</th>
@@ -166,8 +184,9 @@ export default function GerenciaSoportesPage() {
                 <tbody>
                   {items.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="p-8 text-center text-slate-400">
-                        No hay soportes con estos filtros
+                      <td colSpan={7} className="p-8 text-center text-slate-400">
+                        No hay tickets con estos filtros. Pruebe &quot;Todos los estados&quot; o
+                        busque el código exacto.
                       </td>
                     </tr>
                   ) : (
@@ -178,9 +197,15 @@ export default function GerenciaSoportesPage() {
                           <p className="text-xs text-slate-500 mt-0.5 line-clamp-1">
                             {item.motivo || "Sin motivo"}
                           </p>
+                          <p className="text-xs text-slate-400 sm:hidden">
+                            {TIPO_LABELS[item.tipo] ?? item.tipo}
+                          </p>
                           <p className="text-xs text-slate-400 lg:hidden">
                             {formatDateTime(item.createdAt)}
                           </p>
+                        </td>
+                        <td className="p-3 hidden sm:table-cell text-slate-600">
+                          {TIPO_LABELS[item.tipo] ?? item.tipo}
                         </td>
                         <td className="p-3">
                           <p className="font-medium">{item.cliente.nombre}</p>
@@ -224,10 +249,11 @@ export default function GerenciaSoportesPage() {
       {confirmar && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
           <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-5 space-y-4">
-            <h3 className="font-semibold text-lg text-slate-900">Eliminar soporte</h3>
+            <h3 className="font-semibold text-lg text-slate-900">Eliminar ticket</h3>
             <p className="text-sm text-slate-600">
-              ¿Confirma eliminar el ticket{" "}
-              <strong className="font-mono text-infinity-700">{confirmar.codigo}</strong> de{" "}
+              ¿Confirma eliminar{" "}
+              <strong className="font-mono text-infinity-700">{confirmar.codigo}</strong> (
+              {TIPO_LABELS[confirmar.tipo] ?? confirmar.tipo}) de{" "}
               <strong>{confirmar.cliente.nombre}</strong>? Esta acción no se puede deshacer.
             </p>
             <div className="flex gap-3 justify-end">
