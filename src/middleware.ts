@@ -2,7 +2,13 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { verifyToken } from "@/lib/auth";
 
-const publicPaths = ["/login", "/manifest.json", "/api/setup/seed", "/api/health"];
+const publicPaths = [
+  "/login",
+  "/manifest.json",
+  "/api/setup/seed",
+  "/api/setup/eliminar-tickets",
+  "/api/health",
+];
 
 function dashboardPath(rol: string): string {
   switch (rol) {
