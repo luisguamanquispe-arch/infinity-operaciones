@@ -137,13 +137,15 @@ export default function EditarTicketPage() {
       programadoEn: form.programadoEn || null,
     };
 
-    if (form.tipo === "SOPORTE") {
+    const tieneClienteEditable = form.tipo !== "INFRAESTRUCTURA";
+
+    if (tieneClienteEditable) {
       if (!clienteNombre.trim()) {
         setError("El nombre del cliente es obligatorio");
         setGuardando(false);
         return;
       }
-      if (clienteId !== clienteInicial.current.id) {
+      if (form.tipo === "SOPORTE" && clienteId !== clienteInicial.current.id) {
         payload.clienteId = clienteId;
       }
       if (clienteNombre.trim() !== clienteInicial.current.nombre) {
@@ -170,6 +172,7 @@ export default function EditarTicketPage() {
   }
 
   const esSoporte = form.tipo === "SOPORTE";
+  const tieneClienteEditable = form.tipo !== "INFRAESTRUCTURA";
 
   if (loading) {
     return (
@@ -210,13 +213,16 @@ export default function EditarTicketPage() {
 
         <form onSubmit={handleSubmit} className="bg-white rounded-xl border p-4 space-y-4">
           <fieldset disabled={!editable} className="space-y-4 disabled:opacity-60">
-          {esSoporte && (
+          {tieneClienteEditable && (
             <section className="space-y-3 pb-4 border-b border-slate-100">
               <h2 className="font-semibold text-slate-900">Cliente</h2>
               <p className="text-xs text-slate-500">
-                Puede corregir el nombre o buscar otro cliente para reasignar el ticket.
+                {esSoporte
+                  ? "Puede corregir el nombre o buscar otro cliente para reasignar el ticket."
+                  : "Puede corregir el nombre del cliente asociado al ticket."}
               </p>
 
+              {esSoporte && (
               <div className="relative">
                 <Search className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
                 <input
@@ -246,6 +252,7 @@ export default function EditarTicketPage() {
                   </div>
                 )}
               </div>
+              )}
 
               <div className="grid grid-cols-2 gap-2 text-xs text-slate-500 bg-slate-50 rounded-lg p-3">
                 <p>
@@ -270,7 +277,7 @@ export default function EditarTicketPage() {
                 />
               </div>
 
-              {clienteId !== clienteInicial.current.id && (
+              {esSoporte && clienteId !== clienteInicial.current.id && (
                 <p className="text-xs text-infinity-700 bg-infinity-50 border border-infinity-200 rounded-lg px-3 py-2">
                   El ticket se reasignará al cliente seleccionado al guardar.
                 </p>

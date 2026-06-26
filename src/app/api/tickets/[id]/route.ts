@@ -25,7 +25,7 @@ import {
 import { TIPOS_ELIMINABLES_GERENCIA } from "@/lib/ticket-gerencia";
 import {
   aplicarCambiosClienteTicket,
-  ticketPermiteEditarCliente,
+  solicitaCambioClienteEnBody,
 } from "@/lib/ticket-cliente-edit";
 
 export async function GET(
@@ -250,9 +250,7 @@ export async function PATCH(
     clienteId: typeof body.clienteId === "string" ? body.clienteId : undefined,
     clienteNombre: typeof body.clienteNombre === "string" ? body.clienteNombre : undefined,
   };
-  const solicitaCambioCliente =
-    ticketPermiteEditarCliente(ticket.tipo) &&
-    (cambiosCliente.clienteId !== undefined || cambiosCliente.clienteNombre !== undefined);
+  const solicitaCambioCliente = solicitaCambioClienteEnBody(ticket, cambiosCliente);
 
   const updateData: Record<string, unknown> = {};
 

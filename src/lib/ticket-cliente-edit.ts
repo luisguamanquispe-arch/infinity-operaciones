@@ -2,7 +2,13 @@ import { prisma } from "./prisma";
 import { esClienteInfraestructura } from "./cliente-infraestructura";
 import { normalizarTextoCliente } from "./mayusculas";
 
-export function ticketPermiteEditarCliente(tipo: string): boolean {
+/** Editar nombre del cliente (todos los tipos con cliente real). */
+export function ticketPermiteEditarNombreCliente(tipo: string): boolean {
+  return tipo !== "INFRAESTRUCTURA";
+}
+
+/** Reasignar ticket a otro cliente (solo soporte). */
+export function ticketPermiteReasignarCliente(tipo: string): boolean {
   return tipo === "SOPORTE";
 }
 
@@ -15,24 +21,24 @@ export type ResultadoCambiosCliente =
   | { ok: true; clienteId: string; nombreActualizado: boolean; clienteReasignado: boolean }
   | { ok: false; status: number; error: string };
 
-/** Reasigna cliente y/o actualiza nombre en tickets de soporte. */
+/** Reasigna cliente y/o actualiza nombre según el tipo de ticket. */
 export async function aplicarCambiosClienteTicket(
   ticket: { id: string; clienteId: string; tipo: string },
   cambios: CambiosClienteTicket
 ): Promise<ResultadoCambiosCliente> {
-  if (!ticketPermiteEditarCliente(ticket.tipo)) {
-    return {
-      ok: false,
-      status: 400,
-      error: "Solo se puede modificar el cliente en tickets de soporte",
-    };
-  }
-
   let clienteId = ticket.clienteId;
   let clienteReasignado = false;
   let nombreActualizado = false;
 
   if (cambios.clienteId !== undefined && cambios.clienteId !== ticket.clienteId) {
+    if (!ticketPermiteReasignarCliente(ticket.tipo)) {
+      return {
+        ok: false,
+        status: 400,
+        error: "Solo se puede cambiar de cliente en tickets de soporte",
+      };
+    }
+
     const nuevo = await prisma.cliente.findUnique({ where: { id: cambios.clienteId } });
     if (!nuevo) {
       return { ok: false, status: 404, error: "Cliente no encontrado" };
@@ -53,6 +59,14 @@ export async function aplicarCambiosClienteTicket(
   }
 
   if (cambios.clienteNombre !== undefined) {
+    if (!ticketPermiteEditarNombreCliente(ticket.tipo)) {
+      return {
+        ok: false,
+        status: 400,
+        error: "No se puede modificar el cliente en tickets de infraestructura",
+      };
+    }
+
     const nombre = cambios.clienteNombre.trim();
     if (!nombre) {
       return { ok: false, status: 400, error: "El nombre del cliente no puede estar vacío" };
@@ -83,9 +97,24 @@ export async function aplicarCambiosClienteTicket(
     }
   }
 
-  if (!clienteReasignado && !nombreActualizado) {
-    return { ok: true, clienteId, nombreActualizado: false, clienteReasignado: false };
-  }
-
   return { ok: true, clienteId, nombreActualizado, clienteReasignado };
+}
+
+export function solicitaCambioClienteEnBody(
+  ticket: { tipo: string },
+  cambios: CambiosClienteTicket
+): boolean {
+  if (
+    cambios.clienteId !== undefined &&
+    ticketPermiteReasignarCliente(ticket.tipo)
+  ) {
+    return true;
+  }
+  if (
+    cambios.clienteNombre !== undefined &&
+    ticketPermiteEditarNombreCliente(ticket.tipo)
+  ) {
+    return true;
+  }
+  return false;
 }
