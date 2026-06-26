@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Loader2, CheckCircle } from "lucide-react";
+import { ArrowLeft, Loader2, CheckCircle, Search } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
 import { TIPO_LABELS, ESTADO_LABELS, PRIORIDAD_LABELS } from "@/lib/utils";
 import { toDatetimeLocalValue } from "@/lib/calendario";
@@ -16,6 +16,14 @@ interface Tecnico {
   estado: string;
 }
 
+interface ClienteBusqueda {
+  id: string;
+  cedula: string;
+  nombre: string;
+  telefono: string;
+  sector: string;
+}
+
 const TIPOS = ["SOPORTE", "INFRAESTRUCTURA", "INSTALACION", "RECONEXION", "CORTE", "MIGRACION", "RETIRO"];
 const ESTADOS = ["PENDIENTE", "EN_PROCESO", "FINALIZADO", "CERRADO", "CANCELADO"];
 
@@ -24,12 +32,22 @@ export default function EditarTicketPage() {
   const router = useRouter();
   const [tecnicos, setTecnicos] = useState<Tecnico[]>([]);
   const [codigo, setCodigo] = useState("");
-  const [clienteNombre, setClienteNombre] = useState("");
   const [loading, setLoading] = useState(true);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState("");
   const [exito, setExito] = useState("");
   const [editable, setEditable] = useState(true);
+
+  const clienteInicial = useRef({ id: "", nombre: "" });
+
+  const [clienteId, setClienteId] = useState("");
+  const [clienteNombre, setClienteNombre] = useState("");
+  const [clienteCedula, setClienteCedula] = useState("");
+  const [clienteTelefono, setClienteTelefono] = useState("");
+  const [clienteSector, setClienteSector] = useState("");
+  const [busquedaCliente, setBusquedaCliente] = useState("");
+  const [resultadosCliente, setResultadosCliente] = useState<ClienteBusqueda[]>([]);
+  const [buscandoCliente, setBuscandoCliente] = useState(false);
 
   const [form, setForm] = useState({
     tipo: "SOPORTE",
@@ -53,8 +71,13 @@ export default function EditarTicketPage() {
       }
       const t = ticketData.ticket;
       setCodigo(t.codigo);
-      setClienteNombre(t.cliente.nombre);
       setEditable(t.editable !== false);
+      clienteInicial.current = { id: t.cliente.id, nombre: t.cliente.nombre };
+      setClienteId(t.cliente.id);
+      setClienteNombre(t.cliente.nombre);
+      setClienteCedula(t.cliente.cedula);
+      setClienteTelefono(t.cliente.telefono);
+      setClienteSector(t.cliente.sector);
       setForm({
         tipo: t.tipo,
         prioridad: t.prioridad,
@@ -73,6 +96,34 @@ export default function EditarTicketPage() {
     });
   }, [id]);
 
+  async function buscarClientes(q: string) {
+    setBusquedaCliente(q);
+    if (q.length < 2) {
+      setResultadosCliente([]);
+      return;
+    }
+    setBuscandoCliente(true);
+    try {
+      const res = await fetch(`/api/clientes?q=${encodeURIComponent(q)}`);
+      const data = await res.json();
+      setResultadosCliente(data.clientes ?? []);
+    } catch {
+      setResultadosCliente([]);
+    } finally {
+      setBuscandoCliente(false);
+    }
+  }
+
+  function seleccionarCliente(c: ClienteBusqueda) {
+    setClienteId(c.id);
+    setClienteNombre(c.nombre);
+    setClienteCedula(c.cedula);
+    setClienteTelefono(c.telefono);
+    setClienteSector(c.sector);
+    setResultadosCliente([]);
+    setBusquedaCliente("");
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!editable) return;
@@ -80,14 +131,30 @@ export default function EditarTicketPage() {
     setError("");
     setExito("");
 
+    const payload: Record<string, unknown> = {
+      ...form,
+      tecnicoIds: form.tecnicoIds,
+      programadoEn: form.programadoEn || null,
+    };
+
+    if (form.tipo === "SOPORTE") {
+      if (!clienteNombre.trim()) {
+        setError("El nombre del cliente es obligatorio");
+        setGuardando(false);
+        return;
+      }
+      if (clienteId !== clienteInicial.current.id) {
+        payload.clienteId = clienteId;
+      }
+      if (clienteNombre.trim() !== clienteInicial.current.nombre) {
+        payload.clienteNombre = clienteNombre.trim();
+      }
+    }
+
     const res = await fetch(`/api/tickets/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        ...form,
-        tecnicoIds: form.tecnicoIds,
-        programadoEn: form.programadoEn || null,
-      }),
+      body: JSON.stringify(payload),
     });
 
     const data = await res.json();
@@ -101,6 +168,8 @@ export default function EditarTicketPage() {
     setExito("Ticket actualizado correctamente");
     setTimeout(() => router.push("/supervisor"), 1500);
   }
+
+  const esSoporte = form.tipo === "SOPORTE";
 
   if (loading) {
     return (
@@ -141,6 +210,74 @@ export default function EditarTicketPage() {
 
         <form onSubmit={handleSubmit} className="bg-white rounded-xl border p-4 space-y-4">
           <fieldset disabled={!editable} className="space-y-4 disabled:opacity-60">
+          {esSoporte && (
+            <section className="space-y-3 pb-4 border-b border-slate-100">
+              <h2 className="font-semibold text-slate-900">Cliente</h2>
+              <p className="text-xs text-slate-500">
+                Puede corregir el nombre o buscar otro cliente para reasignar el ticket.
+              </p>
+
+              <div className="relative">
+                <Search className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Buscar otro cliente (cédula, nombre, teléfono)…"
+                  value={busquedaCliente}
+                  onChange={(e) => void buscarClientes(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2.5 border rounded-xl text-sm"
+                />
+                {buscandoCliente && (
+                  <Loader2 className="absolute right-3 top-3 w-4 h-4 animate-spin text-slate-400" />
+                )}
+                {resultadosCliente.length > 0 && (
+                  <div className="absolute z-10 w-full mt-1 bg-white border rounded-xl shadow-lg max-h-48 overflow-y-auto">
+                    {resultadosCliente.map((c) => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => seleccionarCliente(c)}
+                        className="w-full text-left px-4 py-2 hover:bg-slate-50 text-sm border-b last:border-0"
+                      >
+                        <span className="font-medium">{c.nombre}</span>
+                        <span className="text-slate-500 ml-2">{c.cedula}</span>
+                        <span className="text-slate-400 block text-xs">{c.sector}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 text-xs text-slate-500 bg-slate-50 rounded-lg p-3">
+                <p>
+                  <span className="text-slate-400">Cédula:</span> {clienteCedula}
+                </p>
+                <p>
+                  <span className="text-slate-400">Teléfono:</span> {clienteTelefono}
+                </p>
+                <p className="col-span-2">
+                  <span className="text-slate-400">Sector:</span> {clienteSector}
+                </p>
+              </div>
+
+              <div>
+                <label className="text-xs text-slate-500">Nombre del cliente</label>
+                <input
+                  type="text"
+                  required
+                  value={clienteNombre}
+                  onChange={(e) => setClienteNombre(e.target.value)}
+                  className={`w-full px-3 py-2 border rounded-lg text-sm mt-0.5 ${inputMayusculasClass}`}
+                />
+              </div>
+
+              {clienteId !== clienteInicial.current.id && (
+                <p className="text-xs text-infinity-700 bg-infinity-50 border border-infinity-200 rounded-lg px-3 py-2">
+                  El ticket se reasignará al cliente seleccionado al guardar.
+                </p>
+              )}
+            </section>
+          )}
+
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-xs text-slate-500">Tipo de trabajo</label>

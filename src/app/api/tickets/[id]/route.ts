@@ -23,6 +23,10 @@ import {
   verificarTicketEditable,
 } from "@/lib/ticket-cerrado";
 import { TIPOS_ELIMINABLES_GERENCIA } from "@/lib/ticket-gerencia";
+import {
+  aplicarCambiosClienteTicket,
+  ticketPermiteEditarCliente,
+} from "@/lib/ticket-cliente-edit";
 
 export async function GET(
   _request: Request,
@@ -234,7 +238,7 @@ export async function PATCH(
 
   const ticket = await prisma.ticket.findUnique({
     where: { id },
-    include: { tecnicos: true },
+    include: { tecnicos: true, cliente: { select: { id: true, cedula: true, nombre: true } } },
   });
   if (!ticket) {
     return NextResponse.json({ error: "Ticket no encontrado" }, { status: 404 });
@@ -242,6 +246,13 @@ export async function PATCH(
 
   const idsAnteriores = tecnicoIdsFromTicket(ticket);
   const tecnicoIdsInput = parseTecnicoIds(body);
+  const cambiosCliente = {
+    clienteId: typeof body.clienteId === "string" ? body.clienteId : undefined,
+    clienteNombre: typeof body.clienteNombre === "string" ? body.clienteNombre : undefined,
+  };
+  const solicitaCambioCliente =
+    ticketPermiteEditarCliente(ticket.tipo) &&
+    (cambiosCliente.clienteId !== undefined || cambiosCliente.clienteNombre !== undefined);
 
   const updateData: Record<string, unknown> = {};
 
@@ -273,7 +284,29 @@ export async function PATCH(
     }
   }
 
-  if (Object.keys(updateData).length === 0 && tecnicoIdsInput === undefined) {
+  let resultadoCliente:
+    | { clienteId: string; nombreActualizado: boolean; clienteReasignado: boolean }
+    | null = null;
+
+  if (solicitaCambioCliente) {
+    const resCliente = await aplicarCambiosClienteTicket(ticket, cambiosCliente);
+    if (!resCliente.ok) {
+      return NextResponse.json({ error: resCliente.error }, { status: resCliente.status });
+    }
+    if (resCliente.clienteReasignado || resCliente.nombreActualizado) {
+      resultadoCliente = {
+        clienteId: resCliente.clienteId,
+        nombreActualizado: resCliente.nombreActualizado,
+        clienteReasignado: resCliente.clienteReasignado,
+      };
+    }
+  }
+
+  if (
+    Object.keys(updateData).length === 0 &&
+    tecnicoIdsInput === undefined &&
+    !resultadoCliente
+  ) {
     return NextResponse.json({ error: "Sin cambios" }, { status: 400 });
   }
 
@@ -300,7 +333,17 @@ export async function PATCH(
       ticketId: id,
       usuarioId: session.id,
       accion: "TICKET_MODIFICADO",
-      metadata: JSON.stringify({ ...updateData, tecnicoIds: idsNuevos }),
+      metadata: JSON.stringify({
+        ...updateData,
+        tecnicoIds: idsNuevos,
+        ...(resultadoCliente
+          ? {
+              clienteId: resultadoCliente.clienteId,
+              clienteReasignado: resultadoCliente.clienteReasignado,
+              clienteNombreActualizado: resultadoCliente.nombreActualizado,
+            }
+          : {}),
+      }),
     },
   });
 
