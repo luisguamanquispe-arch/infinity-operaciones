@@ -1,60 +1,46 @@
 /**
- * Utilidades para la pantalla de bienvenida (splash) en la aplicación web.
- * No aplica a la app móvil Capacitor ni al login del técnico (?app=tecnico).
+ * Pantalla de bienvenida (splash) — solo aplicación web.
+ * La app móvil / login técnico (?app=tecnico) no usa este flujo.
  */
 
-/** Clave en localStorage: el intro ya se reprodujo en este navegador. */
-export const SPLASH_STORAGE_KEY = "infinity-intro-visto";
+/** Cookie leída por el middleware para redirigir a /intro. */
+export const SPLASH_COOKIE_NAME = "infinity-intro-v2";
 
-/** Ruta pública del video de introducción. */
+/** localStorage (respaldo en el cliente). */
+export const SPLASH_STORAGE_KEY = "infinity-intro-v2";
+
+/** Video servido desde /public. */
 export const SPLASH_VIDEO_SRC = "/intro_infinity.mp4";
 
-/** Destino tras el splash o al omitir con ESC (pantalla principal web). */
+/** Tras el intro, pantalla principal web. */
 export const SPLASH_DESTINO_WEB = "/login";
 
-/**
- * Indica si el entorno actual es la web operativa (supervisor/gerencia),
- * excluyendo app nativa Capacitor y el login del técnico móvil.
- */
-export function esAplicacionWebOperaciones(): boolean {
-  if (typeof window === "undefined") return false;
+/** Ruta dedicada al video de bienvenida. */
+export const SPLASH_RUTA = "/intro";
 
-  const capacitor = (window as Window & {
-    Capacitor?: { isNativePlatform?: () => boolean };
-  }).Capacitor;
-
-  if (capacitor?.isNativePlatform?.()) {
-    return false;
-  }
-
-  // Login / PWA del técnico (no panel web de supervisor)
-  if (window.location.search.includes("app=tecnico")) {
-    return false;
-  }
-
-  return true;
+/** ¿Es login web de supervisor/gerencia (no app técnico)? */
+export function esLoginWebOperaciones(search: string): boolean {
+  return !search.includes("app=tecnico");
 }
 
-/** El usuario ya vio el video de bienvenida en este navegador. */
-export function splashYaVisto(): boolean {
-  if (typeof window === "undefined") return true;
+/** Marca el intro como visto (cookie + localStorage). */
+export function marcarSplashVisto(): void {
+  if (typeof document === "undefined") return;
   try {
-    return localStorage.getItem(SPLASH_STORAGE_KEY) === "1";
+    localStorage.setItem(SPLASH_STORAGE_KEY, "1");
+    document.cookie = `${SPLASH_COOKIE_NAME}=1; path=/; max-age=31536000; SameSite=Lax`;
+  } catch {
+    /* ignorar */
+  }
+}
+
+/** El cliente ya marcó el intro como visto. */
+export function splashYaVistoCliente(): boolean {
+  if (typeof document === "undefined") return true;
+  try {
+    if (localStorage.getItem(SPLASH_STORAGE_KEY) === "1") return true;
+    return document.cookie.split(";").some((c) => c.trim().startsWith(`${SPLASH_COOKIE_NAME}=1`));
   } catch {
     return true;
   }
-}
-
-/** Marca el intro como reproducido (una sola vez por navegador). */
-export function marcarSplashVisto(): void {
-  try {
-    localStorage.setItem(SPLASH_STORAGE_KEY, "1");
-  } catch {
-    /* almacenamiento bloqueado: no impedir el flujo */
-  }
-}
-
-/** ¿Debe mostrarse el splash en esta visita? */
-export function debeMostrarSplashWeb(): boolean {
-  return esAplicacionWebOperaciones() && !splashYaVisto();
 }

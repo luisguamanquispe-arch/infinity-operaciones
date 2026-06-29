@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { verifyToken } from "@/lib/auth";
+import { SPLASH_COOKIE_NAME, SPLASH_RUTA, esLoginWebOperaciones } from "@/lib/splash-web";
 
 const publicPaths = [
   "/login",
+  "/intro",
   "/manifest.json",
   "/api/setup/seed",
   "/api/setup/eliminar-tickets",
@@ -34,6 +36,17 @@ function loginRedirect(request: NextRequest, fromTecnico = false) {
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const esRutaTecnico = pathname.startsWith("/tecnico");
+
+  // Primera visita web: /login → /intro (video de bienvenida, una sola vez)
+  if (
+    pathname === "/login" &&
+    esLoginWebOperaciones(request.nextUrl.search) &&
+    request.cookies.get(SPLASH_COOKIE_NAME)?.value !== "1"
+  ) {
+    const intro = new URL(SPLASH_RUTA, request.url);
+    intro.searchParams.set("next", "/login");
+    return NextResponse.redirect(intro);
+  }
 
   if (
     publicPaths.some((p) => pathname.startsWith(p)) ||

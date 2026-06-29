@@ -8,6 +8,18 @@ const nextConfig: NextConfig = {
   productionBrowserSourceMaps: false,
   eslint: { ignoreDuringBuilds: true },
   serverExternalPackages: ["@prisma/client", "prisma"],
+  async headers() {
+    return [
+      {
+        source: "/intro_infinity.mp4",
+        headers: [
+          { key: "Content-Type", value: "video/mp4" },
+          { key: "Accept-Ranges", value: "bytes" },
+          { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
+        ],
+      },
+    ];
+  },
   outputFileTracingExcludes: {
     "*": [
       "./node_modules/prisma/**",
