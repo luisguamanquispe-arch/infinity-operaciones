@@ -1,4 +1,4 @@
-import { LoginForm } from "./LoginForm";
+import { LoginShell } from "./LoginShell";
 
 export default async function LoginPage({
   searchParams,
@@ -7,5 +7,5 @@ export default async function LoginPage({
 }) {
   const params = await searchParams;
   const esAppTecnico = params.app === "tecnico";
-  return <LoginForm esAppTecnico={esAppTecnico} />;
+  return <LoginShell esAppTecnico={esAppTecnico} />;
 }

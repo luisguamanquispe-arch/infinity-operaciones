@@ -1,6 +1,6 @@
 /**
  * Utilidades para la pantalla de bienvenida (splash) en la aplicación web.
- * No aplica a la app móvil Capacitor ni al modo PWA del técnico.
+ * No aplica a la app móvil Capacitor ni al login del técnico (?app=tecnico).
  */
 
 /** Clave en localStorage: el intro ya se reprodujo en este navegador. */
@@ -14,7 +14,7 @@ export const SPLASH_DESTINO_WEB = "/login";
 
 /**
  * Indica si el entorno actual es la web operativa (supervisor/gerencia),
- * excluyendo app nativa y PWA del técnico.
+ * excluyendo app nativa Capacitor y el login del técnico móvil.
  */
 export function esAplicacionWebOperaciones(): boolean {
   if (typeof window === "undefined") return false;
@@ -27,11 +27,8 @@ export function esAplicacionWebOperaciones(): boolean {
     return false;
   }
 
-  const esPwaStandalone = window.matchMedia("(display-mode: standalone)").matches;
-  const sesionAppTecnico = sessionStorage.getItem("infinity-app-tecnico") === "1";
-  const urlAppTecnico = window.location.search.includes("app=tecnico");
-
-  if (esPwaStandalone || sesionAppTecnico || urlAppTecnico) {
+  // Login / PWA del técnico (no panel web de supervisor)
+  if (window.location.search.includes("app=tecnico")) {
     return false;
   }
 
