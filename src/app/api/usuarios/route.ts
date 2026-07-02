@@ -47,7 +47,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Todos los campos son obligatorios" }, { status: 400 });
   }
 
-  if (!["TECNICO", "SUPERVISOR", "ADMIN"].includes(rol)) {
+  if (!["TECNICO", "SUPERVISOR", "ADMIN", "HELP_DESK"].includes(rol)) {
     return NextResponse.json({ error: "Rol inválido" }, { status: 400 });
   }
 

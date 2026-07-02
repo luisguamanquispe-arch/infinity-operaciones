@@ -8,6 +8,7 @@ const publicPaths = [
   "/intro",
   "/manifest.json",
   "/api/setup/seed",
+  "/api/setup/help-desk-usuario",
   "/api/setup/eliminar-tickets",
   "/api/health",
   "/api/help-desk/webhook/whatsapp",

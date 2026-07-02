@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 async function createBootstrapUsers() {
   const hashSup = await bcrypt.hash("super123", 10);
   const hashAdmin = await bcrypt.hash("admin123", 10);
+  const hashHd = await bcrypt.hash("helpdesk123", 10);
 
   await prisma.usuario.create({
     data: {
@@ -22,6 +23,15 @@ async function createBootstrapUsers() {
       passwordHash: hashAdmin,
       nombre: "Gerencia Infinity",
       rol: Rol.ADMIN,
+    },
+  });
+
+  await prisma.usuario.create({
+    data: {
+      email: "helpdesk@infinity.ec",
+      passwordHash: hashHd,
+      nombre: "Carlos Help Desk",
+      rol: Rol.HELP_DESK,
     },
   });
 }
@@ -67,6 +77,7 @@ export async function POST(request: Request) {
       users: [
         { email: "supervisor@infinity.ec", password: "super123", rol: "SUPERVISOR" },
         { email: "admin@infinity.ec", password: "admin123", rol: "ADMIN" },
+        { email: "helpdesk@infinity.ec", password: "helpdesk123", rol: "HELP_DESK" },
       ],
     });
   } catch (err) {

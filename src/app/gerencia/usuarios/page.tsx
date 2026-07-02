@@ -24,6 +24,14 @@ export default function UsuariosPage() {
   const [guardando, setGuardando] = useState(false);
   const [mensaje, setMensaje] = useState("");
   const [error, setError] = useState("");
+  const [showNuevo, setShowNuevo] = useState(false);
+  const [nuevo, setNuevo] = useState({
+    email: "helpdesk@infinity.ec",
+    nombre: "Agente Help Desk",
+    password: "",
+    rol: "HELP_DESK",
+  });
+  const [creando, setCreando] = useState(false);
 
   function cargar() {
     fetch("/api/usuarios")
@@ -78,6 +86,31 @@ export default function UsuariosPage() {
     setConfirmPassword("");
   }
 
+  async function crearUsuario(e: React.FormEvent) {
+    e.preventDefault();
+    if (nuevo.password.length < 6) {
+      setError("La contraseña debe tener al menos 6 caracteres");
+      return;
+    }
+    setCreando(true);
+    setError("");
+    const res = await fetch("/api/usuarios", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(nuevo),
+    });
+    const data = await res.json();
+    setCreando(false);
+    if (!res.ok) {
+      setError(data.error || "Error al crear usuario");
+      return;
+    }
+    setMensaje(`Usuario ${data.usuario.email} creado (${data.usuario.rol})`);
+    setShowNuevo(false);
+    setNuevo({ email: "", nombre: "", password: "", rol: "HELP_DESK" });
+    cargar();
+  }
+
   async function toggleActivo(u: Usuario) {
     const res = await fetch(`/api/usuarios/${u.id}`, {
       method: "PATCH",
@@ -111,6 +144,66 @@ export default function UsuariosPage() {
           <ArrowLeft className="w-4 h-4" />
           Volver a gerencia
         </Link>
+
+        <button
+          type="button"
+          onClick={() => setShowNuevo(!showNuevo)}
+          className="w-full sm:w-auto px-4 py-2 rounded-xl bg-teal-600 text-white text-sm font-medium hover:bg-teal-700"
+        >
+          + Crear usuario Help Desk
+        </button>
+
+        {showNuevo && (
+          <form onSubmit={crearUsuario} className="bg-white rounded-xl border p-4 space-y-3">
+            <h2 className="font-semibold">Nuevo usuario</h2>
+            <div className="grid sm:grid-cols-2 gap-3">
+              <input
+                required
+                type="email"
+                placeholder="Email"
+                value={nuevo.email}
+                onChange={(e) => setNuevo({ ...nuevo, email: e.target.value })}
+                className="px-3 py-2 border rounded-lg text-sm"
+              />
+              <input
+                required
+                placeholder="Nombre"
+                value={nuevo.nombre}
+                onChange={(e) => setNuevo({ ...nuevo, nombre: e.target.value })}
+                className="px-3 py-2 border rounded-lg text-sm"
+              />
+              <input
+                required
+                type="password"
+                placeholder="Contraseña (mín. 6)"
+                value={nuevo.password}
+                onChange={(e) => setNuevo({ ...nuevo, password: e.target.value })}
+                className="px-3 py-2 border rounded-lg text-sm"
+              />
+              <select
+                value={nuevo.rol}
+                onChange={(e) => setNuevo({ ...nuevo, rol: e.target.value })}
+                className="px-3 py-2 border rounded-lg text-sm"
+              >
+                <option value="HELP_DESK">Help Desk N1</option>
+                <option value="SUPERVISOR">Supervisor</option>
+                <option value="ADMIN">Administrador</option>
+              </select>
+            </div>
+            <div className="flex gap-2">
+              <button
+                type="submit"
+                disabled={creando}
+                className="px-4 py-2 bg-infinity-600 text-white text-sm rounded-lg disabled:opacity-50"
+              >
+                {creando ? "Creando…" : "Crear usuario"}
+              </button>
+              <button type="button" onClick={() => setShowNuevo(false)} className="px-4 py-2 text-sm border rounded-lg">
+                Cancelar
+              </button>
+            </div>
+          </form>
+        )}
 
         {mensaje && (
           <div className="bg-emerald-50 text-emerald-700 p-3 rounded-xl text-sm flex items-center gap-2">
@@ -223,7 +316,7 @@ export default function UsuariosPage() {
           <ul className="space-y-0.5 text-xs">
             <li>Admin: admin@infinity.ec</li>
             <li>Supervisor: supervisor@infinity.ec</li>
-            <li>Help Desk: helpdesk@infinity.ec (tras seed)</li>
+            <li>Help Desk: helpdesk@infinity.ec / helpdesk123 (crear con setup o botón arriba)</li>
             <li>Cree técnicos en /gerencia/tecnicos/nuevo</li>
           </ul>
         </div>
