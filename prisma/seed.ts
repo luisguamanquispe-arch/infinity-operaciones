@@ -42,6 +42,16 @@ async function main() {
     },
   });
 
+  const hashHd = await bcrypt.hash("helpdesk123", 10);
+  await prisma.usuario.create({
+    data: {
+      email: "helpdesk@infinity.ec",
+      passwordHash: hashHd,
+      nombre: "Carlos Help Desk",
+      rol: Rol.HELP_DESK,
+    },
+  });
+
   await prisma.inventario.createMany({
     data: CATALOGO_INVENTARIO,
   });
@@ -49,6 +59,7 @@ async function main() {
   console.log("Seed completado (sin técnicos ni tickets de prueba)");
   console.log("   Supervisor: supervisor@infinity.ec / super123");
   console.log("   Admin:      admin@infinity.ec / admin123");
+  console.log("   Help Desk:  helpdesk@infinity.ec / helpdesk123");
   console.log("   Cree técnicos en /gerencia/tecnicos/nuevo");
 }
 

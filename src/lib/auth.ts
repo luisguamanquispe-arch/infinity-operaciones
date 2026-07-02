@@ -76,6 +76,8 @@ export function dashboardPath(rol: Rol): string {
   switch (rol) {
     case "TECNICO":
       return "/tecnico";
+    case "HELP_DESK":
+      return "/help-desk";
     case "SUPERVISOR":
       return "/supervisor";
     case "ADMIN":

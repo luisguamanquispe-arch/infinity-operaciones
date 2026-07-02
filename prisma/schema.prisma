@@ -11,6 +11,7 @@ enum Rol {
   TECNICO
   SUPERVISOR
   ADMIN
+  HELP_DESK
 }
 
 enum EstadoTecnico {
@@ -90,6 +91,9 @@ model Usuario {
   createdAt    DateTime @default(now())
   tecnico      Tecnico?
   eventos      EventoTicket[]
+  conversacionesHelpDesk HdConversacion[] @relation("HdAgenteUsuario")
+  accionesHelpDesk       HdAccionRemota[]
+  sesionHelpDesk         HdSesionAgente?
 }
 
 model Tecnico {
@@ -126,6 +130,7 @@ model Cliente {
   potencia  Float?
   activo    Boolean  @default(true)
   tickets   Ticket[]
+  conversacionesHelpDesk HdConversacion[]
 }
 
 model Ticket {
@@ -151,6 +156,8 @@ model Ticket {
   tecnicos             TicketTecnico[]
   orden                OrdenServicio?
   eventos              EventoTicket[]
+  conversacionHelpDesk HdConversacion?
+  escalamientoHelpDesk HdEscalamiento?
 }
 
 model TicketTecnico {
@@ -296,4 +303,186 @@ model EventoTicket {
   createdAt DateTime @default(now())
   ticket    Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
   usuario   Usuario? @relation(fields: [usuarioId], references: [id])
+}
+
+// ─── Infinity Remote Help Desk (solo web) ───────────────────────────────────
+
+enum HdCanal {
+  WHATSAPP
+  CHAT
+  LLAMADA
+  VIDEO
+}
+
+enum HdEstadoConversacion {
+  EN_COLA
+  EN_ATENCION
+  EN_ESPERA_CLIENTE
+  RESUELTO
+  ESCALADO
+  CERRADO
+}
+
+enum HdTipoCliente {
+  EXISTENTE
+  NUEVO
+  PROSPECTO
+}
+
+enum HdMotivoEscalamiento {
+  FIBRA_ROTA
+  NAP_DANADA
+  ONU_DANADA
+  ROUTER_DANADO
+  SIN_POTENCIA
+  CAMBIO_ACOMETIDA
+  INSTALACION
+  MUDANZA
+  REUBICACION
+  OTRO
+}
+
+enum HdTipoAccionRemota {
+  WIFI_SSID
+  WIFI_PASSWORD
+  WIFI_CANAL
+  WIFI_OCULTAR
+  ROUTER_REINICIO
+  ROUTER_FIRMWARE
+  ROUTER_BACKUP
+  ROUTER_RESTORE
+  SPEED_TEST
+  PING
+  TRACEROUTE
+  DNS_TEST
+  DIAG_POTENCIA
+  DIAG_ONU
+  DIAG_DISPOSITIVOS
+  OTRO
+}
+
+enum HdAutorMensaje {
+  CLIENTE
+  AGENTE
+  IA
+  SISTEMA
+}
+
+model HdConversacion {
+  id                String               @id @default(cuid())
+  codigo            String               @unique
+  clienteId         String?
+  prospectoNombre   String?
+  prospectoTelefono String?
+  prospectoEmail    String?
+  canal             HdCanal              @default(WHATSAPP)
+  estado            HdEstadoConversacion @default(EN_COLA)
+  tipoCliente       HdTipoCliente        @default(EXISTENTE)
+  asignadoAId       String?
+  ticketId          String?              @unique
+  motivo            String?
+  resumenIa         String?              @db.Text
+  diagnosticoIa     String?              @db.Text
+  prioridad         Prioridad            @default(MEDIA)
+  slaVenceEn        DateTime?
+  satisfaccion      Int?
+  metadataJson      String?              @db.Text
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+  cerradoEn         DateTime?
+  cliente           Cliente?             @relation(fields: [clienteId], references: [id])
+  asignadoA         Usuario?             @relation("HdAgenteUsuario", fields: [asignadoAId], references: [id])
+  ticket            Ticket?              @relation(fields: [ticketId], references: [id])
+  mensajes          HdMensaje[]
+  acciones          HdAccionRemota[]
+  escalamiento      HdEscalamiento?
+  sugerencias       HdSugerenciaIa[]
+
+  @@index([estado])
+  @@index([asignadoAId])
+  @@index([createdAt])
+}
+
+model HdMensaje {
+  id             String         @id @default(cuid())
+  conversacionId String
+  autor          HdAutorMensaje
+  usuarioId      String?
+  contenido      String         @db.Text
+  metadataJson   String?
+  createdAt      DateTime       @default(now())
+  conversacion   HdConversacion @relation(fields: [conversacionId], references: [id], onDelete: Cascade)
+
+  @@index([conversacionId, createdAt])
+}
+
+model HdAccionRemota {
+  id              String           @id @default(cuid())
+  conversacionId  String
+  usuarioId       String
+  tipo            HdTipoAccionRemota
+  configAnterior  String?          @db.Text
+  configNueva     String?          @db.Text
+  motivo          String?
+  observaciones   String?
+  ipAgente        String?
+  exito           Boolean          @default(true)
+  resultadoJson   String?          @db.Text
+  createdAt       DateTime         @default(now())
+  conversacion    HdConversacion   @relation(fields: [conversacionId], references: [id], onDelete: Cascade)
+  usuario         Usuario          @relation(fields: [usuarioId], references: [id])
+
+  @@index([conversacionId])
+  @@index([createdAt])
+}
+
+model HdEscalamiento {
+  id               String              @id @default(cuid())
+  conversacionId   String              @unique
+  motivo           HdMotivoEscalamiento
+  ticketEscaladoId String?             @unique
+  resumenIa        String              @db.Text
+  diagnostico      String?             @db.Text
+  accionesJson     String?             @db.Text
+  materialSugerido String?
+  tiempoEstimadoMin Int?
+  prioridad        Prioridad           @default(MEDIA)
+  createdAt        DateTime            @default(now())
+  conversacion     HdConversacion      @relation(fields: [conversacionId], references: [id], onDelete: Cascade)
+  ticketEscalado   Ticket?             @relation(fields: [ticketEscaladoId], references: [id])
+}
+
+model HdSugerenciaIa {
+  id             String         @id @default(cuid())
+  conversacionId String
+  tipo           String
+  contenido      String         @db.Text
+  metadataJson   String?
+  createdAt      DateTime       @default(now())
+  conversacion   HdConversacion @relation(fields: [conversacionId], references: [id], onDelete: Cascade)
+
+  @@index([conversacionId, createdAt])
+}
+
+model HdArticuloConocimiento {
+  id        String   @id @default(cuid())
+  titulo    String
+  categoria String
+  marca     String?
+  contenido String   @db.Text
+  tags      String   @default("")
+  activo    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([categoria])
+  @@index([marca])
+}
+
+model HdSesionAgente {
+  id         String   @id @default(cuid())
+  usuarioId  String   @unique
+  conectado  Boolean  @default(false)
+  ultimoPing DateTime @default(now())
+  usuario    Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
 }

@@ -96,6 +96,12 @@ export function GerenciaQuickNav({ totalTecnicos }: { totalTecnicos?: number }) 
       >
         Reportes
       </Link>
+      <Link
+        href="/help-desk"
+        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-teal-600 text-teal-700 text-sm font-medium hover:bg-teal-50"
+      >
+        Help Desk remoto
+      </Link>
     </nav>
   );
 }
@@ -121,6 +127,12 @@ export function SupervisorQuickNav() {
         className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-infinity-600 text-infinity-700 text-sm font-medium hover:bg-infinity-50"
       >
         Calendario
+      </Link>
+      <Link
+        href="/help-desk"
+        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-teal-600 text-teal-700 text-sm font-medium hover:bg-teal-50"
+      >
+        Help Desk remoto
       </Link>
     </div>
   );

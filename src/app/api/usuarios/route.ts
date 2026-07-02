@@ -7,6 +7,7 @@ const ROL_LABELS: Record<string, string> = {
   TECNICO: "Técnico",
   SUPERVISOR: "Supervisor",
   ADMIN: "Administrador",
+  HELP_DESK: "Help Desk N1",
 };
 
 export async function GET() {

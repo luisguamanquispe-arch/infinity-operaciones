@@ -96,6 +96,7 @@ export default function UsuariosPage() {
     ADMIN: "bg-purple-100 text-purple-800",
     SUPERVISOR: "bg-blue-100 text-blue-800",
     TECNICO: "bg-emerald-100 text-emerald-800",
+    HELP_DESK: "bg-teal-100 text-teal-800",
   };
 
   return (
@@ -222,6 +223,7 @@ export default function UsuariosPage() {
           <ul className="space-y-0.5 text-xs">
             <li>Admin: admin@infinity.ec</li>
             <li>Supervisor: supervisor@infinity.ec</li>
+            <li>Help Desk: helpdesk@infinity.ec (tras seed)</li>
             <li>Cree técnicos en /gerencia/tecnicos/nuevo</li>
           </ul>
         </div>

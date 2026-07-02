@@ -10,12 +10,17 @@ const publicPaths = [
   "/api/setup/seed",
   "/api/setup/eliminar-tickets",
   "/api/health",
+  "/api/help-desk/webhook/whatsapp",
 ];
+
+const ROLES_HELP_DESK = ["ADMIN", "SUPERVISOR", "HELP_DESK"];
 
 function dashboardPath(rol: string): string {
   switch (rol) {
     case "TECNICO":
       return "/tecnico";
+    case "HELP_DESK":
+      return "/help-desk";
     case "SUPERVISOR":
       return "/supervisor";
     case "ADMIN":
@@ -87,6 +92,27 @@ export async function middleware(request: NextRequest) {
   if (esRutaTecnico && session.rol !== "TECNICO") {
     return loginRedirect(request, true);
   }
+
+  const esHelpDesk =
+    pathname.startsWith("/help-desk") || pathname.startsWith("/api/help-desk");
+
+  if (esHelpDesk && !ROLES_HELP_DESK.includes(session.rol)) {
+    if (pathname.startsWith("/api/")) {
+      return NextResponse.json({ error: "Sin acceso al Help Desk" }, { status: 403 });
+    }
+    return NextResponse.redirect(new URL("/login", request.url));
+  }
+
+  if (session.rol === "HELP_DESK") {
+    const permitido =
+      esHelpDesk ||
+      pathname.startsWith("/api/auth/") ||
+      pathname.startsWith("/api/health");
+    if (!permitido) {
+      return NextResponse.redirect(new URL("/help-desk", request.url));
+    }
+  }
+
   if (pathname.startsWith("/supervisor") && !["SUPERVISOR", "ADMIN"].includes(session.rol)) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
