@@ -6,6 +6,7 @@ import Link from "next/link";
 import { ArrowLeft, CheckCircle } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
 import { ClienteForm, clienteFormVacio, formToPayload } from "@/components/ClienteForm";
+import { GitShaBadge } from "@/components/GitShaBadge";
 import { mensajeCedulaInvalida, normalizarCedula, validarCedulaEcuatoriana } from "@/lib/cedula-ec";
 
 export default function NuevoClientePageClient() {
@@ -75,6 +76,7 @@ export default function NuevoClientePageClient() {
             {loading ? "Guardando..." : "Crear cliente"}
           </button>
         </form>
+        <GitShaBadge />
       </main>
     </div>
   );
