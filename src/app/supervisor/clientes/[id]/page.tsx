@@ -22,8 +22,7 @@ export default function EditarClientePage() {
   const id = params.id as string;
   const [form, setForm] = useState(clienteToForm({
     cedula: "", nombre: "", telefono: "", plan: "", direccion: "", sector: "",
-    referencia: null, nodo: null, lat: null, lng: null, cajaNap: null, puerto: null,
-    onuSerial: null, potencia: null, activo: true,
+    referencia: null, nodo: null, activo: true,
   }));
   const [historial, setHistorial] = useState<HistorialItem[]>([]);
   const [loading, setLoading] = useState(true);

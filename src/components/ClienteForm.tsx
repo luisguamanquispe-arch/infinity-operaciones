@@ -11,12 +11,6 @@ export type ClienteFormState = {
   sector: string;
   referencia: string;
   nodo: string;
-  lat: string;
-  lng: string;
-  cajaNap: string;
-  puerto: string;
-  onuSerial: string;
-  potencia: string;
   activo: boolean;
 };
 
@@ -29,16 +23,10 @@ export const clienteFormVacio = (): ClienteFormState => ({
   sector: "",
   referencia: "",
   nodo: "",
-  lat: "",
-  lng: "",
-  cajaNap: "",
-  puerto: "",
-  onuSerial: "",
-  potencia: "",
   activo: true,
 });
 
-const CAMPOS_MAYUS = new Set(["nombre", "plan", "sector", "nodo", "direccion", "referencia", "cajaNap", "puerto", "onuSerial"]);
+const CAMPOS_MAYUS = new Set(["nombre", "plan", "sector", "nodo", "direccion", "referencia"]);
 
 export function clienteToForm(c: {
   cedula: string;
@@ -49,12 +37,6 @@ export function clienteToForm(c: {
   sector: string;
   referencia: string | null;
   nodo: string | null;
-  lat: number | null;
-  lng: number | null;
-  cajaNap: string | null;
-  puerto: string | null;
-  onuSerial: string | null;
-  potencia: number | null;
   activo: boolean;
 }): ClienteFormState {
   return {
@@ -66,12 +48,6 @@ export function clienteToForm(c: {
     sector: c.sector,
     referencia: c.referencia || "",
     nodo: c.nodo || "",
-    lat: c.lat != null ? String(c.lat) : "",
-    lng: c.lng != null ? String(c.lng) : "",
-    cajaNap: c.cajaNap || "",
-    puerto: c.puerto || "",
-    onuSerial: c.onuSerial || "",
-    potencia: c.potencia != null ? String(c.potencia) : "",
     activo: c.activo,
   };
 }
@@ -86,12 +62,6 @@ export function formToPayload(form: ClienteFormState) {
     sector: form.sector,
     referencia: form.referencia || null,
     nodo: form.nodo || null,
-    lat: form.lat ? parseFloat(form.lat) : null,
-    lng: form.lng ? parseFloat(form.lng) : null,
-    cajaNap: form.cajaNap || null,
-    puerto: form.puerto || null,
-    onuSerial: form.onuSerial || null,
-    potencia: form.potencia ? parseFloat(form.potencia) : null,
     activo: form.activo,
   };
 }
@@ -107,7 +77,7 @@ export function ClienteForm({ form, onChange, cedulaError }: ClienteFormProps) {
     onChange({ ...form, [key]: value });
   }
 
-  const fields: { key: keyof ClienteFormState; label: string; required?: boolean; colSpan?: number; type?: string }[] = [
+  const fields: { key: keyof ClienteFormState; label: string; required?: boolean; colSpan?: number }[] = [
     { key: "cedula", label: "Cédula *", required: true },
     { key: "nombre", label: "Nombre *", required: true },
     { key: "telefono", label: "Teléfono *", required: true },
@@ -115,31 +85,19 @@ export function ClienteForm({ form, onChange, cedulaError }: ClienteFormProps) {
     { key: "sector", label: "Sector *", required: true },
     { key: "nodo", label: "Nodo" },
     { key: "direccion", label: "Dirección *", required: true, colSpan: 2 },
-    { key: "cajaNap", label: "Caja NAP" },
-    { key: "puerto", label: "Puerto OLT" },
-    { key: "onuSerial", label: "Serial ONU" },
-    { key: "potencia", label: "Potencia óptica (dBm)", type: "number" },
-    { key: "lat", label: "Latitud GPS", type: "number" },
-    { key: "lng", label: "Longitud GPS", type: "number" },
   ];
 
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {fields.map(({ key, label, required, colSpan, type }) => (
+        {fields.map(({ key, label, required, colSpan }) => (
           <div key={key} className={colSpan === 2 ? "sm:col-span-2" : ""}>
             <label className="text-xs text-slate-500">{label}</label>
             <input
-              type={type || "text"}
-              step={type === "number" ? "any" : undefined}
+              type="text"
               required={required}
               value={String(form[key])}
-              onChange={(e) =>
-                set(
-                  key,
-                  (key === "activo" ? e.target.checked : e.target.value) as ClienteFormState[typeof key]
-                )
-              }
+              onChange={(e) => set(key, e.target.value as ClienteFormState[typeof key])}
               className={`w-full px-3 py-2 border rounded-lg text-sm mt-0.5 ${
                 CAMPOS_MAYUS.has(key) ? inputMayusculasClass : ""
               }`}
