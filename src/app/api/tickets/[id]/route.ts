@@ -287,7 +287,7 @@ export async function PATCH(
     | null = null;
 
   if (solicitaCambioCliente) {
-    const resCliente = await aplicarCambiosClienteTicket(ticket, cambiosCliente);
+    const resCliente = await aplicarCambiosClienteTicket(ticket, cambiosCliente, session.id);
     if (!resCliente.ok) {
       return NextResponse.json({ error: resCliente.error }, { status: resCliente.status });
     }

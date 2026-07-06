@@ -4,13 +4,11 @@ import { getFullSession } from "@/lib/auth";
 import { generarCodigoTicket, slaHorasPorPrioridad } from "@/lib/tickets";
 import { parseProgramadoEn } from "@/lib/calendario";
 import {
-  asignarTecnicosTicket,
   notificarTecnicosNuevos,
   ticketIncludeTecnicos,
   validarTecnicoIds,
 } from "@/lib/ticket-tecnicos";
-import { mensajeCedulaInvalida, normalizarCedula, validarCedulaEcuatoriana } from "@/lib/cedula-ec";
-import { normalizarClienteNuevo, normalizarTextoCliente, normalizarTextoTicket, enMayusculasGuardar } from "@/lib/mayusculas";
+import { normalizarTextoTicket, enMayusculasGuardar } from "@/lib/mayusculas";
 import { getOrCreateClienteInfraestructura } from "@/lib/cliente-infraestructura";
 import {
   minTecnicosInfraestructura,
@@ -51,14 +49,6 @@ export async function POST(request: Request) {
   const body = await request.json();
   const {
     clienteId,
-    cedula,
-    nombre,
-    telefono,
-    plan,
-    direccion,
-    sector,
-    nodo,
-    referencia,
     tipo,
     prioridad,
     motivo,
@@ -159,64 +149,25 @@ export async function POST(request: Request) {
   }
 
   let cliente;
-  if (clienteId) {
-    cliente = await prisma.cliente.findUnique({ where: { id: clienteId } });
-    if (!cliente) {
-      return NextResponse.json({ error: "Cliente no encontrado" }, { status: 404 });
-    }
-    if (cedula) {
-      const cedulaNorm = normalizarCedula(cedula);
-      if (!validarCedulaEcuatoriana(cedulaNorm)) {
-        return NextResponse.json({ error: mensajeCedulaInvalida() }, { status: 400 });
-      }
-    }
-    const datosCliente = normalizarTextoCliente({
-      nombre: nombre || cliente.nombre,
-      plan: plan || cliente.plan,
-      direccion: direccion || cliente.direccion,
-      sector: sector || cliente.sector,
-      nodo: nodo ?? cliente.nodo,
-      referencia: referencia ?? cliente.referencia,
-    });
-    cliente = await prisma.cliente.update({
-      where: { id: clienteId },
-      data: {
-        ...datosCliente,
-        telefono: telefono || cliente.telefono,
-        ...(cedula ? { cedula: normalizarCedula(cedula) } : {}),
-      },
-    });
-  } else {
-    if (!cedula || !nombre || !telefono || !direccion || !sector || !referencia) {
-      return NextResponse.json(
-        { error: "Cédula, nombre, teléfono, dirección, sector y referencia son obligatorios" },
-        { status: 400 }
-      );
-    }
-    const cedulaNorm = normalizarCedula(cedula);
-    if (!validarCedulaEcuatoriana(cedulaNorm)) {
-      return NextResponse.json({ error: mensajeCedulaInvalida() }, { status: 400 });
-    }
-    const datosNuevoCliente = normalizarClienteNuevo({
-      nombre,
-      plan: plan || "Sin plan",
-      direccion,
-      sector,
-      nodo: nodo || null,
-      referencia: referencia || null,
-    });
-    cliente = await prisma.cliente.upsert({
-      where: { cedula: cedulaNorm },
-      create: {
-        cedula: cedulaNorm,
-        telefono,
-        ...datosNuevoCliente,
-      },
-      update: {
-        telefono,
-        ...datosNuevoCliente,
-      },
-    });
+  if (!clienteId) {
+    return NextResponse.json(
+      { error: "Seleccione un cliente existente o créelo en Clientes antes de abrir el ticket" },
+      { status: 400 }
+    );
+  }
+
+  cliente = await prisma.cliente.findUnique({ where: { id: clienteId } });
+  if (!cliente) {
+    return NextResponse.json({ error: "Cliente no encontrado" }, { status: 404 });
+  }
+  if (!cliente.activo) {
+    return NextResponse.json({ error: "El cliente seleccionado está inactivo" }, { status: 400 });
+  }
+  if (cliente.cedula === "1790016919001") {
+    return NextResponse.json(
+      { error: "Use el formulario de infraestructura para el cliente interno" },
+      { status: 400 }
+    );
   }
 
   const errTecnicos = await validarTecnicoIds(tecnicoIds);

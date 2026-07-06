@@ -94,6 +94,7 @@ model Usuario {
   conversacionesHelpDesk HdConversacion[] @relation("HdAgenteUsuario")
   accionesHelpDesk       HdAccionRemota[]
   sesionHelpDesk         HdSesionAgente?
+  historialesCliente     HistorialCliente[]
 }
 
 model Tecnico {
@@ -129,8 +130,24 @@ model Cliente {
   onuSerial String?
   potencia  Float?
   activo    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
   tickets   Ticket[]
   conversacionesHelpDesk HdConversacion[]
+  historial HistorialCliente[]
+}
+
+model HistorialCliente {
+  id          String   @id @default(cuid())
+  clienteId   String
+  usuarioId   String?
+  accion      String
+  cambiosJson String   @db.Text
+  createdAt   DateTime @default(now())
+  cliente     Cliente  @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  usuario     Usuario? @relation(fields: [usuarioId], references: [id])
+
+  @@index([clienteId, createdAt])
 }
 
 model Ticket {

@@ -102,6 +102,12 @@ export function GerenciaQuickNav({ totalTecnicos }: { totalTecnicos?: number }) 
       >
         Help Desk remoto
       </Link>
+      <Link
+        href="/supervisor/clientes"
+        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-sky-600 text-sky-700 text-sm font-medium hover:bg-sky-50"
+      >
+        Clientes CRM
+      </Link>
     </nav>
   );
 }
@@ -121,6 +127,12 @@ export function SupervisorQuickNav() {
         className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-infinity-600 hover:bg-infinity-700 text-white text-sm font-medium"
       >
         + Ticket soporte
+      </Link>
+      <Link
+        href="/supervisor/clientes"
+        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-sky-600 text-sky-700 text-sm font-medium hover:bg-sky-50"
+      >
+        Clientes CRM
       </Link>
       <Link
         href="/supervisor/calendario"

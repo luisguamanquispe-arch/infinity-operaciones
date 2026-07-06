@@ -1,6 +1,7 @@
 import { prisma } from "./prisma";
 import { esClienteInfraestructura } from "./cliente-infraestructura";
 import { normalizarTextoCliente } from "./mayusculas";
+import { actualizarNombreCliente } from "./cliente-crud";
 
 /** Editar nombre del cliente (todos los tipos con cliente real). */
 export function ticketPermiteEditarNombreCliente(tipo: string): boolean {
@@ -24,7 +25,8 @@ export type ResultadoCambiosCliente =
 /** Reasigna cliente y/o actualiza nombre según el tipo de ticket. */
 export async function aplicarCambiosClienteTicket(
   ticket: { id: string; clienteId: string; tipo: string },
-  cambios: CambiosClienteTicket
+  cambios: CambiosClienteTicket,
+  usuarioId?: string
 ): Promise<ResultadoCambiosCliente> {
   let clienteId = ticket.clienteId;
   let clienteReasignado = false;
@@ -88,11 +90,8 @@ export async function aplicarCambiosClienteTicket(
     }
 
     const datos = normalizarTextoCliente({ nombre });
-    if (datos.nombre !== actual.nombre) {
-      await prisma.cliente.update({
-        where: { id: clienteId },
-        data: datos,
-      });
+    if (datos.nombre && datos.nombre !== actual.nombre) {
+      await actualizarNombreCliente(clienteId, datos.nombre, usuarioId);
       nombreActualizado = true;
     }
   }
