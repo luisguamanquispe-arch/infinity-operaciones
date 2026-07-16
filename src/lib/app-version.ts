@@ -1,11 +1,35 @@
-/** Commits válidos en producción (incluir al menos el que tiene novedades de soporte). */
-const VALID_DEPLOY_PREFIXES = ["e92c3cb", "6d5c765", "916c2ce", "3e9136b", "a4d7d4b", "37ac2fd"];
+/**
+ * Builds conocidos como obsoletos (anteriores a novedades de soporte / clientes CRM).
+ * Cualquier otro hash con GIT_SHA válido se considera actualizado.
+ */
+const STALE_DEPLOY_PREFIXES = new Set([
+  "a99b779",
+  "700c46f",
+  "cce76be",
+  "f00cdcc",
+  "43119b6",
+  "cf0edfe",
+]);
 
-/** Último commit recomendado para desplegar. */
-export const EXPECTED_GIT_SHA_PREFIX = VALID_DEPLOY_PREFIXES[0];
+/** Último commit en main (referencia informativa, no bloquea el panel). */
+export const LATEST_GIT_SHA_PREFIX = "611a454";
 
+/** @deprecated Usar gitShaIsStale — mantenido para compatibilidad con badges. */
+export const EXPECTED_GIT_SHA_PREFIX = LATEST_GIT_SHA_PREFIX;
+
+export function gitShaPrefix(sha: string | null | undefined): string {
+  if (!sha || sha === "unknown") return "";
+  return sha.slice(0, 7);
+}
+
+/** true = servidor demasiado viejo o sin hash de build. */
+export function gitShaIsStale(sha: string | null | undefined): boolean {
+  const prefix = gitShaPrefix(sha);
+  if (!prefix) return true;
+  return STALE_DEPLOY_PREFIXES.has(prefix);
+}
+
+/** true = servidor con funciones actuales (no muestra banner de error). */
 export function gitShaMatchesExpected(sha: string | null | undefined): boolean {
-  if (!sha || sha === "unknown") return false;
-  const prefix = sha.slice(0, 7);
-  return VALID_DEPLOY_PREFIXES.includes(prefix);
+  return !gitShaIsStale(sha);
 }

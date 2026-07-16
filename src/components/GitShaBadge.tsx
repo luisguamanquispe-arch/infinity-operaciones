@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { EXPECTED_GIT_SHA_PREFIX, gitShaMatchesExpected } from "@/lib/app-version";
+import { gitShaIsStale, gitShaPrefix, LATEST_GIT_SHA_PREFIX } from "@/lib/app-version";
 
 /** Muestra el build desplegado (útil para confirmar redeploy en Render). */
 export function GitShaBadge() {
@@ -16,14 +16,14 @@ export function GitShaBadge() {
 
   if (!sha) return null;
 
-  const actualizado = gitShaMatchesExpected(sha);
+  const actualizado = !gitShaIsStale(sha);
 
   return (
     <p className="text-center text-xs text-slate-400 pt-2">
-      Versión servidor: <span className="font-mono">{sha}</span>
+      Versión servidor: <span className="font-mono">{gitShaPrefix(sha) || sha}</span>
       {!actualizado && (
         <span className="block text-amber-700 mt-1">
-          Versión esperada {EXPECTED_GIT_SHA_PREFIX} — en Render: Manual Deploy → Clear cache
+          Servidor desactualizado — en Render: Manual Deploy → Clear cache (última: {LATEST_GIT_SHA_PREFIX})
         </span>
       )}
     </p>

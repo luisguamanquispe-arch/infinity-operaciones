@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { AlertTriangle, RefreshCw } from "lucide-react";
-import { EXPECTED_GIT_SHA_PREFIX, gitShaMatchesExpected } from "@/lib/app-version";
+import { gitShaIsStale, gitShaPrefix, LATEST_GIT_SHA_PREFIX } from "@/lib/app-version";
 
 const VERSION_ESPERADA = "infinity-operaciones";
 
@@ -18,7 +18,7 @@ export function DeployVersionBanner() {
       .then((d) => {
         setGitSha(d.gitSha ?? null);
         const servicioOk = d.service === VERSION_ESPERADA;
-        const versionOk = gitShaMatchesExpected(d.gitSha);
+        const versionOk = !gitShaIsStale(d.gitSha);
         setStale(!servicioOk || !versionOk);
       })
       .catch(() => setStale(true));
@@ -34,15 +34,16 @@ export function DeployVersionBanner() {
           <div>
             <p className="font-semibold">Versión desactualizada en el servidor</p>
             <p className="text-amber-900 mt-0.5">
-              Faltan funciones recientes (novedades de soporte, clientes CRM, help desk).
-              En Render: Manual Deploy → Clear build cache. Versión esperada:{" "}
-              <code className="text-xs bg-amber-100 px-1 rounded">{EXPECTED_GIT_SHA_PREFIX}</code>
+              El servidor no tiene las funciones recientes (novedades de soporte, clientes CRM, help desk).
+              En Render: Manual Deploy → Clear build cache. Última versión en GitHub:{" "}
+              <code className="text-xs bg-amber-100 px-1 rounded">{LATEST_GIT_SHA_PREFIX}</code>
               . Configure también el secret{" "}
               <code className="text-xs bg-amber-100 px-1 rounded">RENDER_DEPLOY_HOOK</code> en GitHub.
             </p>
             {gitSha && (
               <p className="text-xs text-amber-800 mt-1">
-                Versión en servidor: {gitSha === "unknown" ? "sin GIT_SHA (build viejo)" : gitSha}
+                Versión en servidor:{" "}
+                {gitSha === "unknown" ? "sin GIT_SHA (build viejo)" : gitShaPrefix(gitSha) || gitSha}
               </p>
             )}
           </div>
