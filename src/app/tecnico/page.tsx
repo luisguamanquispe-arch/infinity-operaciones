@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
 import { DeployVersionBanner } from "@/components/DeployVersionBanner";
+import { GitShaBadge } from "@/components/GitShaBadge";
 import { StatCard } from "@/components/StatCard";
 import { TecnicoOrdenesPendientes } from "@/components/tecnico/TecnicoOrdenesPendientes";
 import type { OrdenPendiente } from "@/components/tecnico/TecnicoOrdenesPendientes";
@@ -219,6 +220,9 @@ export default function TecnicoDashboard() {
           <TecnicoOrdenesPendientes ordenes={ordenesPendientes} />
         </section>
       </main>
+      <div className="max-w-6xl mx-auto px-4 pb-4">
+        <GitShaBadge />
+      </div>
     </div>
   );
 }

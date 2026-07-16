@@ -8,7 +8,6 @@ import { AppHeader } from "@/components/AppHeader";
 import { StatCard } from "@/components/StatCard";
 import { ESTADO_LABELS, ESTADO_TECNICO_LABELS, PRIORIDAD_LABELS } from "@/lib/utils";
 import { fetchJson } from "@/lib/fetch-json-client";
-import { DeployVersionBanner, SupervisorQuickNav } from "@/components/DeployVersionBanner";
 
 const MapInner = dynamic(() => import("@/components/MapInner"), {
   ssr: false,
@@ -103,11 +102,9 @@ export default function SupervisorDashboard() {
 
   return (
     <div className="min-h-dvh bg-slate-50">
-      <DeployVersionBanner />
       <AppHeader title="Panel Supervisor" subtitle="Monitoreo en tiempo real" />
 
       <main className="max-w-6xl mx-auto p-4 space-y-6">
-        <SupervisorQuickNav />
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <Link
             href="/supervisor/tickets/nuevo"

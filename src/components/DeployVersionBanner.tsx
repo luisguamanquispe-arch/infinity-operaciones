@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { AlertTriangle, RefreshCw } from "lucide-react";
+import { EXPECTED_GIT_SHA_PREFIX, gitShaMatchesExpected } from "@/lib/app-version";
 
 const VERSION_ESPERADA = "infinity-operaciones";
 
@@ -16,7 +17,9 @@ export function DeployVersionBanner() {
       .then((r) => r.json())
       .then((d) => {
         setGitSha(d.gitSha ?? null);
-        setStale(d.service !== VERSION_ESPERADA);
+        const servicioOk = d.service === VERSION_ESPERADA;
+        const versionOk = gitShaMatchesExpected(d.gitSha);
+        setStale(!servicioOk || !versionOk);
       })
       .catch(() => setStale(true));
   }, []);
@@ -31,12 +34,10 @@ export function DeployVersionBanner() {
           <div>
             <p className="font-semibold">Versión desactualizada en el servidor</p>
             <p className="text-amber-900 mt-0.5">
-              Faltan funciones recientes (ticket infraestructura, materiales, cronómetro automático).
-              En Render: servicio Docker con imagen{" "}
-              <code className="text-xs bg-amber-100 px-1 rounded">
-                ghcr.io/luisguamanquispe-arch/infinity-operaciones:latest
-              </code>
-              , GHCR público, Manual Deploy con Clear cache, y secret{" "}
+              Faltan funciones recientes (novedades de soporte, clientes CRM, help desk).
+              En Render: Manual Deploy → Clear build cache. Versión esperada:{" "}
+              <code className="text-xs bg-amber-100 px-1 rounded">{EXPECTED_GIT_SHA_PREFIX}</code>
+              . Configure también el secret{" "}
               <code className="text-xs bg-amber-100 px-1 rounded">RENDER_DEPLOY_HOOK</code> en GitHub.
             </p>
             {gitSha && (
