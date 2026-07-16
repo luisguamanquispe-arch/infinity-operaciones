@@ -36,6 +36,8 @@ interface DashboardData {
     estado: string;
     cliente: { nombre: string; sector: string };
     tecnicosLabel: string;
+    novedadPendiente?: boolean;
+    novedadLabel?: string | null;
   }[];
 }
 
@@ -208,6 +210,11 @@ export default function SupervisorDashboard() {
           <h2 className="font-semibold mb-3 flex items-center gap-2">
             <AlertTriangle className="w-4 h-4" />
             Tickets activos
+            {data.tickets.some((t) => t.novedadPendiente) && (
+              <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
+                ! Novedades pendientes
+              </span>
+            )}
           </h2>
           <div className="bg-white rounded-xl border overflow-hidden">
             <table className="w-full text-sm">
@@ -223,8 +230,25 @@ export default function SupervisorDashboard() {
               </thead>
               <tbody>
                 {data.tickets.map((t) => (
-                  <tr key={t.id} className="border-t">
-                    <td className="p-3 font-semibold text-infinity-600">{t.codigo}</td>
+                  <tr
+                    key={t.id}
+                    className={`border-t ${t.novedadPendiente ? "bg-amber-50/80" : ""}`}
+                  >
+                    <td className="p-3">
+                      <div className="flex items-center gap-2">
+                        {t.novedadPendiente && (
+                          <Link
+                            href="/supervisor/novedades"
+                            title={t.novedadLabel || "Novedad de soporte pendiente"}
+                            className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-500 text-white text-sm font-bold shrink-0 hover:bg-amber-600"
+                            aria-label={`Novedad: ${t.novedadLabel || "pendiente de revisión"}`}
+                          >
+                            !
+                          </Link>
+                        )}
+                        <span className="font-semibold text-infinity-600">{t.codigo}</span>
+                      </div>
+                    </td>
                     <td className="p-3">{t.cliente.nombre}</td>
                     <td className="p-3 hidden sm:table-cell text-xs leading-snug">
                       {t.tecnicosLabel}
@@ -232,12 +256,22 @@ export default function SupervisorDashboard() {
                     <td className="p-3">{PRIORIDAD_LABELS[t.prioridad]}</td>
                     <td className="p-3">{ESTADO_LABELS[t.estado]}</td>
                     <td className="p-3">
-                      <Link
-                        href={`/supervisor/tickets/${t.id}/editar`}
-                        className="text-xs font-medium text-infinity-600 hover:underline whitespace-nowrap"
-                      >
-                        Editar →
-                      </Link>
+                      <div className="flex flex-wrap items-center gap-2">
+                        {t.novedadPendiente && (
+                          <Link
+                            href="/supervisor/novedades"
+                            className="text-xs font-medium text-amber-700 hover:underline whitespace-nowrap"
+                          >
+                            Revisar novedad
+                          </Link>
+                        )}
+                        <Link
+                          href={`/supervisor/tickets/${t.id}/editar`}
+                          className="text-xs font-medium text-infinity-600 hover:underline whitespace-nowrap"
+                        >
+                          Editar →
+                        </Link>
+                      </div>
                     </td>
                   </tr>
                 ))}

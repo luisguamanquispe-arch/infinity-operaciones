@@ -4,6 +4,7 @@ import { getFullSession } from "@/lib/auth";
 
 import { nombresTecnicosTicket, ticketIncludeTecnicos } from "@/lib/ticket-tecnicos";
 import { sincronizarTicketsConOrdenCerrada } from "@/lib/ticket-cerrado";
+import { TIPO_NOVEDAD_LABELS } from "@/lib/novedad-ticket";
 
 export async function GET() {
   const session = await getFullSession();
@@ -67,6 +68,16 @@ export async function GET() {
 
   const primeraVisita = totalCerradosMes > 0 ? Math.round((cerrados / totalCerradosMes) * 100) : 0;
 
+  const ticketIds = ticketsRecientes.map((t) => t.id);
+  const novedadesPendientes =
+    ticketIds.length > 0
+      ? await prisma.novedadTicket.findMany({
+          where: { ticketId: { in: ticketIds }, estado: "PENDIENTE" },
+          select: { ticketId: true, tipo: true },
+        })
+      : [];
+  const novedadPorTicket = new Map(novedadesPendientes.map((n) => [n.ticketId, n.tipo]));
+
   return NextResponse.json({
     kpis: {
       abiertos,
@@ -83,13 +94,18 @@ export async function GET() {
       lng: t.lng,
       telefono: t.telefono,
     })),
-    tickets: ticketsRecientes.map((t) => ({
-      id: t.id,
-      codigo: t.codigo,
-      prioridad: t.prioridad,
-      estado: t.estado,
-      cliente: t.cliente,
-      tecnicosLabel: nombresTecnicosTicket(t),
-    })),
+    tickets: ticketsRecientes.map((t) => {
+      const tipoNovedad = novedadPorTicket.get(t.id);
+      return {
+        id: t.id,
+        codigo: t.codigo,
+        prioridad: t.prioridad,
+        estado: t.estado,
+        cliente: t.cliente,
+        tecnicosLabel: nombresTecnicosTicket(t),
+        novedadPendiente: Boolean(tipoNovedad),
+        novedadLabel: tipoNovedad ? TIPO_NOVEDAD_LABELS[tipoNovedad] : null,
+      };
+    }),
   });
 }
