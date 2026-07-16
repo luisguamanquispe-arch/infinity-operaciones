@@ -3,28 +3,36 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { AlertTriangle, RefreshCw } from "lucide-react";
-import { gitShaIsStale, gitShaPrefix, LATEST_GIT_SHA_PREFIX } from "@/lib/app-version";
 
 const VERSION_ESPERADA = "infinity-operaciones";
 
-/** Avisa si Render no desplegó la imagen Docker reciente. */
+type HealthPayload = {
+  gitSha?: string;
+  gitShaShort?: string | null;
+  stale?: boolean;
+  latestRecommended?: string;
+  service?: string;
+};
+
+/** Avisa solo si el servidor reporta explícitamente que está obsoleto. */
 export function DeployVersionBanner() {
-  const [stale, setStale] = useState(false);
-  const [gitSha, setGitSha] = useState<string | null>(null);
+  const [health, setHealth] = useState<HealthPayload | null>(null);
 
   useEffect(() => {
     fetch("/api/health", { cache: "no-store" })
       .then((r) => r.json())
-      .then((d) => {
-        setGitSha(d.gitSha ?? null);
-        const servicioOk = d.service === VERSION_ESPERADA;
-        const versionOk = !gitShaIsStale(d.gitSha);
-        setStale(!servicioOk || !versionOk);
-      })
-      .catch(() => setStale(true));
+      .then((d: HealthPayload) => setHealth(d))
+      .catch(() => setHealth(null));
   }, []);
 
-  if (!stale) return null;
+  // Solo mostrar si /api/health dice stale: true (decisión del servidor, no del navegador).
+  if (!health || health.stale !== true || health.service !== VERSION_ESPERADA) {
+    return null;
+  }
+
+  const shaLabel =
+    health.gitShaShort ||
+    (health.gitSha && health.gitSha !== "unknown" ? health.gitSha.slice(0, 7) : "desconocida");
 
   return (
     <div className="bg-amber-50 border-b border-amber-300 px-4 py-3 text-sm text-amber-950">
@@ -34,18 +42,17 @@ export function DeployVersionBanner() {
           <div>
             <p className="font-semibold">Versión desactualizada en el servidor</p>
             <p className="text-amber-900 mt-0.5">
-              El servidor no tiene las funciones recientes (novedades de soporte, clientes CRM, help desk).
-              En Render: Manual Deploy → Clear build cache. Última versión en GitHub:{" "}
-              <code className="text-xs bg-amber-100 px-1 rounded">{LATEST_GIT_SHA_PREFIX}</code>
-              . Configure también el secret{" "}
-              <code className="text-xs bg-amber-100 px-1 rounded">RENDER_DEPLOY_HOOK</code> en GitHub.
+              Faltan funciones recientes. En Render: Manual Deploy → Clear build cache.
+              {health.latestRecommended && (
+                <>
+                  {" "}
+                  Última en GitHub:{" "}
+                  <code className="text-xs bg-amber-100 px-1 rounded">{health.latestRecommended}</code>.
+                </>
+              )}{" "}
+              Configure <code className="text-xs bg-amber-100 px-1 rounded">RENDER_DEPLOY_HOOK</code> en GitHub.
             </p>
-            {gitSha && (
-              <p className="text-xs text-amber-800 mt-1">
-                Versión en servidor:{" "}
-                {gitSha === "unknown" ? "sin GIT_SHA (build viejo)" : gitShaPrefix(gitSha) || gitSha}
-              </p>
-            )}
+            <p className="text-xs text-amber-800 mt-1">Versión en servidor: {shaLabel}</p>
           </div>
         </div>
         <button
@@ -64,10 +71,7 @@ export function DeployVersionBanner() {
 /** Accesos rápidos del panel gerencial (admin). */
 export function GerenciaQuickNav({ totalTecnicos }: { totalTecnicos?: number }) {
   return (
-    <nav
-      aria-label="Menú gerencial"
-      className="flex flex-wrap gap-2"
-    >
+    <nav aria-label="Menú gerencial" className="flex flex-wrap gap-2">
       <Link
         href="/gerencia/tecnicos/nuevo"
         className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-infinity-600 hover:bg-infinity-700 text-white text-sm font-medium"
