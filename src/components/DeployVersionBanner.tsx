@@ -141,6 +141,12 @@ export function SupervisorQuickNav() {
         Calendario
       </Link>
       <Link
+        href="/supervisor/novedades"
+        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border-2 border-amber-500 bg-amber-50 text-amber-900 text-sm font-semibold hover:bg-amber-100"
+      >
+        Novedades soporte
+      </Link>
+      <Link
         href="/help-desk"
         className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-teal-600 text-teal-700 text-sm font-medium hover:bg-teal-50"
       >

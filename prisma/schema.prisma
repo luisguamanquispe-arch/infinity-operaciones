@@ -95,6 +95,7 @@ model Usuario {
   accionesHelpDesk       HdAccionRemota[]
   sesionHelpDesk         HdSesionAgente?
   historialesCliente     HistorialCliente[]
+  novedadesResueltas     NovedadTicket[]    @relation("NovedadResueltaPor")
 }
 
 model Tecnico {
@@ -111,6 +112,7 @@ model Tecnico {
   asignaciones TicketTecnico[]
   ubicaciones  UbicacionGps[]
   ordenesReportadas OrdenServicio[] @relation("OrdenReportadaPor")
+  novedadesReportadas NovedadTicket[]
 }
 
 model Cliente {
@@ -175,6 +177,7 @@ model Ticket {
   eventos              EventoTicket[]
   conversacionHelpDesk HdConversacion?
   escalamientoHelpDesk HdEscalamiento?
+  novedades            NovedadTicket[]
 }
 
 model TicketTecnico {
@@ -320,6 +323,40 @@ model EventoTicket {
   createdAt DateTime @default(now())
   ticket    Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
   usuario   Usuario? @relation(fields: [usuarioId], references: [id])
+}
+
+enum TipoNovedadTicket {
+  CLIENTE_AUSENTE
+  SOLICITA_REPROGRAMACION
+  OTRO
+}
+
+enum EstadoNovedadTicket {
+  PENDIENTE
+  REPROGRAMADA
+  DESCARTADA
+}
+
+model NovedadTicket {
+  id                   String              @id @default(cuid())
+  ticketId             String
+  tecnicoId            String
+  tipo                 TipoNovedadTicket
+  comentario           String?             @db.Text
+  fechaSolicitada      DateTime?
+  estado               EstadoNovedadTicket @default(PENDIENTE)
+  programadoEnAnterior DateTime?
+  programadoEnNuevo    DateTime?
+  resueltaPorId        String?
+  resueltaEn           DateTime?
+  createdAt            DateTime            @default(now())
+  ticket               Ticket              @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  tecnico              Tecnico             @relation(fields: [tecnicoId], references: [id])
+  resueltaPor          Usuario?            @relation("NovedadResueltaPor", fields: [resueltaPorId], references: [id])
+
+  @@index([estado])
+  @@index([ticketId])
+  @@index([createdAt])
 }
 
 // ─── Infinity Remote Help Desk (solo web) ───────────────────────────────────

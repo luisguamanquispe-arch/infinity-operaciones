@@ -12,6 +12,7 @@ import {
   instalacionFormVacio,
   type InstalacionFormState,
 } from "@/components/tecnico/InstalacionOrdenSection";
+import { NovedadSoportePanel } from "@/components/tecnico/NovedadSoportePanel";
 import { TIPO_LABELS, ESTADO_LABELS, formatDateTime, formatDuration } from "@/lib/utils";
 import { fetchWithRetry } from "@/lib/compress-image";
 import {
@@ -141,6 +142,14 @@ interface OrdenData {
     reportadoPor: { id: string; nombre: string } | null;
     reportadoEn: string | null;
     mensaje: string | null;
+  } | null;
+  novedadPendiente?: {
+    id: string;
+    tipo: string;
+    tipoLabel: string;
+    comentario: string | null;
+    fechaSolicitada: string | null;
+    createdAt: string;
   } | null;
 }
 
@@ -540,6 +549,14 @@ export default function OrdenPage() {
             </div>
           </section>
         )}
+
+        <NovedadSoportePanel
+          ticketId={ticket.id}
+          cerrado={cerrado}
+          esInfra={esInfra}
+          novedadPendiente={data.novedadPendiente ?? null}
+          onReportada={refrescar}
+        />
 
         {/* Datos del cliente / sitio */}
         <section className={`bg-white rounded-xl border p-4 space-y-2 ${esInfra ? "border-violet-200 bg-violet-50/30" : esInstalacion ? "border-sky-200 bg-sky-50/30" : ""}`}>

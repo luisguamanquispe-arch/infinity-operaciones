@@ -27,6 +27,7 @@ import {
   aplicarCambiosClienteTicket,
   solicitaCambioClienteEnBody,
 } from "@/lib/ticket-cliente-edit";
+import { novedadPendienteTicket, TIPO_NOVEDAD_LABELS } from "@/lib/novedad-ticket";
 
 export async function GET(
   _request: Request,
@@ -185,6 +186,8 @@ export async function GET(
       ? await infoReporteOrden(ticketData.id, session.tecnicoId)
       : null;
 
+  const novedadPendiente = await novedadPendienteTicket(ticketData.id);
+
   return NextResponse.json({
     ticket: {
       ...ticketRespuesta,
@@ -199,6 +202,16 @@ export async function GET(
     duracionSegundos,
     inventario,
     reporte,
+    novedadPendiente: novedadPendiente
+      ? {
+          id: novedadPendiente.id,
+          tipo: novedadPendiente.tipo,
+          tipoLabel: TIPO_NOVEDAD_LABELS[novedadPendiente.tipo],
+          comentario: novedadPendiente.comentario,
+          fechaSolicitada: novedadPendiente.fechaSolicitada?.toISOString() ?? null,
+          createdAt: novedadPendiente.createdAt.toISOString(),
+        }
+      : null,
   });
 }
 
