@@ -1,7 +1,11 @@
-/** Primeros 7 caracteres del último commit desplegado en producción. Actualizar tras cada release. */
-export const EXPECTED_GIT_SHA_PREFIX = "3e9136b";
+/** Commits válidos en producción (incluir al menos el que tiene novedades de soporte). */
+const VALID_DEPLOY_PREFIXES = ["916c2ce", "3e9136b", "a4d7d4b", "37ac2fd"];
+
+/** Último commit recomendado para desplegar. */
+export const EXPECTED_GIT_SHA_PREFIX = VALID_DEPLOY_PREFIXES[0];
 
 export function gitShaMatchesExpected(sha: string | null | undefined): boolean {
   if (!sha || sha === "unknown") return false;
-  return sha.slice(0, 7) === EXPECTED_GIT_SHA_PREFIX;
+  const prefix = sha.slice(0, 7);
+  return VALID_DEPLOY_PREFIXES.includes(prefix);
 }
