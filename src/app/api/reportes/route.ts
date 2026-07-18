@@ -5,6 +5,9 @@ import { firmaImagenSrcRapida } from "@/lib/firma-image";
 import { nombresTecnicosTicket } from "@/lib/ticket-tecnicos";
 import { mensajeErrorPrisma } from "@/lib/prisma-errors";
 
+const DEFAULT_LIMIT = 100;
+const MAX_LIMIT = 200;
+
 export async function GET(request: Request) {
   try {
   const session = await getFullSession();
@@ -19,6 +22,12 @@ export async function GET(request: Request) {
   const tipo = searchParams.get("tipo");
   const sector = searchParams.get("sector");
   const q = searchParams.get("q")?.trim();
+  const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10) || 1);
+  const limit = Math.min(
+    MAX_LIMIT,
+    Math.max(1, parseInt(searchParams.get("limit") || String(DEFAULT_LIMIT), 10) || DEFAULT_LIMIT)
+  );
+  const skip = (page - 1) * limit;
 
   const and: Record<string, unknown>[] = [{ estado: { in: ["CERRADO", "FINALIZADO"] } }];
 
@@ -52,49 +61,57 @@ export async function GET(request: Request) {
 
   const where = { AND: and };
 
-  const tickets = await prisma.ticket.findMany({
-    where,
-    include: {
-      cliente: {
-        select: { nombre: true, cedula: true, sector: true },
-      },
-      tecnico: { include: { usuario: { select: { nombre: true } } } },
-      tecnicos: {
-        include: { tecnico: { include: { usuario: { select: { nombre: true } } } } },
-      },
-      orden: {
-        select: {
-          finalizadoEn: true,
-          cronometro: { select: { duracionSegundos: true } },
-          medicion: { select: { id: true } },
-          firma: { select: { imagenUrl: true } },
-          _count: { select: { fotografias: true, materiales: true } },
+  const [total, tickets, tecnicos, sectores] = await Promise.all([
+    prisma.ticket.count({ where }),
+    prisma.ticket.findMany({
+      where,
+      include: {
+        cliente: {
+          select: { nombre: true, cedula: true, sector: true },
+        },
+        tecnico: { include: { usuario: { select: { nombre: true } } } },
+        tecnicos: {
+          include: { tecnico: { include: { usuario: { select: { nombre: true } } } } },
+        },
+        orden: {
+          select: {
+            finalizadoEn: true,
+            cronometro: { select: { duracionSegundos: true } },
+            medicion: { select: { id: true } },
+            firma: { select: { imagenUrl: true } },
+            _count: { select: { fotografias: true, materiales: true } },
+          },
         },
       },
-    },
-    orderBy: { updatedAt: "desc" },
-    take: 50,
-  });
+      orderBy: { updatedAt: "desc" },
+      skip,
+      take: limit,
+    }),
+    prisma.tecnico.findMany({
+      include: { usuario: true },
+      orderBy: { usuario: { nombre: "asc" } },
+    }),
+    prisma.cliente.findMany({
+      select: { sector: true },
+      distinct: ["sector"],
+      orderBy: { sector: "asc" },
+    }),
+  ]);
 
-  const resumen = {
-    total: tickets.length,
-    conFotos: tickets.filter((t) => (t.orden?._count.fotografias ?? 0) > 0).length,
-    conFirma: tickets.filter((t) => t.orden?.firma).length,
-    conMedicion: tickets.filter((t) => t.orden?.medicion).length,
-    tiempoPromedioMin:
-      tickets.length > 0
-        ? Math.round(
-            tickets
-              .filter((t) => t.orden?.cronometro?.duracionSegundos)
-              .reduce((acc, t) => acc + (t.orden!.cronometro!.duracionSegundos || 0), 0) /
-              Math.max(
-                1,
-                tickets.filter((t) => t.orden?.cronometro?.duracionSegundos).length
-              ) /
-              60
-          )
-        : 0,
-  };
+  const conFotos = tickets.filter((t) => (t.orden?._count.fotografias ?? 0) > 0).length;
+  const conFirma = tickets.filter((t) => t.orden?.firma).length;
+  const conMedicion = tickets.filter((t) => t.orden?.medicion).length;
+  const conTiempo = tickets.filter((t) => t.orden?.cronometro?.duracionSegundos);
+  const tiempoPromedioMin =
+    conTiempo.length > 0
+      ? Math.round(
+          conTiempo.reduce((acc, t) => acc + (t.orden!.cronometro!.duracionSegundos || 0), 0) /
+            conTiempo.length /
+            60
+        )
+      : 0;
+
+  const totalPages = Math.max(1, Math.ceil(total / limit));
 
   const items = tickets.map((t) => ({
     id: t.id,
@@ -121,19 +138,22 @@ export async function GET(request: Request) {
     totalMateriales: t.orden?._count.materiales ?? 0,
   }));
 
-  const tecnicos = await prisma.tecnico.findMany({
-    include: { usuario: true },
-    orderBy: { usuario: { nombre: "asc" } },
-  });
-
-  const sectores = await prisma.cliente.findMany({
-    select: { sector: true },
-    distinct: ["sector"],
-    orderBy: { sector: "asc" },
-  });
-
   return NextResponse.json({
-    resumen,
+    resumen: {
+      total,
+      conFotos,
+      conFirma,
+      conMedicion,
+      tiempoPromedioMin,
+      paginaActual: tickets.length,
+    },
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages,
+      hasMore: page < totalPages,
+    },
     items,
     filtros: {
       tecnicos: tecnicos.map((t) => ({ id: t.id, nombre: t.usuario.nombre })),
@@ -145,7 +165,8 @@ export async function GET(request: Request) {
     return NextResponse.json(
       {
         error: mensajeErrorPrisma(err),
-        resumen: { total: 0, conFotos: 0, conFirma: 0, conMedicion: 0, tiempoPromedioMin: 0 },
+        resumen: { total: 0, conFotos: 0, conFirma: 0, conMedicion: 0, tiempoPromedioMin: 0, paginaActual: 0 },
+        pagination: { page: 1, limit: DEFAULT_LIMIT, total: 0, totalPages: 1, hasMore: false },
         items: [],
         filtros: { tecnicos: [], sectores: [] },
       },

@@ -45,6 +45,14 @@ interface ReportesData {
     conFirma: number;
     conMedicion: number;
     tiempoPromedioMin: number;
+    paginaActual?: number;
+  };
+  pagination?: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    hasMore: boolean;
   };
   items: ReporteItem[];
   filtros: {
@@ -67,6 +75,7 @@ export function ReportesList({
   const [data, setData] = useState<ReportesData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [page, setPage] = useState(1);
   const [filtros, setFiltros] = useState({
     desde: "",
     hasta: "",
@@ -83,6 +92,8 @@ export function ReportesList({
     Object.entries(filtros).forEach(([k, v]) => {
       if (v) params.set(k, v);
     });
+    params.set("page", String(page));
+    params.set("limit", "100");
     const { data: json, error: err } = await fetchJson<ReportesData>(
       `/api/reportes?${params}`
     );
@@ -93,15 +104,19 @@ export function ReportesList({
       setData(json);
     }
     setLoading(false);
-  }, [filtros]);
+  }, [filtros, page]);
 
   useEffect(() => {
     cargar();
   }, [cargar]);
 
   function handleFilterChange(key: string, value: string) {
+    setPage(1);
     setFiltros((prev) => ({ ...prev, [key]: value }));
   }
+
+  const pagination = data?.pagination;
+  const totalPages = pagination?.totalPages ?? 1;
 
   return (
     <div className="min-h-dvh bg-slate-50">
@@ -114,12 +129,12 @@ export function ReportesList({
 
         {data && (
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-            <StatCard label="Total" value={data.resumen.total} icon={FileText} color="blue" />
-            <StatCard label="Con fotos" value={data.resumen.conFotos} icon={Camera} color="green" />
-            <StatCard label="Con firma" value={data.resumen.conFirma} icon={PenLine} color="slate" />
-            <StatCard label="Con medición" value={data.resumen.conMedicion} icon={Gauge} color="yellow" />
+            <StatCard label="Total finalizadas" value={data.resumen.total} icon={FileText} color="blue" />
+            <StatCard label="Con fotos (página)" value={data.resumen.conFotos} icon={Camera} color="green" />
+            <StatCard label="Con firma (página)" value={data.resumen.conFirma} icon={PenLine} color="slate" />
+            <StatCard label="Con medición (página)" value={data.resumen.conMedicion} icon={Gauge} color="yellow" />
             <StatCard
-              label="Tiempo prom."
+              label="Tiempo prom. (página)"
               value={`${data.resumen.tiempoPromedioMin}m`}
               color="slate"
             />
@@ -311,6 +326,39 @@ export function ReportesList({
                 </tbody>
               </table>
             </div>
+            {pagination && data.resumen.total > 0 && (
+              <div className="flex flex-wrap items-center justify-between gap-3 border-t px-4 py-3 bg-slate-50">
+                <p className="text-sm text-slate-600">
+                  Mostrando{" "}
+                  <span className="font-medium">
+                    {(page - 1) * (pagination.limit) + 1}–
+                    {Math.min(page * pagination.limit, pagination.total)}
+                  </span>{" "}
+                  de <span className="font-semibold">{pagination.total}</span> órdenes finalizadas
+                </p>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    disabled={page <= 1 || loading}
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    className="px-3 py-1.5 rounded-lg border text-sm font-medium disabled:opacity-40 hover:bg-white"
+                  >
+                    ← Anterior
+                  </button>
+                  <span className="text-sm text-slate-500 tabular-nums">
+                    Página {page} / {totalPages}
+                  </span>
+                  <button
+                    type="button"
+                    disabled={!pagination.hasMore || loading}
+                    onClick={() => setPage((p) => p + 1)}
+                    className="px-3 py-1.5 rounded-lg border text-sm font-medium disabled:opacity-40 hover:bg-white"
+                  >
+                    Siguiente →
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </main>
