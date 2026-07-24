@@ -1,0 +1,4 @@
+-- AlterTable
+ALTER TABLE "Firma" ADD COLUMN IF NOT EXISTS "aceptacionCondiciones" BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE "Firma" ADD COLUMN IF NOT EXISTS "textoAceptacion" TEXT;
+ALTER TABLE "Firma" ADD COLUMN IF NOT EXISTS "aceptadoEn" TIMESTAMP(3);

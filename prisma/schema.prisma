@@ -12,6 +12,7 @@ enum Rol {
   SUPERVISOR
   ADMIN
   HELP_DESK
+  CLIENTE
 }
 
 enum EstadoTecnico {
@@ -90,12 +91,15 @@ model Usuario {
   activo       Boolean  @default(true)
   createdAt    DateTime @default(now())
   tecnico      Tecnico?
+  cuentaCliente AppClienteCuenta?
   eventos      EventoTicket[]
   conversacionesHelpDesk HdConversacion[] @relation("HdAgenteUsuario")
   accionesHelpDesk       HdAccionRemota[]
   sesionHelpDesk         HdSesionAgente?
   historialesCliente     HistorialCliente[]
   novedadesResueltas     NovedadTicket[]    @relation("NovedadResueltaPor")
+  refreshTokensCliente   AppClienteRefreshToken[]
+  deviceTokensCliente    AppClienteDeviceToken[]
 }
 
 model Tecnico {
@@ -137,6 +141,64 @@ model Cliente {
   tickets   Ticket[]
   conversacionesHelpDesk HdConversacion[]
   historial HistorialCliente[]
+  cuentaApp AppClienteCuenta?
+  speedTests AppClienteSpeedTest[]
+}
+
+/// Cuenta de la app INFINITY Connect vinculada a un Cliente CRM.
+model AppClienteCuenta {
+  id        String   @id @default(cuid())
+  usuarioId String   @unique
+  clienteId String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  usuario   Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  cliente   Cliente  @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+}
+
+/// Refresh tokens rotativos para la app móvil (hash SHA-256, nunca en claro).
+model AppClienteRefreshToken {
+  id        String    @id @default(cuid())
+  usuarioId String
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+  usuario   Usuario   @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@index([usuarioId])
+  @@index([expiresAt])
+}
+
+/// Resultados de speed test desde INFINITY Connect (medición vía API Soporte).
+model AppClienteSpeedTest {
+  id           String   @id @default(cuid())
+  clienteId    String
+  pingMs       Float?
+  downloadMbps Float
+  uploadMbps   Float
+  planMbps     Int?
+  calidad      String
+  servidor     String   @default("infinity-soporte")
+  plataforma   String?
+  createdAt    DateTime @default(now())
+  cliente      Cliente  @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+
+  @@index([clienteId, createdAt])
+}
+
+/// Tokens FCM / push de INFINITY Connect (por usuario CLIENTE).
+model AppClienteDeviceToken {
+  id         String   @id @default(cuid())
+  usuarioId  String
+  token      String   @unique
+  plataforma String
+  activo     Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  usuario    Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@index([usuarioId])
 }
 
 model HistorialCliente {
@@ -213,6 +275,12 @@ model OrdenServicio {
   pppoeClave          String?
   nombreRedWifi       String?
   claveRedWifi        String?
+  /// Resumen del soporte / trabajo efectuado (ingresa el técnico)
+  resumenTrabajo      String?             @db.Text
+  reportePdfUrl       String?
+  reporteEnviadoWhatsapp Boolean          @default(false)
+  reporteEnviadoEmail Boolean             @default(false)
+  correoReporte       String?
   ticket          Ticket              @relation(fields: [ticketId], references: [id], onDelete: Cascade)
   reportadoPor    Tecnico?            @relation("OrdenReportadaPor", fields: [reportadoPorTecnicoId], references: [id])
   cronometro      Cronometro?
@@ -269,16 +337,21 @@ model Fotografia {
 }
 
 model Firma {
-  id            String        @id @default(cuid())
-  ordenId       String        @unique
-  nombreCliente String
-  cedula        String
-  imagenUrl     String
-  imagenData    String?       @db.Text
-  lat           Float?
-  lng           Float?
-  firmadoEn     DateTime      @default(now())
-  orden         OrdenServicio @relation(fields: [ordenId], references: [id], onDelete: Cascade)
+  id                      String        @id @default(cuid())
+  ordenId                 String        @unique
+  nombreCliente           String
+  cedula                  String
+  imagenUrl               String
+  imagenData              String?       @db.Text
+  lat                     Float?
+  lng                     Float?
+  /// Cliente marcó la casilla de aceptación de condiciones al firmar
+  aceptacionCondiciones   Boolean       @default(false)
+  /// Texto legal aceptado (snapshot al momento de firmar)
+  textoAceptacion         String?       @db.Text
+  aceptadoEn              DateTime?
+  firmadoEn               DateTime      @default(now())
+  orden                   OrdenServicio @relation(fields: [ordenId], references: [id], onDelete: Cascade)
 }
 
 model Inventario {

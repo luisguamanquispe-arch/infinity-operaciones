@@ -5,6 +5,7 @@ import { gitShaIsStale, gitShaPrefix, LATEST_GIT_SHA_PREFIX } from "@/lib/app-ve
 export async function GET() {
   const gitSha = process.env.GIT_SHA || "unknown";
   const prefix = gitShaPrefix(gitSha);
+  const setupToken = process.env.SETUP_TOKEN?.trim() ?? "";
 
   return NextResponse.json(
     {
@@ -14,6 +15,9 @@ export async function GET() {
       gitShaShort: prefix || null,
       stale: gitShaIsStale(gitSha),
       latestRecommended: LATEST_GIT_SHA_PREFIX,
+      /** true si SETUP_TOKEN está definido (no revela el valor). */
+      setupTokenConfigured: setupToken.length > 0,
+      setupTokenLength: setupToken.length > 0 ? setupToken.length : 0,
       ts: Date.now(),
     },
     {

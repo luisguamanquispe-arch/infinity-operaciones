@@ -20,7 +20,14 @@ export async function POST(request: Request) {
   try {
     const auth = requireSetupToken(request);
     if (!auth.ok) {
-      return NextResponse.json({ error: auth.error }, { status: 401 });
+      return NextResponse.json(
+        {
+          error: auth.error,
+          receivedLength: auth.receivedLength,
+          configuredLength: auth.configuredLength,
+        },
+        { status: auth.status }
+      );
     }
 
     const body = await request.json().catch(() => ({}));

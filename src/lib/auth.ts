@@ -82,6 +82,8 @@ export function dashboardPath(rol: Rol): string {
       return "/supervisor";
     case "ADMIN":
       return "/gerencia";
+    case "CLIENTE":
+      return "/login";
     default:
       return "/login";
   }

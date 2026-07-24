@@ -22,6 +22,7 @@ import {
 import { asegurarReportadorOrden } from "@/lib/ticket-reporte";
 import { verificarTicketEditable } from "@/lib/ticket-cerrado";
 import type { TipoPatchCord } from "@prisma/client";
+import { TEXTO_ACEPTACION_SOPORTE } from "@/lib/aceptacion-soporte";
 
 export const maxDuration = 60;
 export const runtime = "nodejs";
@@ -121,7 +122,16 @@ export async function PUT(
     const orden = await getOrCreateOrden(id);
 
     if (body.firma) {
-      const { nombreCliente, cedula, imagen, lat, lng } = body.firma;
+      const { nombreCliente, cedula, imagen, lat, lng, aceptacionCondiciones } = body.firma;
+      if (!aceptacionCondiciones) {
+        return NextResponse.json(
+          {
+            error:
+              "Debe marcar la casilla de aceptación de condiciones del soporte técnico antes de guardar la firma",
+          },
+          { status: 400 }
+        );
+      }
       const cedulaNorm = normalizarCedula(cedula || "");
       if (!validarCedulaEcuatoriana(cedulaNorm)) {
         return NextResponse.json({ error: mensajeCedulaInvalida() }, { status: 400 });
@@ -130,6 +140,7 @@ export async function PUT(
       const buffer = Buffer.from(base64, "base64");
       const filename = `firma_${Date.now()}.png`;
       const imagenUrl = await persistTicketImage(id, filename, buffer);
+      const ahora = new Date();
       const firma = await prisma.firma.upsert({
         where: { ordenId: orden.id },
         create: {
@@ -140,6 +151,9 @@ export async function PUT(
           imagenData: imagen,
           lat,
           lng,
+          aceptacionCondiciones: true,
+          textoAceptacion: TEXTO_ACEPTACION_SOPORTE,
+          aceptadoEn: ahora,
         },
         update: {
           nombreCliente: enMayusculasGuardar(nombreCliente),
@@ -148,6 +162,9 @@ export async function PUT(
           imagenData: imagen,
           lat,
           lng,
+          aceptacionCondiciones: true,
+          textoAceptacion: TEXTO_ACEPTACION_SOPORTE,
+          aceptadoEn: ahora,
         },
       });
 
@@ -242,6 +259,27 @@ export async function PUT(
         data: body.checklist,
       });
       return NextResponse.json({ ok: true });
+    }
+
+    if (typeof body.resumenTrabajo === "string") {
+      const resumen = body.resumenTrabajo.trim();
+      if (resumen.length > 0 && resumen.length < 10) {
+        return NextResponse.json(
+          { error: "El resumen debe tener al menos 10 caracteres" },
+          { status: 400 }
+        );
+      }
+      if (resumen.length > 4000) {
+        return NextResponse.json(
+          { error: "El resumen es demasiado largo (máx. 4000)" },
+          { status: 400 }
+        );
+      }
+      await prisma.ordenServicio.update({
+        where: { id: orden.id },
+        data: { resumenTrabajo: resumen || null },
+      });
+      return NextResponse.json({ ok: true, resumenTrabajo: resumen || null });
     }
 
     return NextResponse.json({ error: "Acción inválida" }, { status: 400 });

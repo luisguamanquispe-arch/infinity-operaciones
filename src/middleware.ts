@@ -7,11 +7,11 @@ const publicPaths = [
   "/login",
   "/intro",
   "/manifest.json",
-  "/api/setup/seed",
-  "/api/setup/help-desk-usuario",
-  "/api/setup/eliminar-tickets",
+  "/api/setup",
   "/api/health",
   "/api/help-desk/webhook/whatsapp",
+  "/api/cliente/auth/login",
+  "/api/cliente/auth/refresh",
 ];
 
 const ROLES_HELP_DESK = ["ADMIN", "SUPERVISOR", "HELP_DESK"];
@@ -26,6 +26,8 @@ function dashboardPath(rol: string): string {
       return "/supervisor";
     case "ADMIN":
       return "/gerencia";
+    case "CLIENTE":
+      return "/login";
     default:
       return "/login";
   }
@@ -66,10 +68,19 @@ export async function middleware(request: NextRequest) {
       const token = request.cookies.get("session")?.value;
       if (token) {
         const session = await verifyToken(token);
-        if (session) {
+        if (session && session.rol !== "CLIENTE") {
           return NextResponse.redirect(new URL(dashboardPath(session.rol), request.url));
         }
       }
+    }
+    return NextResponse.next();
+  }
+
+  // App móvil INFINITY Connect: autenticación Bearer (sin cookie de operaciones)
+  if (pathname.startsWith("/api/cliente/")) {
+    const auth = request.headers.get("authorization") || "";
+    if (!auth.startsWith("Bearer ")) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
     return NextResponse.next();
   }
@@ -88,6 +99,10 @@ export async function middleware(request: NextRequest) {
       return NextResponse.json({ error: "Sesión inválida" }, { status: 401 });
     }
     return loginRedirect(request, esRutaTecnico);
+  }
+
+  if (session.rol === "CLIENTE") {
+    return loginRedirect(request);
   }
 
   if (esRutaTecnico && session.rol !== "TECNICO") {

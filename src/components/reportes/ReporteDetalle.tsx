@@ -23,6 +23,7 @@ import { FirmaReporte } from "./FirmaReporte";
 import { MaterialesReporte } from "./MaterialesReporte";
 import { ReporteSection } from "./ReporteSection";
 import { ReporteQr } from "./ReporteQr";
+import { DescargarPdfCliente } from "./DescargarPdfCliente";
 import {
   TIPO_LABELS,
   ESTADO_LABELS,
@@ -87,6 +88,9 @@ interface ReporteData {
         firmadoEn: string;
         lat?: number | null;
         lng?: number | null;
+        aceptacionCondiciones?: boolean;
+        textoAceptacion?: string | null;
+        aceptadoEn?: string | null;
       } | null;
       materiales: MaterialReporteDTO[];
       tipoConexionInstalacion?: string | null;
@@ -95,6 +99,7 @@ interface ReporteData {
       pppoeClave?: string | null;
       nombreRedWifi?: string | null;
       claveRedWifi?: string | null;
+      resumenTrabajo?: string | null;
     } | null;
     eventos: {
       id: string;
@@ -226,13 +231,16 @@ export function ReporteDetalle({ backHref, backLabel }: ReporteDetalleProps) {
               <p className="text-infinity-200 text-sm">{backLabel}</p>
             </div>
           </div>
-          <button
-            onClick={imprimir}
-            className="flex items-center gap-1.5 px-3 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-sm font-medium"
-          >
-            <Printer className="w-4 h-4" />
-            Imprimir
-          </button>
+          <div className="flex items-center gap-2">
+            <DescargarPdfCliente ticketId={ticket.id} codigo={ticket.codigo} variant="header" />
+            <button
+              onClick={imprimir}
+              className="flex items-center gap-1.5 px-3 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-sm font-medium"
+            >
+              <Printer className="w-4 h-4" />
+              Imprimir
+            </button>
+          </div>
         </div>
       </header>
 
@@ -381,6 +389,18 @@ export function ReporteDetalle({ backHref, backLabel }: ReporteDetalleProps) {
 
         <MaterialesReporte materiales={materiales} tipoTicket={ticket.tipo} />
 
+        {orden?.resumenTrabajo && (
+          <ReporteSection
+            title="Resumen del soporte / trabajo efectuado"
+            icon={Wrench}
+            accent="sky"
+          >
+            <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">
+              {orden.resumenTrabajo}
+            </p>
+          </ReporteSection>
+        )}
+
         {esInstalacion && clausulas.length > 0 && (
           <ReporteSection
             title="Políticas del servicio — Instalación"
@@ -399,7 +419,23 @@ export function ReporteDetalle({ backHref, backLabel }: ReporteDetalleProps) {
           </ReporteSection>
         )}
 
-        {orden?.firma && <FirmaReporte firma={orden.firma} />}
+        {orden?.firma && (
+          <FirmaReporte
+            firma={orden.firma}
+            fotoClienteConforme={(() => {
+              const foto =
+                evidencia.final.find((f) => f.tipo === "CLIENTE_CONFORME") ||
+                [...evidencia.antes, ...evidencia.durante, ...evidencia.final].find(
+                  (f) => f.tipo === "CLIENTE_CONFORME"
+                );
+              if (!foto) return null;
+              return {
+                url: foto.imagenSrc || foto.url,
+                tomadaEn: foto.tomadaEn,
+              };
+            })()}
+          />
+        )}
 
         <ReporteSection
           title="Evidencia fotográfica"

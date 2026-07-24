@@ -13,6 +13,7 @@ import {
   type InstalacionFormState,
 } from "@/components/tecnico/InstalacionOrdenSection";
 import { NovedadSoportePanel } from "@/components/tecnico/NovedadSoportePanel";
+import { EnviarReporteSoporte } from "@/components/tecnico/EnviarReporteSoporte";
 import { TIPO_LABELS, ESTADO_LABELS, formatDateTime, formatDuration } from "@/lib/utils";
 import { fetchWithRetry } from "@/lib/compress-image";
 import {
@@ -107,6 +108,11 @@ interface OrdenData {
     pppoeClave: string | null;
     nombreRedWifi: string | null;
     claveRedWifi: string | null;
+    resumenTrabajo: string | null;
+    whatsappEnviado?: boolean;
+    reporteEnviadoWhatsapp?: boolean;
+    reporteEnviadoEmail?: boolean;
+    correoReporte?: string | null;
     cronometro: {
       inicio: string | null;
       fin: string | null;
@@ -121,7 +127,14 @@ interface OrdenData {
       uploadMbps: number;
     } | null;
     fotografias: { tipo: string; url: string }[];
-    firma: { imagenUrl: string; nombreCliente: string; cedula: string } | null;
+    firma: {
+      imagenUrl: string;
+      imagenSrc?: string;
+      nombreCliente: string;
+      cedula: string;
+      aceptacionCondiciones?: boolean;
+      textoAceptacion?: string | null;
+    } | null;
     materiales: {
       inventarioId: string;
       cantidad: number;
@@ -190,6 +203,8 @@ export default function OrdenPage() {
     clienteConforme: false,
     firmaOk: false,
   });
+  const [resumenTrabajo, setResumenTrabajo] = useState("");
+  const resumenTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const aplicarDatosFormulario = useCallback((d: OrdenData) => {
     if (d.orden.medicion) {
@@ -208,6 +223,7 @@ export default function OrdenPage() {
       clienteConforme: d.orden.clienteConforme ?? false,
       firmaOk: d.orden.firmaOk ?? false,
     });
+    setResumenTrabajo(d.orden.resumenTrabajo ?? "");
     if (d.orden.materiales?.length) {
       setMateriales(
         d.orden.materiales.map(
@@ -406,9 +422,27 @@ export default function OrdenPage() {
     });
   }
 
+  function onChangeResumen(value: string) {
+    setResumenTrabajo(value);
+    if (resumenTimer.current) clearTimeout(resumenTimer.current);
+    resumenTimer.current = setTimeout(() => {
+      void fetch(`/api/tickets/${id}/medicion`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ resumenTrabajo: value }),
+      });
+    }, 600);
+  }
+
   async function cerrarTicket() {
     setCerrando(true);
     setError("");
+    // Persistir resumen antes de validar cierre
+    await fetch(`/api/tickets/${id}/medicion`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ resumenTrabajo }),
+    });
     const res = await fetch(`/api/tickets/${id}/cerrar`, { method: "POST" });
     const result = await res.json();
     if (!res.ok) {
@@ -416,7 +450,8 @@ export default function OrdenPage() {
       setCerrando(false);
       return;
     }
-    router.push("/tecnico");
+    await cargar({ silent: true });
+    setCerrando(false);
   }
 
   if (!initialLoaded && loading) {
@@ -877,6 +912,13 @@ export default function OrdenPage() {
             />
             )}
 
+            <EnviarReporteSoporte
+              ticketId={id}
+              resumenTrabajo={resumenTrabajo}
+              cerrado={false}
+              onResumenChange={onChangeResumen}
+            />
+
             {/* Checklist y cierre */}
             <section className="bg-white rounded-xl border p-4 space-y-3">
               <h3 className="font-semibold">Checklist de cierre</h3>
@@ -946,11 +988,16 @@ export default function OrdenPage() {
                 )}
 
                 {orden.firma && (
-                  <section className="bg-white rounded-xl border p-4">
-                    <h3 className="font-semibold mb-2">Firma registrada</h3>
+                  <section className="bg-white rounded-xl border p-4 space-y-2">
+                    <h3 className="font-semibold mb-2">Firma y aceptación</h3>
                     <p className="text-sm text-slate-600">
                       {orden.firma.nombreCliente} — {orden.firma.cedula}
                     </p>
+                    {orden.firma.aceptacionCondiciones && (
+                      <p className="text-xs text-emerald-700 font-medium">
+                        ✓ Cliente aceptó las condiciones del soporte técnico
+                      </p>
+                    )}
                   </section>
                 )}
               </>
@@ -968,6 +1015,11 @@ export default function OrdenPage() {
                 </p>
               )}
             </div>
+            <EnviarReporteSoporte
+              ticketId={id}
+              resumenTrabajo={orden.resumenTrabajo || resumenTrabajo}
+              cerrado
+            />
             {esInstalacion && instalacion.tipoConexion && (
               <InstalacionOrdenSection
                 instalacion={instalacion}

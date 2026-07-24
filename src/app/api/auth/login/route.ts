@@ -23,6 +23,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Credenciales inválidas" }, { status: 401 });
     }
 
+    if (usuario.rol === "CLIENTE") {
+      return NextResponse.json(
+        { error: "Use la app INFINITY Connect para iniciar sesión" },
+        { status: 403 }
+      );
+    }
+
     const valid = await bcrypt.compare(password, usuario.passwordHash);
     if (!valid) {
       return NextResponse.json({ error: "Credenciales inválidas" }, { status: 401 });

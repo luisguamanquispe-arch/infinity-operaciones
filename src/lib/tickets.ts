@@ -18,6 +18,9 @@ export async function getOrCreateOrden(ticketId: string) {
       nombreCliente: true,
       cedula: true,
       imagenUrl: true,
+      aceptacionCondiciones: true,
+      textoAceptacion: true,
+      aceptadoEn: true,
     },
   } as const;
 
@@ -81,7 +84,9 @@ export function validarCierreOrden(
     firmaOk: boolean;
     cronometro: { fin: Date | null } | null;
     medicion: unknown;
-    firma: unknown;
+    firma: {
+      aceptacionCondiciones?: boolean;
+    } | null;
     fotografias: { tipo: TipoFoto }[];
     tipoConexionInstalacion?: string | null;
     direccionIp?: string | null;
@@ -89,6 +94,7 @@ export function validarCierreOrden(
     pppoeClave?: string | null;
     nombreRedWifi?: string | null;
     claveRedWifi?: string | null;
+    resumenTrabajo?: string | null;
   },
   options?: { esInfraestructura?: boolean; esInstalacion?: boolean }
 ): { valido: boolean; errores: string[] } {
@@ -107,9 +113,21 @@ export function validarCierreOrden(
     if (!orden.servicioOk) errores.push("Checklist: Infraestructura restablecida");
     if (!orden.potenciaOk) errores.push("Checklist: Enlaces/nodo validados");
     if (!orden.fotosOk) errores.push("Checklist: Fotos cargadas");
+    const resumenInfra = orden.resumenTrabajo?.trim() ?? "";
+    if (resumenInfra.length < 10) {
+      errores.push("Ingrese el resumen del trabajo efectuado (mínimo 10 caracteres)");
+    }
   } else {
     if (!orden.medicion) errores.push("Debe registrar mediciones técnicas");
     if (!orden.firma) errores.push("Debe registrar la firma del cliente");
+    else if (!orden.firma.aceptacionCondiciones) {
+      errores.push("El cliente debe aceptar las condiciones del soporte técnico al firmar");
+    }
+
+    const resumen = orden.resumenTrabajo?.trim() ?? "";
+    if (resumen.length < 10) {
+      errores.push("Ingrese el resumen del soporte / trabajo efectuado (mínimo 10 caracteres)");
+    }
 
     const fotosReq = esInstalacion ? FOTOS_OBLIGATORIAS_INSTALACION : FOTOS_OBLIGATORIAS_DEFAULT;
     for (const tipo of fotosReq) {

@@ -7,11 +7,17 @@ type FirmaRecord = {
   firmadoEn: Date;
   lat: number | null;
   lng: number | null;
+  aceptacionCondiciones?: boolean;
+  textoAceptacion?: string | null;
+  aceptadoEn?: Date | null;
 };
 
-export type FirmaParaReporte = Omit<FirmaRecord, "firmadoEn"> & {
+export type FirmaParaReporte = Omit<FirmaRecord, "firmadoEn" | "aceptadoEn"> & {
   firmadoEn: string;
   imagenSrc: string;
+  aceptacionCondiciones: boolean;
+  textoAceptacion: string | null;
+  aceptadoEn: string | null;
 };
 
 export function firmaImagenSrcRapida(firma: { imagenUrl: string } | null): string | null {
@@ -29,5 +35,8 @@ export function firmaParaReporte(firma: FirmaRecord | null): FirmaParaReporte | 
     lat: firma.lat,
     lng: firma.lng,
     imagenSrc: mediaApiUrlFromPath(firma.imagenUrl) || firma.imagenUrl,
+    aceptacionCondiciones: !!firma.aceptacionCondiciones,
+    textoAceptacion: firma.textoAceptacion ?? null,
+    aceptadoEn: firma.aceptadoEn ? firma.aceptadoEn.toISOString() : null,
   };
 }

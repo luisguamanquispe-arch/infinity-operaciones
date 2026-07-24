@@ -14,6 +14,7 @@ import {
 import { AppHeader } from "@/components/AppHeader";
 import { StatCard } from "@/components/StatCard";
 import { FirmaMiniatura } from "./FirmaMiniatura";
+import { DescargarPdfCliente } from "./DescargarPdfCliente";
 import {
   TIPO_LABELS,
   ESTADO_LABELS,
@@ -313,12 +314,19 @@ export function ReportesList({
                           </div>
                         </td>
                         <td className="p-3">
-                          <Link
-                            href={`/reportes/${item.id}`}
-                            className="text-xs font-medium text-infinity-600 hover:underline whitespace-nowrap"
-                          >
-                            Ver reporte →
-                          </Link>
+                          <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3">
+                            <Link
+                              href={`/reportes/${item.id}`}
+                              className="text-xs font-medium text-infinity-600 hover:underline whitespace-nowrap"
+                            >
+                              Ver reporte →
+                            </Link>
+                            <DescargarPdfCliente
+                              ticketId={item.id}
+                              codigo={item.codigo}
+                              variant="link"
+                            />
+                          </div>
                         </td>
                       </tr>
                     ))

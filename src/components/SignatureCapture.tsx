@@ -9,10 +9,21 @@ import {
   validarCedulaEcuatoriana,
 } from "@/lib/cedula-ec";
 import { inputMayusculasClass } from "@/lib/mayusculas";
+import {
+  LABEL_CHECKBOX_ACEPTACION,
+  TEXTO_ACEPTACION_SOPORTE,
+} from "@/lib/aceptacion-soporte";
 
 interface SignatureCaptureProps {
   ticketId: string;
-  existing?: { imagenUrl: string; imagenSrc?: string; nombreCliente: string; cedula: string } | null;
+  existing?: {
+    imagenUrl: string;
+    imagenSrc?: string;
+    nombreCliente: string;
+    cedula: string;
+    aceptacionCondiciones?: boolean;
+    textoAceptacion?: string | null;
+  } | null;
   clienteNombre: string;
   clienteCedula: string;
   onSaved: () => void;
@@ -29,6 +40,7 @@ export function SignatureCapture({
   const padRef = useRef<SignaturePad | null>(null);
   const [nombre, setNombre] = useState(clienteNombre);
   const [cedula, setCedula] = useState(clienteCedula);
+  const [aceptaCondiciones, setAceptaCondiciones] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -58,6 +70,11 @@ export function SignatureCapture({
   async function guardar() {
     if (!padRef.current || padRef.current.isEmpty()) {
       alert("Por favor firme en el área");
+      return;
+    }
+
+    if (!aceptaCondiciones) {
+      setError("Debe marcar la casilla de aceptación de condiciones para continuar");
       return;
     }
 
@@ -91,7 +108,14 @@ export function SignatureCapture({
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        firma: { nombreCliente: nombre, cedula: cedulaNorm, imagen, lat, lng },
+        firma: {
+          nombreCliente: nombre,
+          cedula: cedulaNorm,
+          imagen,
+          lat,
+          lng,
+          aceptacionCondiciones: true,
+        },
       }),
     });
 
@@ -108,7 +132,7 @@ export function SignatureCapture({
 
   if (existing) {
     return (
-      <div className="bg-white rounded-xl border p-4 space-y-2">
+      <div className="bg-white rounded-xl border p-4 space-y-3">
         <h3 className="font-semibold">Firma registrada</h3>
         <p className="text-sm text-slate-600">
           {existing.nombreCliente} — {existing.cedula}
@@ -118,6 +142,15 @@ export function SignatureCapture({
           alt="Firma"
           className="border rounded-lg max-h-32"
         />
+        {existing.aceptacionCondiciones && (
+          <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900 space-y-2">
+            <p className="font-medium">✓ Condiciones aceptadas por el cliente</p>
+            <p className="text-xs leading-relaxed text-emerald-800/90">
+              {existing.textoAceptacion || TEXTO_ACEPTACION_SOPORTE}
+            </p>
+            <p className="text-xs font-medium">{LABEL_CHECKBOX_ACEPTACION}</p>
+          </div>
+        )}
       </div>
     );
   }
@@ -146,6 +179,25 @@ export function SignatureCapture({
         className="w-full h-40 border-2 border-dashed border-slate-300 rounded-xl touch-none"
       />
 
+      <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 space-y-2">
+        <p className="text-xs font-semibold text-amber-900 uppercase tracking-wide">
+          Aceptación de condiciones
+        </p>
+        <p className="text-xs leading-relaxed text-slate-700">{TEXTO_ACEPTACION_SOPORTE}</p>
+        <label className="flex items-start gap-2.5 cursor-pointer text-sm text-slate-800">
+          <input
+            type="checkbox"
+            checked={aceptaCondiciones}
+            onChange={(e) => {
+              setAceptaCondiciones(e.target.checked);
+              if (e.target.checked) setError("");
+            }}
+            className="mt-0.5 w-4 h-4 rounded shrink-0"
+          />
+          <span className="leading-snug font-medium">{LABEL_CHECKBOX_ACEPTACION}</span>
+        </label>
+      </div>
+
       <div className="flex gap-2">
         <button
           onClick={() => padRef.current?.clear()}
@@ -155,7 +207,7 @@ export function SignatureCapture({
         </button>
         <button
           onClick={guardar}
-          disabled={loading}
+          disabled={loading || !aceptaCondiciones}
           className="flex-1 py-2 bg-infinity-600 text-white rounded-lg text-sm font-medium disabled:opacity-50"
         >
           {loading ? "Guardando..." : "Guardar firma"}

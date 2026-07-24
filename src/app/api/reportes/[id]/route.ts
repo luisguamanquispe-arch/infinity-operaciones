@@ -51,6 +51,9 @@ export async function GET(
               firmadoEn: true,
               lat: true,
               lng: true,
+              aceptacionCondiciones: true,
+              textoAceptacion: true,
+              aceptadoEn: true,
             },
           },
           materiales: {

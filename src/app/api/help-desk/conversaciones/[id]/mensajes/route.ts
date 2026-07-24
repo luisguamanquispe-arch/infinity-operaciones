@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { HelpDeskAuthError, requireHelpDeskSession } from "@/lib/help-desk/auth";
 import { generarSugerenciasIa } from "@/lib/help-desk/ia-copiloto";
+import { onMensajeAgenteParaCliente } from "@/lib/cliente-app/chat";
 
 function handleError(err: unknown) {
   if (err instanceof HelpDeskAuthError) {
@@ -23,19 +24,29 @@ export async function POST(
       return NextResponse.json({ error: "Mensaje vacío" }, { status: 400 });
     }
 
+    const esCliente = autor === "CLIENTE";
     const mensaje = await prisma.hdMensaje.create({
       data: {
         conversacionId: id,
-        autor: autor === "CLIENTE" ? "CLIENTE" : "AGENTE",
-        usuarioId: autor === "CLIENTE" ? null : session.id,
+        autor: esCliente ? "CLIENTE" : "AGENTE",
+        usuarioId: esCliente ? null : session.id,
         contenido: contenido.trim(),
       },
     });
 
     await prisma.hdConversacion.update({
       where: { id },
-      data: { updatedAt: new Date() },
+      data: {
+        updatedAt: new Date(),
+        ...(esCliente
+          ? {}
+          : { estado: "EN_ESPERA_CLIENTE" as const, asignadoAId: session.id }),
+      },
     });
+
+    if (!esCliente) {
+      void onMensajeAgenteParaCliente(id, contenido.trim());
+    }
 
     const mensajes = await prisma.hdMensaje.findMany({
       where: { conversacionId: id },
