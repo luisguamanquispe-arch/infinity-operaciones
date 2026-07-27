@@ -12,7 +12,7 @@ const STALE_DEPLOY_PREFIXES = new Set([
 ]);
 
 /** Último commit en main (referencia informativa, no bloquea el panel). */
-export const LATEST_GIT_SHA_PREFIX = "7f3f756";
+export const LATEST_GIT_SHA_PREFIX = "9527f71";
 
 /** @deprecated Usar gitShaIsStale — mantenido para compatibilidad con badges. */
 export const EXPECTED_GIT_SHA_PREFIX = LATEST_GIT_SHA_PREFIX;

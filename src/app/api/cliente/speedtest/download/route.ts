@@ -9,7 +9,7 @@ export async function GET(request: Request) {
     const bytes = clampDownloadBytes(Number.isFinite(requested) ? requested : undefined);
     const body = buildPayload(bytes);
 
-    return new Response(body, {
+    return new Response(new Uint8Array(body), {
       status: 200,
       headers: {
         "Content-Type": "application/octet-stream",

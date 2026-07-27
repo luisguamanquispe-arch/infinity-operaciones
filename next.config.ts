@@ -7,7 +7,7 @@ const nextConfig: NextConfig = {
   ...(lowMemory ? {} : { output: "standalone" }),
   productionBrowserSourceMaps: false,
   eslint: { ignoreDuringBuilds: true },
-  serverExternalPackages: ["@prisma/client", "prisma"],
+  serverExternalPackages: ["@prisma/client", "prisma", "pdfkit"],
   async headers() {
     return [
       {

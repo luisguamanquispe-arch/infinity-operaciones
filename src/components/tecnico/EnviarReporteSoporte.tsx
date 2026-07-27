@@ -1,7 +1,6 @@
 "use client";
 
-import { useState } from "react";
-import { FileDown, Loader2 } from "lucide-react";
+import { FileDown } from "lucide-react";
 
 interface EnviarReporteSoporteProps {
   ticketId: string;
@@ -16,36 +15,8 @@ export function EnviarReporteSoporte({
   cerrado,
   onResumenChange,
 }: EnviarReporteSoporteProps) {
-  const [loading, setLoading] = useState(false);
-  const [msg, setMsg] = useState("");
-  const [err, setErr] = useState("");
-
-  async function descargarPdf() {
-    setLoading(true);
-    setErr("");
-    setMsg("");
-    try {
-      const res = await fetch(`/api/tickets/${ticketId}/reporte-pdf`);
-      if (!res.ok) {
-        const d = await res.json().catch(() => ({}));
-        throw new Error(d.error || "No se pudo generar el PDF");
-      }
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `reporte-soporte.pdf`;
-      a.click();
-      URL.revokeObjectURL(url);
-      setMsg("PDF generado y descargado");
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : "Error al descargar");
-    } finally {
-      setLoading(false);
-    }
-  }
-
   const resumenOk = (resumenTrabajo?.trim().length ?? 0) >= 10;
+  const href = `/api/tickets/${ticketId}/reporte-pdf`;
 
   return (
     <div className="bg-white rounded-xl border p-4 space-y-3">
@@ -76,23 +47,32 @@ export function EnviarReporteSoporte({
         </div>
       )}
 
-      <button
-        type="button"
-        onClick={descargarPdf}
-        disabled={loading || !resumenOk}
-        className="w-full inline-flex items-center justify-center gap-2 py-2.5 bg-infinity-600 text-white rounded-lg text-sm font-medium disabled:opacity-50"
-      >
-        {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileDown className="w-4 h-4" />}
-        Generar PDF para cliente
-      </button>
+      {resumenOk ? (
+        <a
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="w-full inline-flex items-center justify-center gap-2 py-2.5 bg-infinity-600 text-white rounded-lg text-sm font-medium hover:bg-infinity-700"
+        >
+          <FileDown className="w-4 h-4" />
+          Generar PDF para cliente
+        </a>
+      ) : (
+        <button
+          type="button"
+          disabled
+          className="w-full inline-flex items-center justify-center gap-2 py-2.5 bg-infinity-600 text-white rounded-lg text-sm font-medium opacity-50 cursor-not-allowed"
+        >
+          <FileDown className="w-4 h-4" />
+          Generar PDF para cliente
+        </button>
+      )}
 
       {!resumenOk && (
         <p className="text-xs text-amber-700">
           Escriba el resumen del trabajo (mín. 10 caracteres) para habilitar el PDF.
         </p>
       )}
-      {msg && <p className="text-xs text-emerald-700">{msg}</p>}
-      {err && <p className="text-xs text-red-600">{err}</p>}
     </div>
   );
 }
