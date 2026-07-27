@@ -3,11 +3,12 @@
 # Verificar deploy: /api/health → service=infinity-operaciones y gitSha con hash reciente
 #
 # IMPORTANTE: no usar el nombre "infinity-db" (lo usa Infinity Hoteles y otros).
-# Esta instancia es solo para Operaciones / Soporte / Connect.
+# Render Free solo permite 1 Postgres gratis por workspace. Como Hoteles ya usa
+# el cupo free (infinity-db), Operaciones usa basic-256mb (~USD 6/mes).
 
 databases:
   - name: infinity-ops-db
-    plan: free
+    plan: basic-256mb
     databaseName: infinity_ops
     user: infinity_ops
 
