@@ -97,6 +97,12 @@ export function GerenciaQuickNav({ totalTecnicos }: { totalTecnicos?: number }) 
         Usuarios y claves
       </Link>
       <Link
+        href="/gerencia/backup"
+        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-amber-600 text-amber-800 text-sm font-medium hover:bg-amber-50"
+      >
+        Backup / Restore
+      </Link>
+      <Link
         href="/reportes"
         className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-emerald-600 text-emerald-700 text-sm font-medium hover:bg-emerald-50"
       >

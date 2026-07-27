@@ -33,9 +33,9 @@ const nextConfig: NextConfig = {
     optimizePackageImports: ["lucide-react", "date-fns"],
     cpus: 1,
     serverActions: {
-      bodySizeLimit: "4mb",
+      bodySizeLimit: "32mb",
     },
-    middlewareClientMaxBodySize: "4mb",
+    middlewareClientMaxBodySize: "32mb",
   },
 };
 
