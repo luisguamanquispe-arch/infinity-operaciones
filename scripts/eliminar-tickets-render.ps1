@@ -16,7 +16,7 @@ if ($Codigos.Count -eq 0) {
 Write-Host ""
 Write-Host "=== Eliminar tickets (Render PostgreSQL) ===" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "1. En Render: infinity-db -> Connect -> External Database URL"
+Write-Host "1. En Render: infinity-ops-db -> Connect -> External Database URL"
 Write-Host "2. Copia la URL completa (postgresql://...)"
 Write-Host ""
 

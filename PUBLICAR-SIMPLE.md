@@ -18,7 +18,7 @@ Render conecta la base de datos **automáticamente**. No tienes que buscar ni co
 3. Conecta el repo: `luisguamanquispe-arch/infinity-operaciones`.
 4. Render detecta `render.yaml` y muestra:
    - **Web Service** `infinity-operaciones`
-   - **PostgreSQL** `infinity-db`
+   - **PostgreSQL** `infinity-ops-db` (solo Operaciones; no usar `infinity-db` de Hoteles)
 5. Clic en **Apply**. Espera 5–10 min (build + migraciones).
 
 Cuando termine, tendrás una URL tipo:  
@@ -32,7 +32,7 @@ Render **Free no incluye Shell**. Usa una de estas opciones:
 
 **Opción A — Desde tu PC (ahora mismo):**
 
-1. Render → **`infinity-db`** → **Connect** → copia **External Database URL**
+1. Render → **`infinity-ops-db`** → **Connect** → copia **External Database URL**
 2. PowerShell:
 
 ```powershell

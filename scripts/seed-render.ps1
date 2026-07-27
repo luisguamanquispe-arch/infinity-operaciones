@@ -5,7 +5,7 @@
 Write-Host ""
 Write-Host "=== Seed Infinity Operaciones (Render PostgreSQL) ===" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "1. En Render: infinity-db -> Connect -> External Database URL"
+Write-Host "1. En Render: infinity-ops-db -> Connect -> External Database URL"
 Write-Host "2. Copia la URL completa (postgresql://...)"
 Write-Host ""
 
