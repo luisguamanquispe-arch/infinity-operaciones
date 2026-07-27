@@ -14,8 +14,11 @@ export async function POST(request: Request) {
       );
     }
 
+    const emailNorm = String(email).trim().toLowerCase();
+    const passwordNorm = String(password);
+
     const usuario = await prisma.usuario.findUnique({
-      where: { email },
+      where: { email: emailNorm },
       include: { tecnico: true },
     });
 
@@ -30,7 +33,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const valid = await bcrypt.compare(password, usuario.passwordHash);
+    const valid = await bcrypt.compare(passwordNorm, usuario.passwordHash);
     if (!valid) {
       return NextResponse.json({ error: "Credenciales inválidas" }, { status: 401 });
     }

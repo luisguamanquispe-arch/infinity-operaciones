@@ -36,10 +36,12 @@ Write-Host "Ejecutando seed..." -ForegroundColor Yellow
 
 if ($LASTEXITCODE -eq 0) {
   Write-Host ""
-  Write-Host "Listo. Prueba login en:" -ForegroundColor Green
-  Write-Host "  https://infinity-operaciones.onrender.com/login"
+  Write-Host "Listo. Prueba login en la URL de tu servicio web en Render, por ejemplo:" -ForegroundColor Green
+  Write-Host "  https://infinity-operaciones-b3ij.onrender.com/login"
   Write-Host ""
+  Write-Host "  admin@infinity.ec / admin123"
   Write-Host "  supervisor@infinity.ec / super123"
+  Write-Host "  helpdesk@infinity.ec / helpdesk123"
   Write-Host ""
 } else {
   Write-Host "El seed fallo. Revisa el error arriba." -ForegroundColor Red

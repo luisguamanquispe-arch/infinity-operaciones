@@ -32,6 +32,17 @@ if (!process.env.JWT_SECRET) {
 
 migrateDeploy(root);
 
+console.log("[startup] Verificando usuarios iniciales...");
+const { spawnSync } = require("child_process");
+const seedResult = spawnSync(process.execPath, [path.join(__dirname, "ensure-seed.cjs")], {
+  cwd: root,
+  env: process.env,
+  stdio: "inherit",
+});
+if (seedResult.status !== 0) {
+  console.warn(`[startup] ensure-seed terminó con código ${seedResult.status ?? 1}`);
+}
+
 const buildId = path.join(root, ".next", "BUILD_ID");
 if (!fs.existsSync(buildId)) {
   fail("Falta build (.next/BUILD_ID). Reconstruye la imagen o ejecuta npm run build.");
