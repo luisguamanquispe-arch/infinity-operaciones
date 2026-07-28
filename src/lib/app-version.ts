@@ -19,8 +19,8 @@ const STALE_DEPLOY_PREFIXES = new Set([
   "200d4ee",
 ]);
 
-/** Último commit conocido en main (informativo en /api/health). */
-export const LATEST_GIT_SHA_PREFIX = "eddfd18";
+/** Último commit de recovery validado en prod (F1–F8 tooling). */
+export const LATEST_GIT_SHA_PREFIX = "5c491fc";
 
 /** @deprecated Usar gitShaIsStale — mantenido para compatibilidad con badges. */
 export const EXPECTED_GIT_SHA_PREFIX = LATEST_GIT_SHA_PREFIX;
