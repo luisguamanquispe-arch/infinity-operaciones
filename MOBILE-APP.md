@@ -21,11 +21,18 @@ Requiere HTTPS (Render ya lo tiene).
 | **Android** | [Android Studio](https://developer.android.com/studio), JDK 17+ |
 | **iOS** | Mac con [Xcode](https://developer.apple.com/xcode/) (solo macOS) |
 
-### Arranque sin pantalla de Render
+### Arranque sin pantalla negra de Render
 
-Por defecto la app muestra un **splash local** (`www/index.html` — Infinity Técnicos) y conecta al servidor en segundo plano. Así no aparece la página de “waking up” de Render al abrir la app.
+La app usa **splash local** (`www/index.html`) y **no oculta el splash nativo** hasta que `/login?app=tecnico` ya pintó en pantalla:
 
-1. Tras cambiar `.env`, ejecute:
+1. Splash azul local → espera `/api/health` (servidor despierto).
+2. Precarga la URL de login.
+3. Navega al servidor; overlay azul en login cubre la transición.
+4. Capacitor `SplashScreen.hide()` solo cuando el formulario de login está listo.
+
+**Importante:** no use `CAPACITOR_DIRECT_SERVER=true` en producción (carga Render directo y muestra pantalla negra al cold start).
+
+Tras cambiar archivos móviles:
    ```powershell
    npm run sync
    ```

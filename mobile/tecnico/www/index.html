@@ -8,6 +8,7 @@
     />
     <meta name="theme-color" content="#1e40af" />
     <meta name="background-color" content="#1e40af" />
+    <meta name="color-scheme" content="dark" />
     <title>Infinity Técnicos</title>
     <script src="config.js"></script>
     <style>
@@ -19,6 +20,7 @@
       html,
       body {
         background: #1e40af;
+        min-height: 100%;
       }
       body {
         min-height: 100dvh;
@@ -26,7 +28,7 @@
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        background: linear-gradient(160deg, #1e40af, #1e3a8a);
+        background: linear-gradient(160deg, #1e40af 0%, #1e3a8a 100%);
         color: #fff;
         font-family: system-ui, -apple-system, sans-serif;
         padding: env(safe-area-inset-top) 24px env(safe-area-inset-bottom);
@@ -47,10 +49,11 @@
         margin-bottom: 8px;
       }
       p {
-        opacity: 0.85;
+        opacity: 0.9;
         text-align: center;
         line-height: 1.5;
-        max-width: 300px;
+        max-width: 320px;
+        font-size: 0.95rem;
       }
       .spinner {
         width: 32px;
@@ -69,9 +72,9 @@
     </style>
   </head>
   <body>
-    <div class="logo">📡</div>
+    <div class="logo" aria-hidden="true">📡</div>
     <h1>Infinity Técnicos</h1>
-    <p id="msg">Iniciando aplicación…</p>
+    <p id="msg">Preparando conexión…</p>
     <div class="spinner" aria-hidden="true"></div>
     <script>
       (function () {
@@ -83,43 +86,78 @@
         var loginUrl = server + "/login?app=tecnico";
         var msg = document.getElementById("msg");
         var tries = 0;
-        var maxTries = 10;
+        var maxTries = 18;
 
-        function hideSplash() {
-          try {
-            var cap = window.Capacitor;
-            if (cap && cap.Plugins && cap.Plugins.SplashScreen) {
-              cap.Plugins.SplashScreen.hide();
-            }
-          } catch (e) {}
+        function sleep(ms) {
+          return new Promise(function (resolve) {
+            setTimeout(resolve, ms);
+          });
         }
 
-        function go() {
-          hideSplash();
-          window.location.replace(loginUrl);
+        function setMsg(text) {
+          if (msg) msg.textContent = text;
         }
 
-        function ping() {
-          tries++;
-          fetch(server + "/api/health", { cache: "no-store", mode: "cors" })
+        function healthOk() {
+          return fetch(server + "/api/health", {
+            cache: "no-store",
+            mode: "cors",
+            credentials: "omit",
+          })
             .then(function (r) {
-              if (r.ok) go();
-              else if (tries < maxTries) retry();
-              else go();
+              if (!r.ok) return false;
+              return r.json().then(function (d) {
+                return d && d.ok === true && d.service === "infinity-operaciones";
+              });
             })
             .catch(function () {
-              if (tries < maxTries) retry();
-              else go();
+              return false;
             });
         }
 
-        function retry() {
-          if (msg) msg.textContent = "Conectando… (" + tries + "/" + maxTries + ")";
-          setTimeout(ping, 1800);
+        function prefetchLogin() {
+          return fetch(loginUrl, {
+            cache: "no-store",
+            mode: "cors",
+            credentials: "include",
+          }).catch(function () {});
         }
 
-        hideSplash();
-        ping();
+        function go() {
+          /* El splash nativo sigue visible hasta que /login oculte Capacitor SplashScreen. */
+          window.location.replace(loginUrl);
+        }
+
+        async function waitForServer() {
+          while (tries < maxTries) {
+            tries++;
+            if (tries === 1) {
+              setMsg("Despertando servidor…");
+            } else if (tries <= 4) {
+              setMsg("Conectando… (" + tries + "/" + maxTries + ")");
+            } else {
+              setMsg("El servidor tarda un poco. Espere… (" + tries + "/" + maxTries + ")");
+            }
+
+            var ok = await healthOk();
+            if (ok) {
+              await sleep(350);
+              ok = await healthOk();
+            }
+            if (ok) {
+              setMsg("Cargando aplicación…");
+              await prefetchLogin();
+              await sleep(200);
+              go();
+              return;
+            }
+            await sleep(tries < 4 ? 1200 : 1800);
+          }
+          setMsg("Abriendo aplicación…");
+          go();
+        }
+
+        waitForServer();
       })();
     </script>
   </body>

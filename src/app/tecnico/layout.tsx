@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { CapacitorSplashGate } from "@/components/CapacitorSplashGate";
 
 export const metadata: Metadata = {
   title: "LGB Técnicos",
@@ -30,6 +31,7 @@ export const viewport: Viewport = {
 export default function TecnicoLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-dvh pb-[env(safe-area-inset-bottom)]">
+      <CapacitorSplashGate />
       {children}
     </div>
   );

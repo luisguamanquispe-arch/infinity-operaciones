@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Smartphone, Wifi } from "lucide-react";
 import { fetchWithRetry } from "@/lib/compress-image";
+import { hideCapacitorSplash } from "@/lib/hide-capacitor-splash";
 
 interface LoginFormProps {
   esAppTecnico: boolean;
@@ -35,8 +36,19 @@ export function LoginForm({ esAppTecnico: esAppTecnicoInicial }: LoginFormProps)
     if (esAppTecnico) {
       router.prefetch("/tecnico");
       fetch("/api/health", { cache: "no-store" }).catch(() => {});
+      void hideCapacitorSplash();
     }
   }, [esAppTecnico, router]);
+
+  useEffect(() => {
+    if (!esAppTecnico) return;
+    const cap = (window as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor;
+    if (!cap?.isNativePlatform?.()) return;
+    const id = window.setInterval(() => {
+      fetch("/api/health", { cache: "no-store" }).catch(() => {});
+    }, 8 * 60 * 1000);
+    return () => window.clearInterval(id);
+  }, [esAppTecnico]);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
