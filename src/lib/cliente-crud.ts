@@ -238,3 +238,91 @@ export async function obtenerHistorialCliente(clienteId: string, take = 50) {
     include: { usuario: { select: { nombre: true, email: true } } },
   });
 }
+
+export type EliminarClienteResult = {
+  ok: true;
+  nombre: string;
+  cedula: string;
+  ticketsEliminados: number;
+};
+
+/**
+ * Elimina un cliente de forma permanente (solo ADMIN vía API).
+ * Bloquea si hay tickets operativos abiertos; elimina tickets cerrados/históricos primero.
+ */
+export async function eliminarClientePorId(clienteId: string): Promise<EliminarClienteResult> {
+  const cliente = await prisma.cliente.findUnique({
+    where: { id: clienteId },
+    include: {
+      tickets: {
+        select: {
+          id: true,
+          codigo: true,
+          estado: true,
+          orden: { select: { finalizadoEn: true } },
+        },
+      },
+      cuentaApp: { select: { usuarioId: true } },
+    },
+  });
+
+  if (!cliente) throw new Error("Cliente no encontrado");
+  if (esClienteInfraestructura(cliente.cedula)) {
+    throw new Error("El cliente interno de infraestructura no se puede eliminar");
+  }
+
+  const { ticketEstaCerrado } = await import("./ticket-cerrado");
+  const abiertos = cliente.tickets.filter((t) => !ticketEstaCerrado(t, t.orden));
+  if (abiertos.length > 0) {
+    const codigos = abiertos
+      .slice(0, 5)
+      .map((t) => t.codigo)
+      .join(", ");
+    throw new Error(
+      `No se puede eliminar: tiene ${abiertos.length} ticket(s) activo(s) (${codigos}${
+        abiertos.length > 5 ? "…" : ""
+      }). Ciérrelos o elimínelos primero desde Gerencia → Soportes.`
+    );
+  }
+
+  const ticketIds = cliente.tickets.map((t) => t.id);
+
+  if (ticketIds.length > 0) {
+    await prisma.hdConversacion.updateMany({
+      where: {
+        OR: [{ clienteId }, { ticketId: { in: ticketIds } }],
+      },
+      data: { clienteId: null, ticketId: null },
+    });
+    await prisma.hdEscalamiento.updateMany({
+      where: { ticketEscaladoId: { in: ticketIds } },
+      data: { ticketEscaladoId: null },
+    });
+
+    const { eliminarTicketPorId } = await import("./eliminar-ticket");
+    for (const t of cliente.tickets) {
+      await eliminarTicketPorId(t.id);
+    }
+  } else {
+    await prisma.hdConversacion.updateMany({
+      where: { clienteId },
+      data: { clienteId: null },
+    });
+  }
+
+  const usuarioAppId = cliente.cuentaApp?.usuarioId;
+  await prisma.cliente.delete({ where: { id: clienteId } });
+
+  if (usuarioAppId) {
+    await prisma.usuario.delete({ where: { id: usuarioAppId } }).catch(() => {
+      /* cuenta/usuario ya cascaded o inexistente */
+    });
+  }
+
+  return {
+    ok: true,
+    nombre: cliente.nombre,
+    cedula: cliente.cedula,
+    ticketsEliminados: ticketIds.length,
+  };
+}

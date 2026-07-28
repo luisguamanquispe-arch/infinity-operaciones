@@ -42,6 +42,7 @@ export default function ClientesListPage() {
   const [q, setQ] = useState("");
   const [loading, setLoading] = useState(true);
   const [incluirInactivos, setIncluirInactivos] = useState(false);
+  const [esAdmin, setEsAdmin] = useState(false);
   const [importing, setImporting] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
@@ -58,6 +59,15 @@ export default function ClientesListPage() {
     setClientes(data.clientes || []);
     setLoading(false);
   }
+
+  useEffect(() => {
+    void fetch("/api/auth/me")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d?.user?.rol === "ADMIN") setEsAdmin(true);
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     cargar();
@@ -133,7 +143,8 @@ export default function ClientesListPage() {
           </Link>
         </div>
 
-        {/* Panel importación Wispro */}
+        {/* Panel importación Wispro — solo ADMIN */}
+        {esAdmin && (
         <section className="bg-white rounded-xl border border-emerald-200 p-4 space-y-3">
           <h2 className="font-semibold text-emerald-900 flex items-center gap-2">
             <FileSpreadsheet className="w-4 h-4" />
@@ -194,8 +205,9 @@ export default function ClientesListPage() {
             </p>
           )}
         </section>
+        )}
 
-        {(importResult || importError) && (
+        {esAdmin && (importResult || importError) && (
           <div
             className={`rounded-xl border p-4 text-sm space-y-2 ${
               importError ? "border-red-200 bg-red-50 text-red-900" : "border-emerald-200 bg-emerald-50 text-emerald-950"

@@ -118,7 +118,7 @@ export function GerenciaQuickNav({ totalTecnicos }: { totalTecnicos?: number }) 
         href="/supervisor/clientes"
         className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-sky-600 text-sky-700 text-sm font-medium hover:bg-sky-50"
       >
-        Clientes CRM / Importar Wispro
+        Clientes CRM / Importar Wispro (admin)
       </Link>
     </nav>
   );
@@ -150,7 +150,7 @@ export function SupervisorQuickNav() {
         href="/supervisor/clientes"
         className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-sky-600 text-sky-700 text-sm font-medium hover:bg-sky-50"
       >
-        Clientes CRM / Importar Wispro
+        Clientes CRM
       </Link>
       <Link
         href="/supervisor/calendario"

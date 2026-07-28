@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, CheckCircle, Clock, Loader2 } from "lucide-react";
+import { ArrowLeft, CheckCircle, Clock, Loader2, Trash2 } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
 import { ClienteForm, clienteToForm, formToPayload } from "@/components/ClienteForm";
 import { CAMPOS_CLIENTE_LABELS } from "@/lib/cliente-crud";
@@ -19,6 +19,7 @@ type HistorialItem = {
 
 export default function EditarClientePage() {
   const params = useParams();
+  const router = useRouter();
   const id = params.id as string;
   const [form, setForm] = useState(clienteToForm({
     cedula: "", nombre: "", telefono: "", plan: "", direccion: "", sector: "",
@@ -30,18 +31,26 @@ export default function EditarClientePage() {
   const [error, setError] = useState("");
   const [exito, setExito] = useState("");
   const [cedulaError, setCedulaError] = useState("");
+  const [esAdmin, setEsAdmin] = useState(false);
+  const [ticketsCount, setTicketsCount] = useState(0);
+  const [confirmarEliminar, setConfirmarEliminar] = useState(false);
+  const [eliminando, setEliminando] = useState(false);
 
   async function cargar() {
-    const [resCliente, resHist] = await Promise.all([
+    const [resCliente, resHist, resMe] = await Promise.all([
       fetch(`/api/clientes/${id}`),
       fetch(`/api/clientes/${id}/historial`),
+      fetch("/api/auth/me"),
     ]);
     const dataCliente = await resCliente.json();
     const dataHist = await resHist.json();
+    const dataMe = await resMe.json().catch(() => ({}));
     if (resCliente.ok && dataCliente.cliente) {
       setForm(clienteToForm(dataCliente.cliente));
+      setTicketsCount(dataCliente.cliente._count?.tickets ?? 0);
     }
     if (resHist.ok) setHistorial(dataHist.historial || []);
+    if (resMe.ok && dataMe.user?.rol === "ADMIN") setEsAdmin(true);
     setLoading(false);
   }
 
@@ -78,6 +87,27 @@ export default function EditarClientePage() {
     setTimeout(() => setExito(""), 3000);
   }
 
+  async function eliminarCliente() {
+    setEliminando(true);
+    setError("");
+    try {
+      const res = await fetch(`/api/clientes/${id}`, { method: "DELETE" });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || "No se pudo eliminar el cliente");
+        setConfirmarEliminar(false);
+        return;
+      }
+      router.push("/supervisor/clientes");
+      router.refresh();
+    } catch {
+      setError("Sin conexión al eliminar");
+      setConfirmarEliminar(false);
+    } finally {
+      setEliminando(false);
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-dvh flex items-center justify-center">
@@ -112,6 +142,55 @@ export default function EditarClientePage() {
             {guardando ? "Guardando..." : "Guardar cambios"}
           </button>
         </form>
+
+        {esAdmin && (
+          <section className="bg-white rounded-xl border border-red-200 p-4 space-y-3">
+            <h2 className="font-semibold text-red-800 flex items-center gap-2">
+              <Trash2 className="w-4 h-4" /> Zona peligrosa — solo gerencia
+            </h2>
+            <p className="text-sm text-slate-600">
+              Elimina el cliente de forma permanente
+              {ticketsCount > 0
+                ? ` (incluye ${ticketsCount} ticket${ticketsCount === 1 ? "" : "s"} cerrado${ticketsCount === 1 ? "" : "s"}/histórico${ticketsCount === 1 ? "" : "s"})`
+                : ""}
+              . No se puede si tiene tickets activos.
+            </p>
+            {!confirmarEliminar ? (
+              <button
+                type="button"
+                onClick={() => setConfirmarEliminar(true)}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-red-300 text-red-700 text-sm font-medium hover:bg-red-50"
+              >
+                <Trash2 className="w-4 h-4" /> Eliminar cliente
+              </button>
+            ) : (
+              <div className="rounded-xl bg-red-50 border border-red-200 p-3 space-y-3">
+                <p className="text-sm text-red-900 font-medium">
+                  ¿Eliminar a {form.nombre || "este cliente"} ({form.cedula})? Esta acción no se puede deshacer.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    disabled={eliminando}
+                    onClick={() => void eliminarCliente()}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-red-600 text-white text-sm font-medium hover:bg-red-700 disabled:opacity-50"
+                  >
+                    {eliminando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                    Confirmar eliminación
+                  </button>
+                  <button
+                    type="button"
+                    disabled={eliminando}
+                    onClick={() => setConfirmarEliminar(false)}
+                    className="px-4 py-2 rounded-xl border text-sm font-medium hover:bg-white disabled:opacity-50"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            )}
+          </section>
+        )}
 
         <section className="bg-white rounded-xl border p-4">
           <h2 className="font-semibold flex items-center gap-2 mb-4">

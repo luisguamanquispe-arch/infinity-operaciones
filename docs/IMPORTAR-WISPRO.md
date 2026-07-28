@@ -2,11 +2,13 @@
 
 ## Acceso
 
-Solo **supervisor** o **admin**:
+Solo **ADMIN (gerencia)**:
 
-1. Entrar a Operaciones.
-2. Abrir **Clientes CRM / Importar Wispro** (panel supervisor o gerencia).
-3. URL directa: `https://infinity-operaciones-b3ij.onrender.com/supervisor/clientes`
+1. Entrar como `admin@infinity.ec`.
+2. Abrir **Clientes CRM** → panel verde **Importar Wispro**.
+3. URL: `https://infinity-operaciones-b3ij.onrender.com/supervisor/clientes`
+
+El supervisor puede ver/editar clientes, pero **no** importar.
 
 ## Cómo exportar desde Wispro
 
@@ -57,4 +59,4 @@ Content-Type: multipart/form-data
 file: <clientes.csv|clientes.xlsx>
 ```
 
-Roles: `SUPERVISOR` o `ADMIN`.
+Roles: solo `ADMIN`.

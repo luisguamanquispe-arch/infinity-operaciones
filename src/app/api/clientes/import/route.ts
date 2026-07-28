@@ -18,8 +18,11 @@ function isUploadFile(value: FormDataEntryValue | null): value is File {
 
 export async function POST(request: Request) {
   const session = await getFullSession();
-  if (!session || !["SUPERVISOR", "ADMIN"].includes(session.rol)) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  if (!session || session.rol !== "ADMIN") {
+    return NextResponse.json(
+      { error: "Solo gerencia (ADMIN) puede importar clientes desde Wispro" },
+      { status: 403 }
+    );
   }
 
   try {
