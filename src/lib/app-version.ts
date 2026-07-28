@@ -1,6 +1,5 @@
 /**
- * Builds conocidos como obsoletos (anteriores a novedades de soporte / clientes CRM).
- * Cualquier otro hash con GIT_SHA válido se considera actualizado.
+ * Builds conocidos como obsoletos (sin import Wispro CSV+Excel / cookie Firefox).
  */
 const STALE_DEPLOY_PREFIXES = new Set([
   "a99b779",
@@ -9,7 +8,6 @@ const STALE_DEPLOY_PREFIXES = new Set([
   "f00cdcc",
   "43119b6",
   "cf0edfe",
-  // Builds anteriores al import Wispro CSV+Excel y cookie Firefox
   "37e311a",
   "47a6dc4",
   "5a049f8",
@@ -18,10 +16,11 @@ const STALE_DEPLOY_PREFIXES = new Set([
   "7e5c522",
   "0766570",
   "715884f",
+  "200d4ee",
 ]);
 
-/** Último commit en main (referencia informativa para el banner). */
-export const LATEST_GIT_SHA_PREFIX = "pending";
+/** Último commit conocido en main (informativo en /api/health). */
+export const LATEST_GIT_SHA_PREFIX = "1b642aa";
 
 /** @deprecated Usar gitShaIsStale — mantenido para compatibilidad con badges. */
 export const EXPECTED_GIT_SHA_PREFIX = LATEST_GIT_SHA_PREFIX;
@@ -35,8 +34,7 @@ export function gitShaPrefix(sha: string | null | undefined): string {
 export function gitShaIsStale(sha: string | null | undefined): boolean {
   const prefix = gitShaPrefix(sha);
   if (!prefix) return true;
-  if (STALE_DEPLOY_PREFIXES.has(prefix)) return true;
-  return prefix !== LATEST_GIT_SHA_PREFIX;
+  return STALE_DEPLOY_PREFIXES.has(prefix);
 }
 
 /** true = servidor con funciones actuales (no muestra banner de error). */
