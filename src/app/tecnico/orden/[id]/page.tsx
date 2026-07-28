@@ -184,6 +184,9 @@ export default function OrdenPage() {
   const cargandoRef = useRef(false);
   const [cerrando, setCerrando] = useState(false);
   const [error, setError] = useState("");
+  /** F2/E3: errores de POST /abrir visibles (antes se tragaban). */
+  const [abrirError, setAbrirError] = useState("");
+  const [abrirRetry, setAbrirRetry] = useState(0);
 
   useTecnicoGpsTracking(true);
 
@@ -318,6 +321,7 @@ export default function OrdenPage() {
     setInitialLoaded(false);
     setData(null);
     setLoading(true);
+    setAbrirError("");
     void cargar();
   }, [id, cargar]);
 
@@ -333,21 +337,48 @@ export default function OrdenPage() {
       const gps = await leerGpsActual({ timeoutMs: 8000, highAccuracy: true });
 
       try {
-        await fetch(`/api/tickets/${id}/abrir`, {
+        const res = await fetch(`/api/tickets/${id}/abrir`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(
             gps ? { lat: gps.lat, lng: gps.lng } : { lat: null, lng: null }
           ),
         });
-      } catch {
-        // El técnico puede iniciar el cronómetro manualmente si falla.
+        const body = (await res.json().catch(() => ({}))) as {
+          ok?: boolean;
+          error?: string;
+          detail?: string;
+          yaCerrado?: boolean;
+        };
+
+        if (!res.ok || body.ok === false) {
+          const msg =
+            body.error ||
+            (res.status === 403
+              ? "No autorizado para abrir esta orden (¿asignación o reporte de otro técnico?)."
+              : res.status === 503
+                ? "No se pudo marcar como leída. El servidor puede estar migrando estados."
+                : `No se pudo abrir la orden (HTTP ${res.status}).`);
+          setAbrirError(msg);
+          console.error("[abrir orden]", res.status, body);
+        } else {
+          setAbrirError("");
+        }
+      } catch (err) {
+        const msg =
+          err instanceof Error
+            ? `Sin conexión al abrir la orden: ${err.message}`
+            : "Sin conexión al marcar la orden como leída.";
+        setAbrirError(msg);
+        console.error("[abrir orden] red", err);
       }
+
+      // Siempre refrescar: 403 multi-técnico trae mensaje de reporte en GET
       await cargar({ silent: true });
     }
 
     void abrirOrden();
-  }, [initialLoaded, data?.ticket.estado, id, cargar]);
+  }, [initialLoaded, data?.ticket.estado, id, cargar, abrirRetry]);
 
   async function guardarMedicion() {
     await fetch(`/api/tickets/${id}/medicion`, {
@@ -549,6 +580,30 @@ export default function OrdenPage() {
       </header>
 
       <main className="max-w-3xl mx-auto p-4 space-y-4">
+        {abrirError && (
+          <section
+            className="rounded-xl border border-red-200 bg-red-50 text-red-900 p-4"
+            role="alert"
+          >
+            <p className="font-semibold">No se pudo registrar la apertura</p>
+            <p className="text-sm mt-1">{abrirError}</p>
+            <p className="text-xs mt-2 text-red-700/80">
+              Puede seguir en la orden; si el semáforo no cambia a «Leído», reintente.
+            </p>
+            <button
+              type="button"
+              className="mt-3 text-sm font-semibold underline underline-offset-2"
+              onClick={() => {
+                setAbrirError("");
+                abrirHecho.current = false;
+                setAbrirRetry((n) => n + 1);
+              }}
+            >
+              Reintentar apertura
+            </button>
+          </section>
+        )}
+
         {reporte?.mensaje && (
           <section
             className={`rounded-xl border p-4 ${
