@@ -13,9 +13,12 @@ interface SplashScreenProps {
 
 type EstadoVideo = "cargando" | "reproduciendo" | "error";
 
+/** Si el video no arranca a tiempo, no dejar pantalla negra infinita. */
+const TIMEOUT_CARGA_MS = 10000;
+
 /**
  * Pantalla de bienvenida a pantalla completa.
- * Sin controles visibles; ESC omite el video.
+ * ESC o «Continuar» omiten el video.
  */
 export function SplashScreen({ onFinalizar }: SplashScreenProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -32,7 +35,7 @@ export function SplashScreen({ onFinalizar }: SplashScreenProps) {
 
   const intentarReproducir = useCallback(async () => {
     const video = videoRef.current;
-    if (!video) return;
+    if (!video || finalizadoRef.current) return;
 
     video.muted = true;
     video.defaultMuted = true;
@@ -47,9 +50,17 @@ export function SplashScreen({ onFinalizar }: SplashScreenProps) {
     }
   }, []);
 
-  // Verificar que el archivo exista antes de montar el reproductor
+  // Verificar archivo + timeout de seguridad
   useEffect(() => {
     let activo = true;
+    const timer = window.setTimeout(() => {
+      if (!activo || finalizadoRef.current) return;
+      setEstado((prev) => {
+        if (prev === "reproduciendo") return prev;
+        setDetalleError("La bienvenida tardó demasiado. Puede continuar al login.");
+        return "error";
+      });
+    }, TIMEOUT_CARGA_MS);
 
     async function verificarYPreparar() {
       try {
@@ -75,6 +86,7 @@ export function SplashScreen({ onFinalizar }: SplashScreenProps) {
     void verificarYPreparar();
     return () => {
       activo = false;
+      window.clearTimeout(timer);
     };
   }, []);
 
@@ -121,9 +133,10 @@ export function SplashScreen({ onFinalizar }: SplashScreenProps) {
             onError={onVideoError}
           />
           {estado === "cargando" && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/80">
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/80 px-6">
               <Loader2 className="w-10 h-10 animate-spin text-white" />
-              <p className="text-sm text-white/70">Cargando bienvenida…</p>
+              <p className="text-sm text-white/80">Cargando bienvenida…</p>
+              <p className="text-xs text-white/50">Si tarda, use Continuar abajo</p>
             </div>
           )}
         </>
@@ -134,36 +147,35 @@ export function SplashScreen({ onFinalizar }: SplashScreenProps) {
           <p className="text-lg font-semibold">No se pudo reproducir el video</p>
           {detalleError && <p className="text-sm text-white/70">{detalleError}</p>}
           <p className="text-xs text-white/50 break-all">{SPLASH_VIDEO_SRC}</p>
-          <div className="flex flex-col sm:flex-row gap-2 justify-center">
-            <button
-              type="button"
-              onClick={() => {
-                setEstado("cargando");
-                setDetalleError("");
-                const v = videoRef.current;
-                if (v) {
-                  v.load();
-                  void intentarReproducir();
-                }
-              }}
-              className="px-5 py-2.5 border border-white/30 rounded-xl text-sm font-medium hover:bg-white/10"
-            >
-              Reintentar
-            </button>
-            <button
-              type="button"
-              onClick={finalizar}
-              className="px-5 py-2.5 bg-infinity-600 hover:bg-infinity-700 rounded-xl text-sm font-semibold"
-            >
-              Continuar al login
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setEstado("cargando");
+              setDetalleError("");
+              const v = videoRef.current;
+              if (v) {
+                v.load();
+                void intentarReproducir();
+              }
+            }}
+            className="px-5 py-2.5 border border-white/30 rounded-xl text-sm font-medium hover:bg-white/10"
+          >
+            Reintentar
+          </button>
         </div>
       )}
 
-      <p className="absolute bottom-4 left-0 right-0 text-center text-xs text-white/50 pointer-events-none">
-        Presione ESC para omitir
-      </p>
+      {/* Siempre visible: evita pantalla negra sin salida */}
+      <div className="absolute bottom-6 left-0 right-0 flex flex-col items-center gap-2 px-4 z-[210]">
+        <button
+          type="button"
+          onClick={finalizar}
+          className="px-6 py-2.5 bg-infinity-600 hover:bg-infinity-700 rounded-xl text-sm font-semibold text-white shadow-lg"
+        >
+          Continuar al login
+        </button>
+        <p className="text-center text-xs text-white/50">O pulse ESC para omitir</p>
+      </div>
     </div>
   );
 }
