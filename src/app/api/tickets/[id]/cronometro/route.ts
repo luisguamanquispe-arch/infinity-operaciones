@@ -4,7 +4,7 @@ import { getFullSession } from "@/lib/auth";
 import { getOrCreateOrden, calcularDuracionCronometro } from "@/lib/tickets";
 import { iniciarCronometroTicket } from "@/lib/cronometro";
 import { tecnicoAsignadoAlTicket } from "@/lib/ticket-tecnicos";
-import { asegurarReportadorOrden } from "@/lib/ticket-reporte";
+import { asegurarColaboracionOrden } from "@/lib/ticket-reporte";
 import { verificarTicketEditable } from "@/lib/ticket-cerrado";
 
 export async function POST(
@@ -32,7 +32,7 @@ export async function POST(
     return NextResponse.json({ error: editable.error }, { status: editable.status });
   }
 
-  const permiso = await asegurarReportadorOrden(id, session.tecnicoId);
+  const permiso = await asegurarColaboracionOrden(id, session.tecnicoId);
   if (!permiso.ok) {
     return NextResponse.json(
       { error: permiso.error, reportadoPor: permiso.reportadoPorNombre },

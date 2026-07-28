@@ -19,7 +19,7 @@ import {
   validarDatosInstalacion,
   type DatosInstalacionInput,
 } from "@/lib/ticket-instalacion";
-import { asegurarReportadorOrden } from "@/lib/ticket-reporte";
+import { asegurarColaboracionOrden } from "@/lib/ticket-reporte";
 import { verificarTicketEditable } from "@/lib/ticket-cerrado";
 import type { TipoPatchCord } from "@prisma/client";
 import { TEXTO_ACEPTACION_SOPORTE } from "@/lib/aceptacion-soporte";
@@ -52,7 +52,7 @@ export async function POST(
     return NextResponse.json({ error: editable.error }, { status: editable.status });
   }
 
-  const permiso = await asegurarReportadorOrden(id, session.tecnicoId);
+  const permiso = await asegurarColaboracionOrden(id, session.tecnicoId);
   if (!permiso.ok) {
     return NextResponse.json(
       { error: permiso.error, reportadoPor: permiso.reportadoPorNombre },
@@ -111,7 +111,7 @@ export async function PUT(
       return NextResponse.json({ error: editable.error }, { status: editable.status });
     }
 
-    const permiso = await asegurarReportadorOrden(id, session.tecnicoId);
+    const permiso = await asegurarColaboracionOrden(id, session.tecnicoId);
     if (!permiso.ok) {
       return NextResponse.json(
         { error: permiso.error, reportadoPor: permiso.reportadoPorNombre },

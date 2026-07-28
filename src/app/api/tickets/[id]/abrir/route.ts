@@ -2,11 +2,11 @@ import { NextResponse } from "next/server";
 import { getFullSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { tecnicoAsignadoAlTicket } from "@/lib/ticket-tecnicos";
-import { asegurarReportadorOrden, infoReporteOrden } from "@/lib/ticket-reporte";
+import { asegurarColaboracionOrden, infoReporteOrden } from "@/lib/ticket-reporte";
 import { verificarTicketEditable } from "@/lib/ticket-cerrado";
 
 /**
- * Al abrir la orden: reclama reporte (multi-técnico) y marca LEIDO (semáforo).
+ * Al abrir la orden: marca LEIDO (semáforo). F5/E4: no reclama reportador.
  * No inicia el cronómetro: eso pasa al pulsar Iniciar (→ EN_PROCESO).
  */
 export async function POST(
@@ -40,7 +40,7 @@ export async function POST(
     return NextResponse.json({ ok: true, yaCerrado: true });
   }
 
-  const permiso = await asegurarReportadorOrden(id, session.tecnicoId);
+  const permiso = await asegurarColaboracionOrden(id, session.tecnicoId);
   if (!permiso.ok) {
     const reporte = await infoReporteOrden(id, session.tecnicoId);
     return NextResponse.json(

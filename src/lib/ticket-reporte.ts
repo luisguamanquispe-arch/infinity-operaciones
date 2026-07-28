@@ -1,6 +1,6 @@
 import { prisma } from "./prisma";
 import { getOrCreateOrden } from "./tickets";
-import { tecnicoIdsFromTicket } from "./ticket-tecnicos";
+import { tecnicoAsignadoAlTicket, tecnicoIdsFromTicket } from "./ticket-tecnicos";
 import { ticketEstaCerrado, ticketPermiteEdicion } from "./ticket-cerrado";
 
 export function esTicketMultiTecnico(ticket: {
@@ -23,66 +23,73 @@ export type ResultadoReporte =
   | { ok: true; esReportador: boolean }
   | { ok: false; status: number; error: string; reportadoPorNombre: string | null };
 
-/** Multi-técnico: solo el primer técnico que escribe reclama el reporte y puede cerrar. */
-export async function asegurarReportadorOrden(
+/**
+ * F5/E4 Opción A: cualquier técnico asignado puede colaborar (abrir, cronómetro,
+ * fotos, mediciones) mientras la orden no esté cerrada.
+ * Ya no reclama reportadoPorTecnicoId en la primera escritura.
+ */
+export async function asegurarColaboracionOrden(
   ticketId: string,
   tecnicoId: string
 ): Promise<ResultadoReporte> {
   const ticket = await prisma.ticket.findUnique({
     where: { id: ticketId },
-    include: { tecnicos: { select: { tecnicoId: true } } },
+    include: {
+      tecnicos: { select: { tecnicoId: true } },
+      orden: { select: { finalizadoEn: true, reportadoPorTecnicoId: true } },
+    },
   });
-  if (!ticket || !esTicketMultiTecnico(ticket)) {
-    return { ok: true, esReportador: true };
+
+  if (!ticket || !tecnicoAsignadoAlTicket(ticket, tecnicoId)) {
+    return {
+      ok: false,
+      status: 403,
+      error: "Este ticket no está asignado a usted",
+      reportadoPorNombre: null,
+    };
   }
 
-  const ordenExistente = await prisma.ordenServicio.findUnique({
-    where: { ticketId },
-    select: { finalizadoEn: true, reportadoPorTecnicoId: true },
-  });
-
-  if (ticketEstaCerrado(ticket, ordenExistente)) {
-    const quien = await nombreTecnico(ordenExistente?.reportadoPorTecnicoId);
+  if (ticketEstaCerrado(ticket, ticket.orden)) {
+    const quien = await nombreTecnico(ticket.orden?.reportadoPorTecnicoId);
     return {
       ok: false,
       status: 409,
       error: quien
-        ? `Reporte ya registrado por ${quien}. El tiempo quedó registrado con ese técnico.`
-        : "Reporte ya registrado en el sistema.",
+        ? `Reporte ya registrado por ${quien}. La orden está cerrada.`
+        : "La orden ya está cerrada.",
       reportadoPorNombre: quien,
     };
   }
 
+  const esReportador =
+    !ticket.orden?.reportadoPorTecnicoId ||
+    ticket.orden.reportadoPorTecnicoId === tecnicoId;
+
+  return { ok: true, esReportador };
+}
+
+/**
+ * @deprecated Preferir asegurarColaboracionOrden (F5/E4).
+ * Conservado como alias para no romper imports residuales.
+ */
+export async function asegurarReportadorOrden(
+  ticketId: string,
+  tecnicoId: string
+): Promise<ResultadoReporte> {
+  return asegurarColaboracionOrden(ticketId, tecnicoId);
+}
+
+/** Marca quién cerró / reportó si aún no hay reportador (informativo). */
+export async function registrarReportadorSiVacio(
+  ticketId: string,
+  tecnicoId: string
+): Promise<void> {
   const orden = await getOrCreateOrden(ticketId);
-
-  if (!orden.reportadoPorTecnicoId) {
-    const reclamado = await prisma.ordenServicio.updateMany({
-      where: { id: orden.id, reportadoPorTecnicoId: null },
-      data: { reportadoPorTecnicoId: tecnicoId, reportadoEn: new Date() },
-    });
-    if (reclamado.count > 0) {
-      return { ok: true, esReportador: true };
-    }
-  }
-
-  const actual = await prisma.ordenServicio.findUnique({
-    where: { id: orden.id },
-    select: { reportadoPorTecnicoId: true },
+  if (orden.reportadoPorTecnicoId) return;
+  await prisma.ordenServicio.updateMany({
+    where: { id: orden.id, reportadoPorTecnicoId: null },
+    data: { reportadoPorTecnicoId: tecnicoId, reportadoEn: new Date() },
   });
-
-  if (actual?.reportadoPorTecnicoId === tecnicoId) {
-    return { ok: true, esReportador: true };
-  }
-
-  const quien = await nombreTecnico(actual?.reportadoPorTecnicoId);
-  return {
-    ok: false,
-    status: 403,
-    error: quien
-      ? `El reporte y cierre lo realiza ${quien}. Solo ese técnico puede registrar y cerrar el ticket.`
-      : "Otro técnico ya inició el reporte de este ticket.",
-    reportadoPorNombre: quien,
-  };
 }
 
 export async function infoReporteOrden(ticketId: string, tecnicoId: string | null) {
@@ -124,14 +131,21 @@ export async function infoReporteOrden(ticketId: string, tecnicoId: string | nul
     : null;
 
   const cerrado = ticketEstaCerrado(ticket, orden);
-  const esReportador = !orden?.reportadoPorTecnicoId || orden.reportadoPorTecnicoId === tecnicoId;
-  const puedeEditar = esReportador && ticketPermiteEdicion(ticket, orden);
+  const asignado =
+    !!tecnicoId && tecnicoAsignadoAlTicket(ticket, tecnicoId);
+  const esReportador =
+    !orden?.reportadoPorTecnicoId || orden.reportadoPorTecnicoId === tecnicoId;
+  // F5/E4: todos los asignados pueden editar mientras la orden esté abierta
+  const puedeEditar = asignado && ticketPermiteEdicion(ticket, orden);
 
   let mensaje: string | null = null;
   if (cerrado && reportadoPor) {
     mensaje = `Reporte registrado por ${reportadoPor.nombre}.`;
-  } else if (!esReportador && reportadoPor) {
-    mensaje = `El reporte y cierre lo realiza ${reportadoPor.nombre}. Verá el mismo registro al finalizar.`;
+  } else if (reportadoPor) {
+    mensaje = `Ticket con varios técnicos. Reportador: ${reportadoPor.nombre}. Todos los asignados pueden trabajar y cerrar.`;
+  } else {
+    mensaje =
+      "Ticket con varios técnicos. Todos los asignados pueden trabajar; quien cierre queda como reportador.";
   }
 
   return {

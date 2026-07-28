@@ -6,7 +6,7 @@ import { tecnicoAsignadoAlTicket, tecnicoIdsFromTicket } from "@/lib/ticket-tecn
 import { esClienteInfraestructura } from "@/lib/cliente-infraestructura";
 import { esTicketInfraestructura } from "@/lib/ticket-infraestructura";
 import { esTicketInstalacion } from "@/lib/ticket-instalacion";
-import { asegurarReportadorOrden } from "@/lib/ticket-reporte";
+import { asegurarColaboracionOrden } from "@/lib/ticket-reporte";
 import { ordenServicioCerrada } from "@/lib/ticket-cerrado";
 
 export async function POST(
@@ -28,7 +28,7 @@ export async function POST(
     return NextResponse.json({ error: "No autorizado" }, { status: 403 });
   }
 
-  const permiso = await asegurarReportadorOrden(id, session.tecnicoId);
+  const permiso = await asegurarColaboracionOrden(id, session.tecnicoId);
   if (!permiso.ok) {
     return NextResponse.json(
       { error: permiso.error, reportadoPor: permiso.reportadoPorNombre },
