@@ -16,6 +16,8 @@ import { NovedadSoportePanel } from "@/components/tecnico/NovedadSoportePanel";
 import { EnviarReporteSoporte } from "@/components/tecnico/EnviarReporteSoporte";
 import { TIPO_LABELS, ESTADO_LABELS, formatDateTime, formatDuration } from "@/lib/utils";
 import { fetchWithRetry } from "@/lib/compress-image";
+import { leerGpsActual } from "@/lib/gps-client";
+import { useTecnicoGpsTracking } from "@/hooks/useTecnicoGpsTracking";
 import {
   materialEsPatchcord,
   materialRequiereDetalle,
@@ -182,6 +184,8 @@ export default function OrdenPage() {
   const [cerrando, setCerrando] = useState(false);
   const [error, setError] = useState("");
 
+  useTecnicoGpsTracking(true);
+
   const [medicion, setMedicion] = useState({
     rxDbm: "",
     txDbm: "",
@@ -325,23 +329,15 @@ export default function OrdenPage() {
     abrirHecho.current = true;
 
     async function abrirOrden() {
-      const gps = await new Promise<{ lat: number; lng: number }>((resolve) => {
-        if (!navigator.geolocation) {
-          resolve({ lat: -1.2491, lng: -78.6168 });
-          return;
-        }
-        navigator.geolocation.getCurrentPosition(
-          (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-          () => resolve({ lat: -1.2491, lng: -78.6168 }),
-          { enableHighAccuracy: true, timeout: 5000 }
-        );
-      });
+      const gps = await leerGpsActual({ timeoutMs: 8000, highAccuracy: true });
 
       try {
         await fetch(`/api/tickets/${id}/abrir`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(gps),
+          body: JSON.stringify(
+            gps ? { lat: gps.lat, lng: gps.lng } : { lat: null, lng: null }
+          ),
         });
       } catch {
         // El técnico puede iniciar el cronómetro manualmente si falla.
@@ -450,8 +446,9 @@ export default function OrdenPage() {
       setCerrando(false);
       return;
     }
-    await cargar({ silent: true });
     setCerrando(false);
+    // Ticket cerrado = reporte finalizado disponible en /reportes
+    router.push(`/tecnico?cerrado=${encodeURIComponent(data?.ticket.codigo || id)}`);
   }
 
   if (!initialLoaded && loading) {

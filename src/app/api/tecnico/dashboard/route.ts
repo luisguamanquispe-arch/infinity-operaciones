@@ -179,7 +179,15 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 
-  const { lat, lng } = await request.json();
+  const body = await request.json().catch(() => ({}));
+  const lat = Number(body.lat);
+  const lng = Number(body.lng);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+    return NextResponse.json({ error: "lat/lng inválidos" }, { status: 400 });
+  }
+  if (Math.abs(lat) > 90 || Math.abs(lng) > 180) {
+    return NextResponse.json({ error: "Coordenadas fuera de rango" }, { status: 400 });
+  }
 
   await prisma.tecnico.update({
     where: { id: session.tecnicoId },

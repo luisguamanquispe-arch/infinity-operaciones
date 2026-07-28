@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import dynamic from "next/dynamic";
 import {
   Calendar,
@@ -9,6 +9,8 @@ import {
   ClipboardList,
   Clock,
   RefreshCw,
+  CheckCircle2,
+  X,
 } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
 import { DeployVersionBanner } from "@/components/DeployVersionBanner";
@@ -20,6 +22,7 @@ import { TecnicoAgenda } from "@/components/TecnicoAgenda";
 import { TecnicoDashboardSkeleton } from "@/components/tecnico/TecnicoDashboardSkeleton";
 import { formatDate } from "@/lib/utils";
 import { fetchWithRetry } from "@/lib/compress-image";
+import { useTecnicoGpsTracking } from "@/hooks/useTecnicoGpsTracking";
 
 const WorkMap = dynamic(
   () => import("@/components/WorkMap").then((m) => m.WorkMap),
@@ -62,6 +65,7 @@ interface AgendaTicket {
 }
 
 export default function TecnicoDashboard() {
+  const [bannerCerrado, setBannerCerrado] = useState<string | null>(null);
   const [resumen, setResumen] = useState<Resumen | null>(null);
   const [ordenesPendientes, setOrdenesPendientes] = useState<OrdenPendiente[]>([]);
   const [agenda, setAgenda] = useState<AgendaTicket[]>([]);
@@ -71,12 +75,19 @@ export default function TecnicoDashboard() {
   const [error, setError] = useState("");
   const [showMap, setShowMap] = useState(false);
 
+  useTecnicoGpsTracking(true);
+
+  useEffect(() => {
+    const codigo = new URLSearchParams(window.location.search).get("cerrado");
+    if (codigo) setBannerCerrado(codigo);
+  }, []);
+
   const cargar = useCallback(async () => {
     setError("");
     try {
       const res = await fetchWithRetry(
         `/api/tecnico/dashboard`,
-        { method: "GET", cache: "no-store" },
+        { method: "GET", cache: "no-store", credentials: "include" },
         3
       );
       const data = await res.json().catch(() => ({}));
@@ -105,31 +116,29 @@ export default function TecnicoDashboard() {
     cargar();
   }, [cargar]);
 
+  // Refresco de tickets activos (GPS lo envía useTecnicoGpsTracking)
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      if (document.visibilityState === "visible") void cargar();
+    }, 30000);
+    return () => window.clearInterval(id);
+  }, [cargar]);
+
   useEffect(() => {
     const t = window.setTimeout(() => setShowMap(true), 400);
     return () => window.clearTimeout(t);
   }, []);
 
-  useEffect(() => {
-    const t = window.setTimeout(() => {
-      if (!navigator.geolocation) return;
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          fetch("/api/tecnico/dashboard", {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              lat: pos.coords.latitude,
-              lng: pos.coords.longitude,
-            }),
-          }).catch(() => {});
-        },
-        undefined,
-        { timeout: 8000, maximumAge: 120000 }
-      );
-    }, 2500);
-    return () => window.clearTimeout(t);
-  }, []);
+  const clientesMapa = useMemo(
+    () =>
+      activosMapa.map((t) => ({
+        lat: t.cliente.lat ?? null,
+        lng: t.cliente.lng ?? null,
+        nombre: t.cliente.nombre,
+        codigo: t.codigo,
+      })),
+    [activosMapa]
+  );
 
   if (loading && !resumen) {
     return <TecnicoDashboardSkeleton />;
@@ -141,6 +150,28 @@ export default function TecnicoDashboard() {
       <AppHeader title="Infinity Técnicos" subtitle="Panel del Técnico" />
 
       <main className="max-w-6xl mx-auto p-4 space-y-6">
+        {bannerCerrado && (
+          <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex items-start gap-3">
+            <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-emerald-900">
+                Ticket {bannerCerrado} cerrado — reporte finalizado
+              </p>
+              <p className="text-xs text-emerald-800/80 mt-1">
+                El supervisor puede verlo en Reportes finalizados.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setBannerCerrado(null)}
+              className="p-1 rounded-lg text-emerald-700 hover:bg-emerald-100"
+              aria-label="Cerrar aviso"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
         {error && (
           <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center gap-3">
             <p className="text-sm text-amber-900 flex-1">{error}</p>
@@ -167,11 +198,19 @@ export default function TecnicoDashboard() {
             <User className="w-4 h-4 text-infinity-600" />
             <span className="font-medium">Técnico: {resumen?.tecnico}</span>
           </div>
-          {resumen?.ubicacion && (
-            <div className="flex items-center gap-2 text-sm text-slate-500">
+          {resumen?.ubicacion ? (
+            <div className="flex items-center gap-2 text-sm text-emerald-700">
               <MapPin className="w-4 h-4" />
               <span>
-                GPS: {resumen.ubicacion.lat.toFixed(4)}, {resumen.ubicacion.lng.toFixed(4)}
+                GPS activo: {resumen.ubicacion.lat.toFixed(4)},{" "}
+                {resumen.ubicacion.lng.toFixed(4)} · enviando al supervisor
+              </span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 text-sm text-amber-700">
+              <MapPin className="w-4 h-4" />
+              <span>
+                Active la ubicación del celular para aparecer en el mapa del supervisor
               </span>
             </div>
           )}
@@ -202,15 +241,7 @@ export default function TecnicoDashboard() {
         {showMap && (
           <section>
             <h2 className="font-semibold mb-3">Mapa de trabajos</h2>
-            <WorkMap
-              tecnicoLocation={resumen?.ubicacion}
-              clientes={activosMapa.map((t) => ({
-                lat: t.cliente.lat ?? null,
-                lng: t.cliente.lng ?? null,
-                nombre: t.cliente.nombre,
-                codigo: t.codigo,
-              }))}
-            />
+            <WorkMap tecnicoLocation={resumen?.ubicacion} clientes={clientesMapa} />
           </section>
         )}
 

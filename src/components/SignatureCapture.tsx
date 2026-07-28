@@ -88,21 +88,8 @@ export function SignatureCapture({
     setError("");
     const imagen = padRef.current.toDataURL("image/png");
 
-    let lat = -1.2491;
-    let lng = -78.6168;
-    if (navigator.geolocation) {
-      await new Promise<void>((resolve) => {
-        navigator.geolocation.getCurrentPosition(
-          (pos) => {
-            lat = pos.coords.latitude;
-            lng = pos.coords.longitude;
-            resolve();
-          },
-          () => resolve(),
-          { timeout: 8000, maximumAge: 60000 }
-        );
-      });
-    }
+    const { leerGpsActual } = await import("@/lib/gps-client");
+    const gps = await leerGpsActual({ timeoutMs: 8000, maximumAgeMs: 60_000 });
 
     const res = await fetchWithRetry(`/api/tickets/${ticketId}/medicion`, {
       method: "PUT",
@@ -112,8 +99,8 @@ export function SignatureCapture({
           nombreCliente: nombre,
           cedula: cedulaNorm,
           imagen,
-          lat,
-          lng,
+          lat: gps?.lat ?? null,
+          lng: gps?.lng ?? null,
           aceptacionCondiciones: true,
         },
       }),

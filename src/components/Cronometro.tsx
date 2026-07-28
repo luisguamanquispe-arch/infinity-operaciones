@@ -17,18 +17,8 @@ interface CronometroProps {
   readOnly?: boolean;
 }
 
-function getGps(): Promise<{ lat: number; lng: number }> {
-  return new Promise((resolve) => {
-    if (!navigator.geolocation) {
-      resolve({ lat: -1.2491, lng: -78.6168 });
-      return;
-    }
-    navigator.geolocation.getCurrentPosition(
-      (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-      () => resolve({ lat: -1.2491, lng: -78.6168 }),
-      { enableHighAccuracy: true, timeout: 5000 }
-    );
-  });
+function getGps(): Promise<{ lat: number; lng: number } | null> {
+  return import("@/lib/gps-client").then((m) => m.leerGpsActual({ timeoutMs: 5000 }));
 }
 
 export function Cronometro({
@@ -65,7 +55,10 @@ export function Cronometro({
       await fetch(`/api/tickets/${ticketId}/cronometro`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ accion, ...gps }),
+        body: JSON.stringify({
+          accion,
+          ...(gps ? { lat: gps.lat, lng: gps.lng } : {}),
+        }),
       });
       setLoading(false);
       onUpdate?.();
