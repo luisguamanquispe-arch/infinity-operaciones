@@ -176,13 +176,8 @@ export async function GET(
     estado: estadoEfectivo as typeof ticketData.estado,
   };
 
-  if (
-    session.rol === "TECNICO" &&
-    ticketRespuesta.estado === "PENDIENTE" &&
-    ordenFinal.cronometro?.inicio
-  ) {
-    ticketRespuesta = { ...ticketRespuesta, estado: "EN_PROCESO" };
-  }
+  // F6/E8: no forzar EN_PROCESO en JSON. El estado real lo persiste
+  // iniciarCronometroTicket / abrir (LEIDO). GET solo refleja BD + estado efectivo.
 
   const reporte =
     session.rol === "TECNICO" && session.tecnicoId
