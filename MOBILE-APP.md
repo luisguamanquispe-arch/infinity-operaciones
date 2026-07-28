@@ -33,10 +33,13 @@ La app usa **splash local** (`www/index.html`) y **no oculta el splash nativo** 
 **Importante:** no use `CAPACITOR_DIRECT_SERVER=true` en producción (carga Render directo y muestra pantalla negra al cold start).
 
 Tras cambiar archivos móviles:
-   ```powershell
-   npm run sync
-   ```
-2. Recompile el APK/IPA en Android Studio / Xcode.
+
+```powershell
+cd mobile\tecnico
+npm run sync
+```
+
+Recompile el APK/IPA en Android Studio / Xcode.
 
 **Desarrollo en vivo** (WebView apunta directo al servidor): en `.env` agregue `CAPACITOR_DIRECT_SERVER=true`.
 
