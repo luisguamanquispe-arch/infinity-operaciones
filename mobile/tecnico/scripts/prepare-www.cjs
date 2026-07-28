@@ -3,7 +3,7 @@ const path = require("path");
 
 const root = path.join(__dirname, "..");
 const envPath = path.join(root, ".env");
-const serverDefault = "https://infinity-operaciones.onrender.com";
+const serverDefault = "https://infinity-operaciones-b3ij.onrender.com";
 
 function readEnv() {
   if (!fs.existsSync(envPath)) return {};

@@ -1,1 +1,1 @@
-window.__INFINITY_SERVER__ = "https://infinity-operaciones.onrender.com";
+window.__INFINITY_SERVER__ = "https://infinity-operaciones-b3ij.onrender.com";

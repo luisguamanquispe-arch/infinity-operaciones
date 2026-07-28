@@ -2,7 +2,7 @@ import type { CapacitorConfig } from "@capacitor/cli";
 
 /** URL del backend (Render / dominio propio). Sobrescribir con CAPACITOR_SERVER_URL en .env */
 const serverUrl = (
-  process.env.CAPACITOR_SERVER_URL || "https://infinity-operaciones.onrender.com"
+  process.env.CAPACITOR_SERVER_URL || "https://infinity-operaciones-b3ij.onrender.com"
 ).replace(/\/$/, "");
 
 /** true = WebView carga el servidor directo (solo desarrollo en vivo). false = splash local en www/ */
@@ -20,6 +20,7 @@ const config: CapacitorConfig = {
           iosScheme: "https",
           allowNavigation: [
             serverUrl,
+            "infinity-operaciones-b3ij.onrender.com",
             "infinity-operaciones.onrender.com",
             "ops.lgbsistemas.ec",
             "lgbsistemas.ec",

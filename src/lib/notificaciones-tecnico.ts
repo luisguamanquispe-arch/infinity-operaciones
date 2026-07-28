@@ -19,7 +19,7 @@ function appUrlTecnico(): string {
   const env = getEnv();
   return (
     env.PUBLIC_APP_URL?.replace(/\/$/, "") ||
-    "https://infinity-operaciones.onrender.com/login?app=tecnico"
+    "https://infinity-operaciones-b3ij.onrender.com/login?app=tecnico"
   );
 }
 
