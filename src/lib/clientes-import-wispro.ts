@@ -14,38 +14,75 @@ export type ImportResult = {
   actualizados: number;
   omitidos: number;
   errores: ImportError[];
+  columnasDetectadas: string[];
+  columnasMapeadas: string[];
 };
 
-/** Aliases CSV (normalizados) → campo ClienteInput */
-const HEADER_ALIASES: Record<string, keyof ClienteInput> = {
+/**
+ * Aliases → campo ClienteInput.
+ * Incluye encabezados reales del export Wispro Cloud (CSV/Excel).
+ * @see https://doc.cloud.wispro.co/docs/exportar-clientes
+ */
+const HEADER_ALIASES: Record<string, keyof ClienteInput | "_ignore"> = {
+  // Cédula / documento
   cedula: "cedula",
   identification: "cedula",
   identificacion: "cedula",
+  national_identification_number: "cedula",
+  nationalidentificationnumber: "cedula",
   dni: "cedula",
   ci: "cedula",
   documento: "cedula",
+  documentocedula: "cedula",
+  documentodeidentidad: "cedula",
+  nrodocumento: "cedula",
+  numero_de_documento: "cedula",
+  numerodedocumento: "cedula",
+  // Nombre
   nombre: "nombre",
   name: "nombre",
   client_name: "nombre",
   cliente: "nombre",
   nombre_cliente: "nombre",
+  nombreycliente: "nombre",
+  nombresyapellidos: "nombre",
+  // Teléfono
   telefono: "telefono",
   phone: "telefono",
+  phone_number: "telefono",
   mobile: "telefono",
   celular: "telefono",
+  phone_mobile: "telefono",
+  phonemobile: "telefono",
   tel: "telefono",
+  telefonofijo: "telefono",
+  // Plan
   plan: "plan",
   plan_name: "plan",
   nombre_plan: "plan",
+  nombreplan: "plan",
+  // Dirección
   direccion: "direccion",
   address: "direccion",
   domicilio: "direccion",
+  direccionpostal: "direccion",
+  // Sector / barrio / zona / ciudad (Wispro)
   sector: "sector",
   neighborhood: "sector",
   barrio: "sector",
   zona: "sector",
+  zone: "sector",
+  zone_name: "sector",
+  ciudad: "sector",
+  city: "sector",
+  // Referencia
   referencia: "referencia",
   reference: "referencia",
+  observaciones: "referencia",
+  details: "referencia",
+  datoadicional: "referencia",
+  dato_adicional: "referencia",
+  // Infra
   nodo: "nodo",
   node: "nodo",
   caja_nap: "cajaNap",
@@ -62,6 +99,7 @@ const HEADER_ALIASES: Record<string, keyof ClienteInput> = {
   rx: "potencia",
   optical_power: "potencia",
   potencia_optica: "potencia",
+  // Geo Wispro
   lat: "lat",
   latitude: "lat",
   latitud: "lat",
@@ -69,13 +107,33 @@ const HEADER_ALIASES: Record<string, keyof ClienteInput> = {
   lon: "lng",
   longitude: "lng",
   longitud: "lng",
+  // Estado
   activo: "activo",
   active: "activo",
   status: "activo",
   estado: "activo",
+  // Columnas Wispro a ignorar (no error)
+  iddecliente: "_ignore",
+  id: "_ignore",
+  idpersonalizable: "_ignore",
+  custom_id: "_ignore",
+  public_id: "_ignore",
+  email: "_ignore",
+  correo: "_ignore",
+  facturacionhabilitada: "_ignore",
+  tipodefactura: "_ignore",
+  condicionimpositiva: "_ignore",
+  numerodeidentificaciontributaria: "_ignore",
+  numerodefacturasimpagas: "_ignore",
+  balancedefacturasimpagas: "_ignore",
+  informaciondepasareladepago: "_ignore",
+  fechadecreacion: "_ignore",
+  ultimamodificacion: "_ignore",
+  provinciasestadoregion: "_ignore",
+  state: "_ignore",
 };
 
-function normalizeHeader(h: string): string {
+export function normalizeHeader(h: string): string {
   return h
     .trim()
     .toLowerCase()
@@ -85,13 +143,15 @@ function normalizeHeader(h: string): string {
     .replace(/[^a-z0-9_]/g, "");
 }
 
-function detectDelimiter(firstLine: string): "," | ";" {
+function detectDelimiter(firstLine: string): "," | ";" | "\t" {
   const commas = (firstLine.match(/,/g) || []).length;
   const semis = (firstLine.match(/;/g) || []).length;
+  const tabs = (firstLine.match(/\t/g) || []).length;
+  if (tabs > commas && tabs > semis) return "\t";
   return semis > commas ? ";" : ",";
 }
 
-/** Parse CSV simple con comillas y salto de línea entre comillas. */
+/** Parse CSV con comillas, BOM y separador , ; o tab. */
 export function parseCsv(text: string): { headers: string[]; rows: string[][] } {
   let raw = text;
   if (raw.charCodeAt(0) === 0xfeff) raw = raw.slice(1);
@@ -159,8 +219,13 @@ export function parseCsv(text: string): { headers: string[]; rows: string[][] } 
 function parseActivo(raw: string | undefined): boolean | undefined {
   if (raw == null || raw.trim() === "") return undefined;
   const v = raw.trim().toLowerCase();
-  if (["1", "true", "si", "sí", "yes", "activo", "active", "enabled"].includes(v)) return true;
-  if (["0", "false", "no", "inactivo", "inactive", "disabled", "suspendido", "suspended"].includes(v))
+  if (["1", "true", "si", "sí", "yes", "activo", "active", "enabled", "habilitado"].includes(v))
+    return true;
+  if (
+    ["0", "false", "no", "inactivo", "inactive", "disabled", "suspendido", "suspended", "deshabilitado"].includes(
+      v
+    )
+  )
     return false;
   return undefined;
 }
@@ -171,13 +236,21 @@ function parseNumber(raw: string | undefined): number | null | undefined {
   return Number.isFinite(n) ? n : undefined;
 }
 
-function buildFieldMap(headers: string[]): Map<number, keyof ClienteInput> {
+function buildFieldMap(headers: string[]): {
+  map: Map<number, keyof ClienteInput>;
+  mappedLabels: string[];
+} {
   const map = new Map<number, keyof ClienteInput>();
+  const mappedLabels: string[] = [];
   headers.forEach((h, i) => {
-    const key = HEADER_ALIASES[normalizeHeader(h)];
-    if (key) map.set(i, key);
+    const norm = normalizeHeader(h);
+    const key = HEADER_ALIASES[norm];
+    if (key && key !== "_ignore") {
+      map.set(i, key);
+      mappedLabels.push(`${h} → ${key}`);
+    }
   });
-  return map;
+  return { map, mappedLabels };
 }
 
 function rowToInput(
@@ -185,7 +258,9 @@ function rowToInput(
   fieldMap: Map<number, keyof ClienteInput>
 ): Partial<ClienteInput> {
   const out: Partial<ClienteInput> = {};
-  for (const [idx, field] of fieldMap) {
+  // Preferir celular sobre teléfono fijo si ambos existen: recorrer por índice
+  const entries = [...fieldMap.entries()].sort((a, b) => a[0] - b[0]);
+  for (const [idx, field] of entries) {
     const raw = cells[idx] ?? "";
     if (field === "activo") {
       const a = parseActivo(raw);
@@ -198,9 +273,41 @@ function rowToInput(
       continue;
     }
     if (raw.trim() === "") continue;
+    // Si ya hay teléfono y esta celda es más corta (fijo vacío), no pisar
+    if (field === "telefono" && out.telefono && raw.trim().length < out.telefono.length) {
+      continue;
+    }
     (out as Record<string, unknown>)[field] = raw.trim();
   }
   return out;
+}
+
+/** Detecta Excel binario (no es CSV). */
+export function looksLikeExcel(buf: Buffer): boolean {
+  // ZIP/XLSX: PK\x03\x04 ; XLS OLE: D0 CF 11 E0
+  if (buf.length < 4) return false;
+  if (buf[0] === 0x50 && buf[1] === 0x4b) return true;
+  if (buf[0] === 0xd0 && buf[1] === 0xcf && buf[2] === 0x11 && buf[3] === 0xe0) return true;
+  return false;
+}
+
+export function decodeCsvBuffer(buf: Buffer): string {
+  if (looksLikeExcel(buf)) {
+    throw new Error(
+      "El archivo es Excel (.xlsx/.xls). En Wispro exporte de nuevo eligiendo formato CSV, no Excel."
+    );
+  }
+  // UTF-8 con BOM
+  if (buf.length >= 3 && buf[0] === 0xef && buf[1] === 0xbb && buf[2] === 0xbf) {
+    return buf.slice(3).toString("utf8");
+  }
+  let text = buf.toString("utf8");
+  // Heurística: muchos � → intentar latin1/windows-1252
+  const bad = (text.match(/\uFFFD/g) || []).length;
+  if (bad > 3 || text.includes("\u0000")) {
+    text = buf.toString("latin1");
+  }
+  return text;
 }
 
 export async function importClientesFromCsv(
@@ -215,10 +322,12 @@ export async function importClientesFromCsv(
       actualizados: 0,
       omitidos: 0,
       errores: [{ fila: 0, motivo: "CSV vacío o sin encabezados" }],
+      columnasDetectadas: [],
+      columnasMapeadas: [],
     };
   }
 
-  const fieldMap = buildFieldMap(headers);
+  const { map: fieldMap, mappedLabels } = buildFieldMap(headers);
   const mapped = new Set(fieldMap.values());
   const required: (keyof ClienteInput)[] = ["cedula", "nombre", "telefono", "direccion", "sector"];
   const missingHeaders = required.filter((r) => !mapped.has(r));
@@ -228,10 +337,15 @@ export async function importClientesFromCsv(
       creados: 0,
       actualizados: 0,
       omitidos: rows.length,
+      columnasDetectadas: headers,
+      columnasMapeadas: mappedLabels,
       errores: [
         {
           fila: 1,
-          motivo: `Faltan columnas obligatorias en el encabezado: ${missingHeaders.join(", ")}. Descargue la plantilla o renombre las columnas.`,
+          motivo:
+            `Faltan columnas obligatorias: ${missingHeaders.join(", ")}. ` +
+            `Encabezados detectados: ${headers.join(" | ")}. ` +
+            `En Wispro use Exportar → CSV. Columnas típicas: Documento/Cédula, Nombre, Teléfono o Celular, Dirección, Barrio o Zona.`,
         },
       ],
     };
@@ -243,7 +357,7 @@ export async function importClientesFromCsv(
   const errores: ImportError[] = [];
 
   for (let i = 0; i < rows.length; i++) {
-    const fila = i + 2; // 1 = header
+    const fila = i + 2;
     const partial = rowToInput(rows[i], fieldMap);
 
     if (
@@ -277,22 +391,29 @@ export async function importClientesFromCsv(
 
     try {
       const cedulaNorm = normalizarCedula(input.cedula);
-      if (esClienteInfraestructura(cedulaNorm)) {
+      // RUC 13 dígitos: usar los 10 primeros si parecen cédula
+      let cedulaUsar = cedulaNorm;
+      if (cedulaNorm.length === 13 && cedulaNorm.endsWith("001")) {
+        cedulaUsar = cedulaNorm.slice(0, 10);
+        input.cedula = cedulaUsar;
+      }
+
+      if (esClienteInfraestructura(cedulaUsar)) {
         errores.push({
           fila,
-          cedula: cedulaNorm,
+          cedula: cedulaUsar,
           motivo: "Cédula reservada de infraestructura",
         });
         omitidos++;
         continue;
       }
 
-      const existente = await prisma.cliente.findUnique({ where: { cedula: cedulaNorm } });
+      const existente = await prisma.cliente.findUnique({ where: { cedula: cedulaUsar } });
       if (existente) {
-        await actualizarCliente(existente.id, input, usuarioId);
+        await actualizarCliente(existente.id, { ...input, cedula: cedulaUsar }, usuarioId);
         actualizados++;
       } else {
-        await crearCliente(input, usuarioId);
+        await crearCliente({ ...input, cedula: cedulaUsar }, usuarioId);
         creados++;
       }
     } catch (err) {
@@ -311,5 +432,7 @@ export async function importClientesFromCsv(
     actualizados,
     omitidos,
     errores,
+    columnasDetectadas: headers,
+    columnasMapeadas: mappedLabels,
   };
 }
