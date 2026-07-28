@@ -1,0 +1,2 @@
+cedula,nombre,telefono,plan,direccion,sector,referencia,nodo,caja_nap,puerto,onu_serial,potencia,lat,lng,activo
+1710034065,CLIENTE EJEMPLO WISPRO,0991234567,PLAN 100 MBPS,AV PRINCIPAL 123,CENTRO,FRENTE A PARQUE,NODO-01,NAP-A1,1,ZTEGC12345678,-18.5,-0.1800,-78.4800,si
