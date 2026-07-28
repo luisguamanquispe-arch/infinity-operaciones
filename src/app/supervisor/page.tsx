@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
-import { Loader2, AlertTriangle, CheckCircle, Clock, Users, Plus, FileText, CalendarDays } from "lucide-react";
+import { Loader2, AlertTriangle, CheckCircle, Clock, Users, Plus, FileText, CalendarDays, Contact } from "lucide-react";
 import Link from "next/link";
 import { AppHeader } from "@/components/AppHeader";
 import { StatCard } from "@/components/StatCard";
@@ -135,6 +135,13 @@ export default function SupervisorDashboard() {
           >
             <FileText className="w-5 h-5" />
             Reportes finalizados
+          </Link>
+          <Link
+            href="/supervisor/clientes"
+            className="flex items-center justify-center gap-2 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl transition sm:col-span-2 lg:col-span-4"
+          >
+            <Contact className="w-5 h-5" />
+            Clientes CRM — Importar desde Wispro
           </Link>
         </div>
 

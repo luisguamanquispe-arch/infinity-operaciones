@@ -7,8 +7,13 @@ export const maxDuration = 120;
 
 const MAX_BYTES = 15 * 1024 * 1024;
 
-function isUploadBlob(value: FormDataEntryValue | null): value is Blob {
-  return !!value && typeof value === "object" && typeof (value as Blob).arrayBuffer === "function";
+function isUploadFile(value: FormDataEntryValue | null): value is File {
+  return (
+    !!value &&
+    typeof value === "object" &&
+    typeof (value as File).arrayBuffer === "function" &&
+    typeof (value as File).size === "number"
+  );
 }
 
 export async function POST(request: Request) {
@@ -32,17 +37,14 @@ export async function POST(request: Request) {
     }
 
     const raw = form.get("file") ?? form.get("csv") ?? form.get("archivo");
-    if (!isUploadBlob(raw)) {
+    if (!isUploadFile(raw)) {
       return NextResponse.json(
         { error: "Falta el archivo. Envíe el campo file con un CSV de Wispro." },
         { status: 400 }
       );
     }
 
-    const fileName =
-      "name" in raw && typeof (raw as File).name === "string"
-        ? (raw as File).name
-        : "clientes.csv";
+    const fileName = raw.name || "clientes.csv";
     const nameLower = fileName.toLowerCase();
 
     if (
