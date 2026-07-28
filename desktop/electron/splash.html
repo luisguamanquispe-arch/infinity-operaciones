@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Infinity Operaciones</title>
+    <style>
+      /* Pantalla completa sin bordes ni controles del reproductor */
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: #000;
+        cursor: none;
+      }
+
+      #intro-video {
+        width: 100vw;
+        height: 100vh;
+        object-fit: cover;
+        display: block;
+        background: #000;
+      }
+
+      /* Mensaje discreto si el video no carga */
+      #fallback {
+        display: none;
+        position: fixed;
+        inset: 0;
+        align-items: center;
+        justify-content: center;
+        color: #fff;
+        font-family: system-ui, sans-serif;
+        font-size: 14px;
+        text-align: center;
+        padding: 2rem;
+      }
+
+      #hint {
+        position: fixed;
+        bottom: 1.25rem;
+        right: 1.25rem;
+        color: rgba(255, 255, 255, 0.45);
+        font-family: system-ui, sans-serif;
+        font-size: 12px;
+        pointer-events: none;
+        user-select: none;
+      }
+    </style>
+  </head>
+  <body>
+    <!--
+      Splash de bienvenida — solo aplicación desktop (Electron).
+      - Autoplay sin controles visibles
+      - Una sola reproducción (sin loop)
+      - ESC → saltar al menú principal
+    -->
+    <video
+      id="intro-video"
+      autoplay
+      playsinline
+      disablePictureInPicture
+      controlsList="nodownload nofullscreen noremoteplayback"
+    ></video>
+
+    <div id="fallback">
+      <p>No se encontró el video de bienvenida.<br />Presione ESC para continuar.</p>
+    </div>
+
+    <p id="hint">ESC — omitir</p>
+
+    <script>
+      (function () {
+        const params = new URLSearchParams(window.location.search);
+        const videoSrc = params.get("src");
+        const video = document.getElementById("intro-video");
+        const fallback = document.getElementById("fallback");
+
+        /** Notifica al proceso principal y evita llamadas duplicadas. */
+        let notified = false;
+        function finish(skipped) {
+          if (notified || !window.splashApi) return;
+          notified = true;
+          if (skipped) {
+            window.splashApi.notifySkipped();
+          } else {
+            window.splashApi.notifyFinished();
+          }
+        }
+
+        // ESC en cualquier momento → ir al menú principal
+        document.addEventListener("keydown", function (event) {
+          if (event.key === "Escape") {
+            event.preventDefault();
+            finish(true);
+          }
+        });
+
+        if (!videoSrc) {
+          fallback.style.display = "flex";
+          return;
+        }
+
+        video.src = videoSrc;
+        video.loop = false;
+
+        // Sin controles nativos del navegador
+        video.controls = false;
+
+        video.addEventListener("ended", function () {
+          finish(false);
+        });
+
+        video.addEventListener("error", function () {
+          fallback.style.display = "flex";
+        });
+
+        // Intento de reproducción automática
+        video.play().catch(function () {
+          // Algunos sistemas exigen muted para autoplay; reintentar silenciado
+          video.muted = true;
+          video.play().catch(function () {
+            fallback.style.display = "flex";
+          });
+        });
+      })();
+    </script>
+  </body>
+</html>
