@@ -4,7 +4,7 @@ App nativa para técnicos de campo. Usa **Capacitor** y carga el módulo `/tecni
 
 ## Opción rápida — PWA (sin Play Store)
 
-1. En el celular abra: `https://infinity-operaciones.onrender.com/login?app=tecnico`
+1. En el celular abra: `https://infinity-operaciones-b3ij.onrender.com/login?app=tecnico`
 2. **Android (Chrome):** Menú → *Instalar app* / *Agregar a pantalla de inicio*
 3. **iPhone (Safari):** Compartir → *Agregar a pantalla de inicio*
 
@@ -44,7 +44,7 @@ npm install
 Edite `.env` si usa otro dominio:
 
 ```
-CAPACITOR_SERVER_URL=https://infinity-operaciones.onrender.com
+CAPACITOR_SERVER_URL=https://infinity-operaciones-b3ij.onrender.com
 ```
 
 ### 2. Generar iconos y splash

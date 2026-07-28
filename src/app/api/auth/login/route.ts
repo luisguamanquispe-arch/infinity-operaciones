@@ -15,7 +15,7 @@ export async function POST(request: Request) {
     }
 
     const emailNorm = String(email).trim().toLowerCase();
-    const passwordNorm = String(password);
+    const passwordNorm = String(password).trim();
 
     const usuario = await prisma.usuario.findUnique({
       where: { email: emailNorm },
@@ -36,6 +36,15 @@ export async function POST(request: Request) {
     const valid = await bcrypt.compare(passwordNorm, usuario.passwordHash);
     if (!valid) {
       return NextResponse.json({ error: "Credenciales inválidas" }, { status: 401 });
+    }
+
+    if (usuario.rol === "TECNICO" && !usuario.tecnico) {
+      await prisma.tecnico.create({
+        data: {
+          usuarioId: usuario.id,
+          estadoActual: "DISPONIBLE",
+        },
+      });
     }
 
     const token = await createToken({

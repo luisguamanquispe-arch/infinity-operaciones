@@ -49,3 +49,8 @@ Write-Host "Prueba login:" -ForegroundColor Cyan
 Write-Host "  $base/login"
 Write-Host "  admin@infinity.ec / admin123"
 Write-Host ""
+Write-Host "App técnicos (si no hay técnicos en la base):" -ForegroundColor Cyan
+Write-Host "  POST $base/api/setup/seed?token=SETUP_TOKEN&ensure-tecnico=1"
+Write-Host "  Demo: tecnico@infinity.ec / tecnico123"
+Write-Host "  Cree técnicos reales en /gerencia/tecnicos/nuevo"
+Write-Host ""

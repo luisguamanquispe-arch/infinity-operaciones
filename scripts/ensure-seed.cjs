@@ -5,6 +5,7 @@
  */
 const { PrismaClient } = require("@prisma/client");
 const bcrypt = require("bcryptjs");
+const { ensureBootstrapTecnico } = require("./bootstrap-tecnico.cjs");
 
 const BOOTSTRAP = [
   {
@@ -38,23 +39,34 @@ async function main() {
     const count = await prisma.usuario.count();
     if (count > 0) {
       console.log(`[Seed] ${count} usuario(s) existentes — seed omitido.`);
-      return;
+    } else {
+      console.log("[Seed] Base vacía — creando usuarios de acceso...");
+      for (const u of BOOTSTRAP) {
+        const passwordHash = await bcrypt.hash(u.password, 10);
+        await prisma.usuario.create({
+          data: {
+            email: u.email,
+            passwordHash,
+            nombre: u.nombre,
+            rol: u.rol,
+          },
+        });
+        console.log(`[Seed]   + ${u.email} / ${u.password}`);
+      }
     }
 
-    console.log("[Seed] Base vacía — creando usuarios de acceso...");
-    for (const u of BOOTSTRAP) {
-      const passwordHash = await bcrypt.hash(u.password, 10);
-      await prisma.usuario.create({
-        data: {
-          email: u.email,
-          passwordHash,
-          nombre: u.nombre,
-          rol: u.rol,
-        },
-      });
-      console.log(`[Seed]   + ${u.email} / ${u.password}`);
+    const tecnico = await ensureBootstrapTecnico(prisma);
+    if (tecnico.skipped) {
+      console.log(`[Seed] ${tecnico.count} técnico(s) activo(s) — bootstrap técnico omitido.`);
+    } else if (tecnico.repaired) {
+      console.log(
+        `[Seed] Técnico reparado: ${tecnico.email} / ${tecnico.password} (cámbielo en gerencia)`
+      );
+    } else if (tecnico.created) {
+      console.log(
+        `[Seed] Técnico demo creado: ${tecnico.email} / ${tecnico.password} (cámbielo en gerencia)`
+      );
     }
-    console.log("[Seed] Listo. Cambia las claves en /gerencia/usuarios");
   } finally {
     await prisma.$disconnect();
   }

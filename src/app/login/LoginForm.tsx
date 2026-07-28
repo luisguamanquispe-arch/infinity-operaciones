@@ -54,14 +54,25 @@ export function LoginForm({ esAppTecnico: esAppTecnicoInicial }: LoginFormProps)
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email, password }),
+          credentials: "include",
+          body: JSON.stringify({
+            email: email.trim().toLowerCase(),
+            password: password.trim(),
+          }),
         },
         2
       );
 
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error || "Error al iniciar sesión");
+        if (res.status === 401 && esAppTecnico) {
+          setError(
+            data.error ||
+              "Credenciales inválidas. Pida a gerencia que lo registre en Técnicos → Nuevo o restablezca la clave en Usuarios."
+          );
+        } else {
+          setError(data.error || "Error al iniciar sesión");
+        }
         return;
       }
 
