@@ -6,6 +6,7 @@ import {
   asignarTecnicosTicket,
   nombresTecnicosTicket,
   notificarTecnicosNuevos,
+  publicarOrdenesActivasATecnicos,
   sincronizarAsignacionesActivas,
   tecnicoIdsFromTicket,
   ticketIncludeTecnicos,
@@ -66,6 +67,25 @@ export async function GET() {
         sinAsignar: ids.length === 0,
       };
     }),
+  });
+}
+
+/**
+ * Republica todas las órdenes activas a las apps de los técnicos asignados.
+ * Repara ids huérfanos y fuerza filas TicketTecnico.
+ */
+export async function POST() {
+  const session = await getFullSession();
+  if (!session || !["SUPERVISOR", "ADMIN"].includes(session.rol)) {
+    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  }
+
+  const result = await publicarOrdenesActivasATecnicos();
+
+  return NextResponse.json({
+    ok: true,
+    mensaje: `Órdenes publicadas a las apps: ${result.republicados} tickets · rematch por nombre: ${result.rematchNombre}`,
+    ...result,
   });
 }
 

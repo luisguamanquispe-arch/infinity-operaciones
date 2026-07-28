@@ -330,7 +330,12 @@ export default function SupervisorDashboard() {
             )}
           </h2>
           <p className="text-xs text-slate-500 mb-3">
-            Semáforo: amarillo leído · azul en proceso · verde terminado
+            Semáforo: amarillo leído · azul en proceso · verde terminado. Si no aparecen en la
+            app del técnico, abra{" "}
+            <Link href="/supervisor/asignaciones" className="text-infinity-600 font-medium underline">
+              Destinar tickets → Actualizar y enviar a apps
+            </Link>
+            .
           </p>
           <div className="bg-white rounded-xl border overflow-hidden">
             <table className="w-full text-sm">

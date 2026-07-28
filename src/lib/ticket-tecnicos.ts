@@ -110,10 +110,134 @@ export async function notificarTecnicosNuevos(
 
 export function whereTecnicoAsignado(tecnicoId: string): Prisma.TicketWhereInput {
   return {
-    OR: [
-      { tecnicoId },
-      { tecnicos: { some: { tecnicoId } } },
-    ],
+    OR: [{ tecnicoId }, { tecnicos: { some: { tecnicoId } } }],
+  };
+}
+
+function normalizarNombreTecnico(nombre: string): string {
+  return nombre
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toUpperCase();
+}
+
+/**
+ * Fuerza que cada ticket activo tenga filas TicketTecnico coherentes
+ * y reasigna por nombre si algún id quedó huérfano (perfil recreado).
+ * Devuelve qué códigos verá cada técnico en "Mis órdenes".
+ */
+export async function publicarOrdenesActivasATecnicos(): Promise<{
+  sync: { revisados: number; reparados: number; sinAsignar: number };
+  republicados: number;
+  rematchNombre: number;
+  porTecnico: {
+    tecnicoId: string;
+    nombre: string;
+    email: string;
+    codigos: string[];
+  }[];
+  tickets: {
+    codigo: string;
+    cliente: string;
+    estado: string;
+    tecnicoIds: string[];
+    tecnicosLabel: string;
+  }[];
+}> {
+  const sync = await sincronizarAsignacionesActivas();
+
+  const tecnicos = await prisma.tecnico.findMany({
+    where: { usuario: { activo: true, rol: "TECNICO" } },
+    include: { usuario: { select: { nombre: true, email: true } } },
+    orderBy: { usuario: { nombre: "asc" } },
+  });
+
+  const idsValidos = new Set(tecnicos.map((t) => t.id));
+  const porNombre = new Map<string, string>();
+  for (const t of tecnicos) {
+    porNombre.set(normalizarNombreTecnico(t.usuario.nombre), t.id);
+  }
+
+  const activos = await prisma.ticket.findMany({
+    where: { estado: { in: ["PENDIENTE", "LEIDO", "EN_PROCESO"] } },
+    include: {
+      cliente: { select: { nombre: true } },
+      tecnicos: {
+        include: {
+          tecnico: { include: { usuario: { select: { nombre: true } } } },
+        },
+        orderBy: { asignadoEn: "asc" as const },
+      },
+      tecnico: { include: { usuario: { select: { nombre: true } } } },
+    },
+    orderBy: [{ prioridad: "asc" }, { createdAt: "asc" }],
+  });
+
+  let republicados = 0;
+  let rematchNombre = 0;
+
+  for (const ticket of activos) {
+    const idsActuales = tecnicoIdsFromTicket(ticket).filter((id) => idsValidos.has(id));
+    const label = nombresTecnicosTicket(ticket);
+    const desdeNombre =
+      label && label !== "Sin asignar"
+        ? label
+            .split(",")
+            .map((n) => porNombre.get(normalizarNombreTecnico(n)))
+            .filter((id): id is string => !!id)
+        : [];
+
+    const ids = [...new Set([...idsActuales, ...desdeNombre])];
+    if (desdeNombre.some((id) => !idsActuales.includes(id))) {
+      rematchNombre++;
+    }
+    if (ids.length === 0) continue;
+
+    await asignarTecnicosTicket(ticket.id, ids);
+    republicados++;
+  }
+
+  const actualizados = await prisma.ticket.findMany({
+    where: { estado: { in: ["PENDIENTE", "LEIDO", "EN_PROCESO"] } },
+    include: {
+      cliente: { select: { nombre: true } },
+      tecnicos: {
+        include: {
+          tecnico: { include: { usuario: { select: { nombre: true } } } },
+        },
+        orderBy: { asignadoEn: "asc" as const },
+      },
+      tecnico: { include: { usuario: { select: { nombre: true } } } },
+    },
+    orderBy: [{ prioridad: "asc" }, { createdAt: "asc" }],
+  });
+
+  const porTecnico = tecnicos.map((t) => {
+    const codigos = actualizados
+      .filter((ticket) => tecnicoAsignadoAlTicket(ticket, t.id))
+      .map((ticket) => ticket.codigo);
+    return {
+      tecnicoId: t.id,
+      nombre: t.usuario.nombre,
+      email: t.usuario.email,
+      codigos,
+    };
+  });
+
+  return {
+    sync,
+    republicados,
+    rematchNombre,
+    porTecnico,
+    tickets: actualizados.map((t) => ({
+      codigo: t.codigo,
+      cliente: t.cliente.nombre,
+      estado: t.estado,
+      tecnicoIds: tecnicoIdsFromTicket(t),
+      tecnicosLabel: nombresTecnicosTicket(t),
+    })),
   };
 }
 

@@ -251,6 +251,13 @@ export default function TecnicoDashboard() {
             Semáforo: amarillo leído · azul en proceso · verde terminado. Abra la
             orden para marcarla leída; inicie el cronómetro para pasar a en proceso.
           </p>
+          {ordenesPendientes.length === 0 && (
+            <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-3 mb-3">
+              No hay órdenes activas en su perfil. El supervisor debe pulsar{" "}
+              <strong>Actualizar y enviar a apps</strong> en Destinar tickets, y usted
+              debe ingresar con su usuario (ej. kevin@infinity.ec), no con la cuenta demo.
+            </p>
+          )}
           <TecnicoOrdenesPendientes ordenes={ordenesPendientes} />
         </section>
       </main>

@@ -5,7 +5,6 @@ import { calcularDuracionCronometro } from "@/lib/tickets";
 import { diaKey } from "@/lib/calendario";
 import {
   sincronizarAsignacionesActivas,
-  whereTecnicoAsignado,
 } from "@/lib/ticket-tecnicos";
 import { sincronizarTicketsConOrdenCerrada } from "@/lib/ticket-cerrado";
 
@@ -41,21 +40,29 @@ export async function GET() {
   const finHoy = new Date(hoy);
   finHoy.setHours(23, 59, 59, 999);
 
-  const asignado = whereTecnicoAsignado(session.tecnicoId);
+  const tecnicoId = session.tecnicoId;
+  const estadosActivos = ["PENDIENTE", "LEIDO", "EN_PROCESO"] as const;
 
   const [tecnico, activos, finalizadasHoy] = await Promise.all([
     prisma.tecnico.findUnique({
-      where: { id: session.tecnicoId },
+      where: { id: tecnicoId },
       select: {
         lat: true,
         lng: true,
-        usuario: { select: { nombre: true } },
+        usuario: { select: { nombre: true, email: true } },
       },
     }),
     prisma.ticket.findMany({
       where: {
-        ...asignado,
-        estado: { in: ["PENDIENTE", "LEIDO", "EN_PROCESO"] },
+        AND: [
+          { estado: { in: [...estadosActivos] } },
+          {
+            OR: [
+              { tecnicoId },
+              { tecnicos: { some: { tecnicoId } } },
+            ],
+          },
+        ],
       },
       include: {
         cliente: clienteSelect,
@@ -72,9 +79,16 @@ export async function GET() {
     }),
     prisma.ticket.count({
       where: {
-        ...asignado,
-        estado: { in: ["FINALIZADO", "CERRADO"] },
-        updatedAt: { gte: hoy, lte: finHoy },
+        AND: [
+          { estado: { in: ["FINALIZADO", "CERRADO"] } },
+          { updatedAt: { gte: hoy, lte: finHoy } },
+          {
+            OR: [
+              { tecnicoId },
+              { tecnicos: { some: { tecnicoId } } },
+            ],
+          },
+        ],
       },
     }),
   ]);
@@ -161,6 +175,13 @@ export async function GET() {
         finalizadas: finalizadasHoy,
         tiempoPromedioMin: 0,
         asignadas: activos.length,
+      },
+      /** Ayuda a verificar que la sesión del técnico coincide con las asignaciones. */
+      debugAsignacion: {
+        tecnicoId,
+        email: tecnico?.usuario.email ?? null,
+        ordenesActivas: activos.length,
+        codigos: activos.map((t) => t.codigo),
       },
       proximaOrden: proxima ? serializeAgenda(proxima) : null,
       agenda: agendaRaw.map(serializeAgenda),

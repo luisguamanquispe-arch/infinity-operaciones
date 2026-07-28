@@ -46,6 +46,10 @@ export default function AsignacionesPage() {
   const [error, setError] = useState("");
   const [soloSinAsignar, setSoloSinAsignar] = useState(false);
   const [syncInfo, setSyncInfo] = useState("");
+  const [publicando, setPublicando] = useState(false);
+  const [porTecnico, setPorTecnico] = useState<
+    { nombre: string; email: string; codigos: string[] }[]
+  >([]);
 
   const cargar = useCallback(async () => {
     setLoading(true);
@@ -71,8 +75,46 @@ export default function AsignacionesPage() {
     }
   }, []);
 
+  const publicarApps = useCallback(async () => {
+    setPublicando(true);
+    setError("");
+    setMensaje("");
+    try {
+      const res = await fetch("/api/supervisor/asignaciones", {
+        method: "POST",
+        cache: "no-store",
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "No se pudo publicar");
+      setMensaje(data.mensaje || "Órdenes publicadas a las apps");
+      setPorTecnico(data.porTecnico || []);
+      await cargar();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Error al publicar");
+    } finally {
+      setPublicando(false);
+    }
+  }, [cargar]);
+
   useEffect(() => {
-    void cargar();
+    void (async () => {
+      await cargar();
+      // Al abrir la pantalla, republica automáticamente a las apps
+      try {
+        const res = await fetch("/api/supervisor/asignaciones", {
+          method: "POST",
+          cache: "no-store",
+        });
+        const data = await res.json();
+        if (res.ok) {
+          setMensaje(data.mensaje || "Órdenes actualizadas en apps");
+          setPorTecnico(data.porTecnico || []);
+          await cargar();
+        }
+      } catch {
+        /* la lista ya cargó; el botón manual queda disponible */
+      }
+    })();
   }, [cargar]);
 
   async function destinar(ticketId: string) {
@@ -118,15 +160,30 @@ export default function AsignacionesPage() {
           >
             <ArrowLeft className="w-4 h-4" /> Panel supervisor
           </Link>
-          <button
-            type="button"
-            onClick={() => void cargar()}
-            disabled={loading}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border text-sm font-medium hover:bg-white disabled:opacity-50"
-          >
-            <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-            Actualizar
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => void publicarApps()}
+              disabled={loading || publicando}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold disabled:opacity-50"
+            >
+              {publicando ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <UserCheck className="w-4 h-4" />
+              )}
+              Actualizar y enviar a apps
+            </button>
+            <button
+              type="button"
+              onClick={() => void cargar()}
+              disabled={loading}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border text-sm font-medium hover:bg-white disabled:opacity-50"
+            >
+              <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+              Actualizar lista
+            </button>
+          </div>
         </div>
 
         <div className="bg-sky-50 border border-sky-200 rounded-xl p-4 text-sm text-sky-950 space-y-1">
@@ -140,12 +197,39 @@ export default function AsignacionesPage() {
               Pulse <strong>Destinar a app</strong>. El ticket queda asignado y se sincroniza.
             </li>
             <li>
-              Cada técnico lo verá en su app:{" "}
+              Pulse <strong>Actualizar y enviar a apps</strong> para republicar todas las órdenes
+              activas (ej. ST-1002) a Kevin, David, Sergio, etc.
+            </li>
+            <li>
+              Cada técnico refresca su app:{" "}
               <code className="bg-white/80 px-1 rounded">/login?app=tecnico</code> → Mis órdenes.
             </li>
           </ol>
           {syncInfo && <p className="text-xs text-sky-800 pt-1">{syncInfo}</p>}
         </div>
+
+        {porTecnico.length > 0 && (
+          <div className="bg-white rounded-xl border p-4 space-y-2">
+            <p className="font-semibold text-sm">Qué verá cada técnico en Mis órdenes</p>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {porTecnico.map((t) => (
+                <div key={t.email} className="rounded-lg border p-3 text-sm">
+                  <p className="font-medium">{t.nombre}</p>
+                  <p className="text-xs text-slate-500">{t.email}</p>
+                  <p className="text-xs mt-1">
+                    {t.codigos.length === 0 ? (
+                      <span className="text-amber-700">Sin órdenes activas</span>
+                    ) : (
+                      <span className="text-emerald-700 font-medium">
+                        {t.codigos.join(", ")}
+                      </span>
+                    )}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         <label className="inline-flex items-center gap-2 text-sm text-slate-700">
           <input
