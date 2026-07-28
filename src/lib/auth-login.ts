@@ -8,6 +8,7 @@ import {
   setSessionCookie,
 } from "@/lib/auth";
 import { activarTecnicosRegistrados } from "@/lib/bootstrap-tecnico";
+import { asegurarIdentidadTecnico } from "@/lib/tecnico-identidad-e1";
 import {
   normalizeEmail,
   normalizePassword,
@@ -106,17 +107,33 @@ export async function authenticateOperacionesLogin(
       reparado.push("cuenta_activada");
     }
 
-    if (!usuario.tecnico) {
-      const tecnico = await db.tecnico.create({
-        data: {
-          usuarioId: usuario.id,
-          estadoActual: "DISPONIBLE",
-        },
-        select: { id: true },
-      });
-      usuario = { ...usuario, tecnico };
+    // F1/E1: identidad canónica (crea perfil si falta; NO aplica remaps en login)
+    const identidad = await asegurarIdentidadTecnico(usuario.id, {
+      db,
+      dryRunRemap: true,
+      aplicarRemap: false,
+    });
+    if (!identidad.ok) {
+      console.error("[Login][E1]", identidad.error, identidad.detalle);
+      return {
+        ok: false,
+        status: 403,
+        error:
+          identidad.error === "CONFLICT_MULTI_TECNICO"
+            ? "Su cuenta tiene perfiles de técnico duplicados. Contacte a gerencia."
+            : "No se pudo resolver el perfil de técnico. Contacte a gerencia.",
+      };
+    }
+    if (identidad.created) {
       reparado.push("perfil_tecnico");
     }
+    if (identidad.dryRunRemaps?.length) {
+      reparado.push("e1_remap_pendiente");
+    }
+    usuario = {
+      ...usuario,
+      tecnico: { id: identidad.tecnicoId },
+    };
   } else if (!usuario.activo) {
     return {
       ok: false,

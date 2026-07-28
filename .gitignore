@@ -11,3 +11,7 @@ next-env.d.ts
 /public/uploads/*
 !/public/uploads/.gitkeep
 .vercel
+
+# Recovery dumps (Fase 0 Plan Maestro)
+backups/
+

@@ -182,6 +182,8 @@ export async function GET() {
         email: tecnico?.usuario.email ?? null,
         ordenesActivas: activos.length,
         codigos: activos.map((t) => t.codigo),
+        /** Señal E1: sesión válida pero 0 órdenes — revisar reconciliar-e1 */
+        posibleE1: activos.length === 0,
       },
       proximaOrden: proxima ? serializeAgenda(proxima) : null,
       agenda: agendaRaw.map(serializeAgenda),

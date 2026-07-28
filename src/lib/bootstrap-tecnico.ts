@@ -1,5 +1,6 @@
 import bcrypt from "bcryptjs";
 import type { PrismaClient } from "@prisma/client";
+import { asegurarIdentidadTecnico } from "@/lib/tecnico-identidad-e1";
 
 export const BOOTSTRAP_TECNICO = {
   email: "tecnico@infinity.ec",
@@ -7,7 +8,7 @@ export const BOOTSTRAP_TECNICO = {
   nombre: "TECNICO DEMO",
 } as const;
 
-/** Activa usuarios TECNICO registrados y repara perfil tecnico faltante. */
+/** Activa usuarios TECNICO registrados y repara perfil tecnico faltante (F1/E1). */
 export async function activarTecnicosRegistrados(prisma: PrismaClient) {
   const usuarios = await prisma.usuario.findMany({
     where: { rol: "TECNICO" },
@@ -16,6 +17,7 @@ export async function activarTecnicosRegistrados(prisma: PrismaClient) {
 
   const activados: string[] = [];
   const reparados: string[] = [];
+  const conflictos: string[] = [];
 
   for (const u of usuarios) {
     if (!u.activo) {
@@ -26,13 +28,16 @@ export async function activarTecnicosRegistrados(prisma: PrismaClient) {
       activados.push(u.email);
     }
     if (!u.tecnico) {
-      await prisma.tecnico.create({
-        data: {
-          usuarioId: u.id,
-          estadoActual: "DISPONIBLE",
-        },
+      const identidad = await asegurarIdentidadTecnico(u.id, {
+        db: prisma,
+        dryRunRemap: true,
+        aplicarRemap: false,
       });
-      reparados.push(u.email);
+      if (identidad.ok && identidad.created) {
+        reparados.push(u.email);
+      } else if (!identidad.ok) {
+        conflictos.push(`${u.email}: ${identidad.detalle}`);
+      }
     }
   }
 
@@ -40,6 +45,7 @@ export async function activarTecnicosRegistrados(prisma: PrismaClient) {
     total: usuarios.length,
     activados,
     reparados,
+    conflictos,
   };
 }
 

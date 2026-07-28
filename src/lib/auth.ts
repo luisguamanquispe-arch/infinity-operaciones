@@ -81,12 +81,21 @@ export async function getFullSession(): Promise<SessionUser | null> {
   if (!session) return null;
 
   if (session.rol === "TECNICO") {
-    const tecnico = await prisma.tecnico.findUnique({
+    const tecnicos = await prisma.tecnico.findMany({
       where: { usuarioId: session.id },
       select: { id: true },
+      take: 5,
     });
-    if (!tecnico) return null;
-    session.tecnicoId = tecnico.id;
+    if (tecnicos.length === 0) return null;
+    if (tecnicos.length > 1) {
+      console.error(
+        `[E1] CONFLICT_MULTI_TECNICO usuario=${session.id} ids=${tecnicos
+          .map((t) => t.id)
+          .join(",")}`
+      );
+      return null;
+    }
+    session.tecnicoId = tecnicos[0].id;
   }
 
   return session;
