@@ -1,5 +1,6 @@
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
+import { NextResponse } from "next/server";
 import { prisma } from "./prisma";
 import { getJwtSecret } from "./env";
 import type { Rol } from "@prisma/client";
@@ -42,17 +43,36 @@ export async function requireSession(roles?: Rol[]): Promise<SessionUser> {
 
 export async function setSessionCookie(token: string) {
   const cookieStore = await cookies();
-  cookieStore.set("session", token, {
+  cookieStore.set("session", token, sessionCookieOptions());
+}
+
+/** Opciones de cookie de sesión (compatibles Chrome / Firefox en HTTPS). */
+export function sessionCookieOptions() {
+  const secure =
+    process.env.NODE_ENV === "production" ||
+    process.env.VERCEL === "1" ||
+    process.env.COOKIE_SECURE === "1";
+  return {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
+    secure,
+    sameSite: "lax" as const,
     maxAge: 60 * 60 * 12,
     path: "/",
-  });
+  };
+}
+
+/** Adjunta la cookie al Response (más fiable en Firefox que cookies().set solo). */
+export function applySessionCookie(res: NextResponse, token: string) {
+  res.cookies.set("session", token, sessionCookieOptions());
+  return res;
 }
 
 export async function clearSessionCookie() {
   const cookieStore = await cookies();
+  cookieStore.set("session", "", {
+    ...sessionCookieOptions(),
+    maxAge: 0,
+  });
   cookieStore.delete("session");
 }
 

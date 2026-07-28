@@ -26,6 +26,10 @@ export function GitShaBadge() {
   return (
     <p className="text-center text-xs text-slate-400 pt-2">
       Versión servidor: <span className="font-mono">{sha}</span>
+      {" · "}
+      <a href="/api/health" className="underline hover:text-slate-600" target="_blank" rel="noreferrer">
+        /api/health
+      </a>
     </p>
   );
 }

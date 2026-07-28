@@ -28,7 +28,8 @@ export function marcarSplashVisto(): void {
   if (typeof document === "undefined") return;
   try {
     localStorage.setItem(SPLASH_STORAGE_KEY, "1");
-    document.cookie = `${SPLASH_COOKIE_NAME}=1; path=/; max-age=31536000; SameSite=Lax`;
+    const secure = typeof location !== "undefined" && location.protocol === "https:" ? "; Secure" : "";
+    document.cookie = `${SPLASH_COOKIE_NAME}=1; path=/; max-age=31536000; SameSite=Lax${secure}`;
   } catch {
     /* ignorar */
   }

@@ -6,7 +6,7 @@ import { BOOTSTRAP_TECNICO, ensureBootstrapTecnico } from "@/lib/bootstrap-tecni
 
 async function createBootstrapUsers() {
   const hashSup = await bcrypt.hash("super123", 10);
-  const hashAdmin = await bcrypt.hash("admin123", 10);
+  const hashAdmin = await bcrypt.hash("Admin2026@", 10);
   const hashHd = await bcrypt.hash("helpdesk123", 10);
 
   await prisma.usuario.create({
@@ -68,7 +68,7 @@ export async function POST(request: Request) {
 
     if (forceReset) {
       const hashSup = await bcrypt.hash("super123", 10);
-      const hashAdmin = await bcrypt.hash("admin123", 10);
+      const hashAdmin = await bcrypt.hash("Admin2026@", 10);
       const hashHd = await bcrypt.hash("helpdesk123", 10);
       const updates = [
         { email: "admin@infinity.ec", passwordHash: hashAdmin, nombre: "Gerencia Infinity", rol: Rol.ADMIN },
@@ -101,7 +101,7 @@ export async function POST(request: Request) {
         message: "Contraseñas bootstrap restablecidas",
         users: result,
         passwords: {
-          "admin@infinity.ec": "admin123",
+          "admin@infinity.ec": "Admin2026@",
           "supervisor@infinity.ec": "super123",
           "helpdesk@infinity.ec": "helpdesk123",
         },
@@ -155,7 +155,7 @@ export async function POST(request: Request) {
       }
       // Crear solo los bootstrap faltantes
       const hashSup = await bcrypt.hash("super123", 10);
-      const hashAdmin = await bcrypt.hash("admin123", 10);
+      const hashAdmin = await bcrypt.hash("Admin2026@", 10);
       const hashHd = await bcrypt.hash("helpdesk123", 10);
       const created: string[] = [];
       if (missing.includes("admin@infinity.ec")) {
@@ -196,7 +196,7 @@ export async function POST(request: Request) {
         message: "Usuarios bootstrap faltantes creados",
         created,
         passwords: {
-          "admin@infinity.ec": "admin123",
+          "admin@infinity.ec": "Admin2026@",
           "supervisor@infinity.ec": "super123",
           "helpdesk@infinity.ec": "helpdesk123",
         },
@@ -211,7 +211,7 @@ export async function POST(request: Request) {
       message: "Usuarios creados. Cambia las contraseñas en /gerencia/usuarios",
       users: [
         { email: "supervisor@infinity.ec", password: "super123", rol: "SUPERVISOR" },
-        { email: "admin@infinity.ec", password: "admin123", rol: "ADMIN" },
+        { email: "admin@infinity.ec", password: "Admin2026@", rol: "ADMIN" },
         { email: "helpdesk@infinity.ec", password: "helpdesk123", rol: "HELP_DESK" },
       ],
       tecnicoDemo: tecnico.skipped

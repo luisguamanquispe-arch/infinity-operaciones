@@ -96,7 +96,7 @@ export function LoginForm({ esAppTecnico: esAppTecnicoInicial }: LoginFormProps)
 
       if (esAppTecnico && data.user?.rol && data.user.rol !== "TECNICO") {
         setError("Esta app es solo para técnicos de campo.");
-        await fetch("/api/auth/logout", { method: "POST" });
+        await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
         return;
       }
 
@@ -104,8 +104,11 @@ export function LoginForm({ esAppTecnico: esAppTecnicoInicial }: LoginFormProps)
         sessionStorage.setItem("infinity-app-tecnico", "1");
       }
 
-      router.push(data.redirect);
-      router.refresh();
+      // Full navigation so Firefox applies Set-Cookie before protected routes
+      const dest = typeof data.redirect === "string" && data.redirect.startsWith("/")
+        ? data.redirect
+        : "/";
+      window.location.assign(dest);
     } catch {
       setError("El servidor está iniciando. Espere unos segundos e intente de nuevo.");
     } finally {

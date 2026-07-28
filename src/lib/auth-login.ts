@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
 import type { PrismaClient, Usuario } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { createToken, dashboardPath, setSessionCookie } from "@/lib/auth";
+import {
+  applySessionCookie,
+  createToken,
+  dashboardPath,
+  setSessionCookie,
+} from "@/lib/auth";
 import { activarTecnicosRegistrados } from "@/lib/bootstrap-tecnico";
 import {
   normalizeEmail,
@@ -25,6 +30,7 @@ export type AuthLoginResult =
       ok: true;
       user: { id: string; email: string; nombre: string; rol: string };
       redirect: string;
+      token: string;
       reparado?: string[];
     }
   | { ok: false; status: number; error: string };
@@ -127,6 +133,7 @@ export async function authenticateOperacionesLogin(
     tecnicoId: usuario.tecnico?.id,
   });
 
+  // Doble escritura: next/headers + Response (Firefox necesita Set-Cookie en el Response)
   await setSessionCookie(token);
 
   return {
@@ -138,6 +145,7 @@ export async function authenticateOperacionesLogin(
       rol: usuario.rol,
     },
     redirect: dashboardPath(usuario.rol),
+    token,
     reparado: reparado.length ? reparado : undefined,
   };
 }
@@ -151,9 +159,10 @@ export function authLoginJson(result: AuthLoginResult) {
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: result.status });
   }
-  return NextResponse.json({
+  const res = NextResponse.json({
     user: result.user,
     redirect: result.redirect,
     reparado: result.reparado,
   });
+  return applySessionCookie(res, result.token);
 }
