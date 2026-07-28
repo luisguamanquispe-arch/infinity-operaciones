@@ -43,11 +43,11 @@ export default function NuevoTecnicoPage() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        nombre: form.nombre,
-        email: form.email,
-        password: form.password,
-        telefono: form.telefono,
-        vehiculo: form.vehiculo,
+        nombre: form.nombre.trim(),
+        email: form.email.trim().toLowerCase(),
+        password: form.password.trim(),
+        telefono: form.telefono.trim(),
+        vehiculo: form.vehiculo.trim(),
       }),
     });
 
@@ -130,8 +130,8 @@ export default function NuevoTecnicoPage() {
           <section className="space-y-3 pt-2 border-t">
             <h2 className="font-semibold">Acceso al sistema</h2>
             <p className="text-xs text-slate-500">
-              El técnico usará este email y contraseña para ingresar en{" "}
-              <strong>/login</strong> y ver su panel de órdenes.
+              El técnico ingresa en la app móvil con este email y contraseña:{" "}
+              <strong>/login?app=tecnico</strong>
             </p>
 
             <div>

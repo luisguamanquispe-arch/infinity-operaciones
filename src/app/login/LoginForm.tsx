@@ -65,11 +65,15 @@ export function LoginForm({ esAppTecnico: esAppTecnicoInicial }: LoginFormProps)
         "/api/auth/login",
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            ...(esAppTecnico ? { "X-Infinity-App": "tecnico" } : {}),
+          },
           credentials: "include",
           body: JSON.stringify({
             email: email.trim().toLowerCase(),
             password: password.trim(),
+            ...(esAppTecnico ? { app: "tecnico" } : {}),
           }),
         },
         2
@@ -80,8 +84,10 @@ export function LoginForm({ esAppTecnico: esAppTecnicoInicial }: LoginFormProps)
         if (res.status === 401 && esAppTecnico) {
           setError(
             data.error ||
-              "Credenciales inválidas. Pida a gerencia que lo registre en Técnicos → Nuevo o restablezca la clave en Usuarios."
+              "Email o contraseña incorrectos. Si acaba de crear el técnico, use exactamente la clave definida en Gerencia → Técnicos. Puede restablecerla en Usuarios y claves."
           );
+        } else if (res.status === 403 && esAppTecnico) {
+          setError(data.error || "Esta cuenta no puede usar la app de técnicos.");
         } else {
           setError(data.error || "Error al iniciar sesión");
         }

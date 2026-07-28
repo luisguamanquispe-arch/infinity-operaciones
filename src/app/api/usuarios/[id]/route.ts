@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { getFullSession } from "@/lib/auth";
+import { hashPassword, normalizePassword } from "@/lib/password";
 
 export async function PATCH(
   request: Request,
@@ -25,10 +25,15 @@ export async function PATCH(
   if (body.nombre?.trim()) updateData.nombre = body.nombre.trim();
 
   if (body.password) {
-    if (body.password.length < 6) {
+    const passwordNorm = normalizePassword(body.password);
+    if (passwordNorm.length < 6) {
       return NextResponse.json({ error: "Contraseña mínimo 6 caracteres" }, { status: 400 });
     }
-    updateData.passwordHash = await bcrypt.hash(body.password, 10);
+    try {
+      updateData.passwordHash = await hashPassword(passwordNorm);
+    } catch {
+      return NextResponse.json({ error: "Contraseña mínimo 6 caracteres" }, { status: 400 });
+    }
   }
 
   if (body.activo !== undefined) {

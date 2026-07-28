@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { getFullSession } from "@/lib/auth";
+import { hashPassword, normalizeEmail, normalizePassword } from "@/lib/password";
 
 const ROL_LABELS: Record<string, string> = {
   TECNICO: "Técnico",
@@ -43,7 +43,10 @@ export async function POST(request: Request) {
 
   const { email, nombre, password, rol } = await request.json();
 
-  if (!email || !nombre || !password || !rol) {
+  const emailNorm = normalizeEmail(email);
+  const passwordNorm = normalizePassword(password);
+
+  if (!emailNorm || !String(nombre).trim() || !passwordNorm) {
     return NextResponse.json({ error: "Todos los campos son obligatorios" }, { status: 400 });
   }
 
@@ -51,26 +54,34 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Rol inválido" }, { status: 400 });
   }
 
-  if (password.length < 6) {
+  if (passwordNorm.length < 6) {
     return NextResponse.json({ error: "Contraseña mínimo 6 caracteres" }, { status: 400 });
   }
 
   const existente = await prisma.usuario.findUnique({
-    where: { email: email.trim().toLowerCase() },
+    where: { email: emailNorm },
   });
   if (existente) {
     return NextResponse.json({ error: "Email ya registrado" }, { status: 409 });
   }
 
-  const passwordHash = await bcrypt.hash(password, 10);
+  let passwordHash: string;
+  try {
+    passwordHash = await hashPassword(passwordNorm);
+  } catch {
+    return NextResponse.json({ error: "Contraseña mínimo 6 caracteres" }, { status: 400 });
+  }
 
   const usuario = await prisma.usuario.create({
     data: {
-      email: email.trim().toLowerCase(),
-      nombre: nombre.trim(),
+      email: emailNorm,
+      nombre: String(nombre).trim(),
       passwordHash,
       rol,
-      ...(rol === "TECNICO" ? { tecnico: { create: {} } } : {}),
+      activo: true,
+      ...(rol === "TECNICO"
+        ? { tecnico: { create: { estadoActual: "DISPONIBLE" } } }
+        : {}),
     },
   });
 

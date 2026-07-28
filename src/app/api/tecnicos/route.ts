@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { getFullSession } from "@/lib/auth";
 import { enMayusculasGuardar } from "@/lib/mayusculas";
+import { hashPassword, normalizeEmail, normalizePassword } from "@/lib/password";
 
 export async function GET() {
   const session = await getFullSession();
@@ -20,6 +20,7 @@ export async function GET() {
   return NextResponse.json({
     tecnicos: tecnicos.map((t) => ({
       id: t.id,
+      usuarioId: isAdmin ? t.usuarioId : undefined,
       nombre: t.usuario.nombre,
       email: isAdmin ? t.usuario.email : undefined,
       telefono: t.telefono,
@@ -39,35 +40,46 @@ export async function POST(request: Request) {
   const body = await request.json();
   const { nombre, email, password, telefono, vehiculo } = body;
 
-  if (!nombre?.trim() || !email?.trim() || !password?.trim()) {
+  const nombreNorm = String(nombre ?? "").trim();
+  const emailNorm = normalizeEmail(email);
+  const passwordNorm = normalizePassword(password);
+
+  if (!nombreNorm || !emailNorm || !passwordNorm) {
     return NextResponse.json(
       { error: "Nombre, email y contraseña son obligatorios" },
       { status: 400 }
     );
   }
 
-  if (password.length < 6) {
+  if (passwordNorm.length < 6) {
     return NextResponse.json(
       { error: "La contraseña debe tener al menos 6 caracteres" },
       { status: 400 }
     );
   }
 
-  const emailNorm = email.trim().toLowerCase();
-
   const existente = await prisma.usuario.findUnique({ where: { email: emailNorm } });
   if (existente) {
     return NextResponse.json({ error: "Ya existe un usuario con ese email" }, { status: 409 });
   }
 
-  const passwordHash = await bcrypt.hash(password, 10);
+  let passwordHash: string;
+  try {
+    passwordHash = await hashPassword(passwordNorm);
+  } catch {
+    return NextResponse.json(
+      { error: "La contraseña debe tener al menos 6 caracteres" },
+      { status: 400 }
+    );
+  }
 
   const usuario = await prisma.usuario.create({
     data: {
       email: emailNorm,
       passwordHash,
-      nombre: enMayusculasGuardar(nombre),
+      nombre: enMayusculasGuardar(nombreNorm),
       rol: "TECNICO",
+      activo: true,
       tecnico: {
         create: {
           telefono: telefono?.trim() || null,
@@ -89,6 +101,7 @@ export async function POST(request: Request) {
         email: usuario.email,
         telefono: usuario.tecnico!.telefono,
         vehiculo: usuario.tecnico!.vehiculo,
+        appLogin: "https://infinity-operaciones-b3ij.onrender.com/login?app=tecnico",
       },
     },
     { status: 201 }
