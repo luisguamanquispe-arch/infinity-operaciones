@@ -248,15 +248,21 @@ export default function TecnicoDashboard() {
         <section>
           <h2 className="font-semibold mb-1">Mis órdenes de trabajo</h2>
           <p className="text-sm text-slate-500 mb-3">
-            Semáforo: amarillo leído · azul en proceso · verde terminado. Abra la
-            orden para marcarla leída; inicie el cronómetro para pasar a en proceso.
+            Órdenes sin horario fijo. Las programadas están arriba en Agenda. Semáforo:
+            amarillo leído · azul en proceso · verde terminado.
           </p>
           {ordenesPendientes.length === 0 && (
-            <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-3 mb-3">
-              No hay órdenes activas en su perfil. El supervisor debe pulsar{" "}
-              <strong>Actualizar y enviar a apps</strong> en Destinar tickets, y usted
-              debe ingresar con su usuario (ej. kevin@infinity.ec), no con la cuenta demo.
-            </p>
+            <div className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-3 mb-3">
+              {agenda.length > 0 ? (
+                <p>No hay órdenes sin programar. Revise la Agenda de arriba.</p>
+              ) : (
+                <p>
+                  No hay órdenes activas en su perfil. El supervisor debe pulsar{" "}
+                  <strong>Actualizar y enviar a apps</strong> en Destinar tickets, y usted
+                  debe ingresar con su usuario (ej. kevin@infinity.ec), no con la cuenta demo.
+                </p>
+              )}
+            </div>
           )}
           <TecnicoOrdenesPendientes ordenes={ordenesPendientes} />
         </section>

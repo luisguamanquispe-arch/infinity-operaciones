@@ -148,6 +148,10 @@ export async function GET() {
   });
 
   const ordenes = activos.map(serializeTicket);
+  // F7/E7: Mis órdenes = sin horario; Agenda = con programadoEn (sin duplicar).
+  const ordenesSinProgramar = activos
+    .filter((t) => !t.programadoEn)
+    .map(serializeTicket);
 
   return NextResponse.json(
     {
@@ -175,8 +179,9 @@ export async function GET() {
       proximaOrden: proxima ? serializeAgenda(proxima) : null,
       agenda: agendaRaw.map(serializeAgenda),
       activosMapa: activos.map(serializeActivoMapa),
-      /** Órdenes activas del técnico (pendientes + en proceso) para la app de campo. */
-      ordenesPendientes: ordenes,
+      /** Órdenes activas sin fecha programada (las programadas van en Agenda). */
+      ordenesPendientes: ordenesSinProgramar,
+      /** Todas las activas (mapa / compat). */
       tickets: ordenes,
     },
     {
