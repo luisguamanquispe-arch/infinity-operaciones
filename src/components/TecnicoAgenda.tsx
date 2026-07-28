@@ -91,7 +91,8 @@ export function TecnicoAgenda({ tickets, proximaOrden }: TecnicoAgendaProps) {
                         {t.codigo}
                       </Link>
                       <span className="text-xs text-slate-500">{TIPO_LABELS[t.tipo]}</span>
-                      {prog === "vencida" && t.estado === "PENDIENTE" && (
+                      {prog === "vencida" &&
+                        (t.estado === "PENDIENTE" || t.estado === "LEIDO") && (
                         <span className="inline-flex items-center gap-1 text-xs text-red-600 font-medium">
                           <AlertCircle className="w-3 h-3" />
                           Hora pasada
@@ -111,7 +112,9 @@ export function TecnicoAgenda({ tickets, proximaOrden }: TecnicoAgendaProps) {
                       className={cn(
                         "font-bold text-lg",
                         prog === "proxima" && "text-infinity-600",
-                        prog === "vencida" && t.estado === "PENDIENTE" && "text-red-600",
+                        prog === "vencida" &&
+                          (t.estado === "PENDIENTE" || t.estado === "LEIDO") &&
+                          "text-red-600",
                         prog === "futura" && "text-slate-800"
                       )}
                     >

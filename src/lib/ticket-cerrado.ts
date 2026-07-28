@@ -63,7 +63,7 @@ export async function verificarTicketEditable(
 export async function sincronizarTicketsConOrdenCerrada(): Promise<number> {
   const result = await prisma.ticket.updateMany({
     where: {
-      estado: { in: ["PENDIENTE", "EN_PROCESO", "FINALIZADO"] },
+      estado: { in: ["PENDIENTE", "LEIDO", "EN_PROCESO", "FINALIZADO"] },
       orden: { finalizadoEn: { not: null } },
     },
     data: { estado: "CERRADO" },

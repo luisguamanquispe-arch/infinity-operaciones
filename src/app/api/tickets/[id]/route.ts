@@ -226,7 +226,14 @@ export async function GET(
 
 const TIPOS_VALIDOS = ["INSTALACION", "SOPORTE", "INFRAESTRUCTURA", "MIGRACION", "RECONEXION", "RETIRO", "CORTE"];
 const PRIORIDADES_VALIDAS = ["ALTA", "MEDIA", "BAJA"];
-const ESTADOS_VALIDOS = ["PENDIENTE", "EN_PROCESO", "FINALIZADO", "CERRADO", "CANCELADO"];
+const ESTADOS_VALIDOS = [
+  "PENDIENTE",
+  "LEIDO",
+  "EN_PROCESO",
+  "FINALIZADO",
+  "CERRADO",
+  "CANCELADO",
+];
 
 function parseTecnicoIds(body: {
   tecnicoIds?: string[];

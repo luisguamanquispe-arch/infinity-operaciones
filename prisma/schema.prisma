@@ -47,6 +47,7 @@ enum Prioridad {
 
 enum EstadoTicket {
   PENDIENTE
+  LEIDO
   EN_PROCESO
   FINALIZADO
   CERRADO

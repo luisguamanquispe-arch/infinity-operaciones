@@ -14,10 +14,11 @@ import {
 } from "@/components/tecnico/InstalacionOrdenSection";
 import { NovedadSoportePanel } from "@/components/tecnico/NovedadSoportePanel";
 import { EnviarReporteSoporte } from "@/components/tecnico/EnviarReporteSoporte";
-import { TIPO_LABELS, ESTADO_LABELS, formatDateTime, formatDuration } from "@/lib/utils";
+import { TIPO_LABELS, formatDateTime, formatDuration } from "@/lib/utils";
 import { fetchWithRetry } from "@/lib/compress-image";
 import { leerGpsActual } from "@/lib/gps-client";
 import { useTecnicoGpsTracking } from "@/hooks/useTecnicoGpsTracking";
+import { TicketSemaforo } from "@/components/TicketSemaforo";
 import {
   materialEsPatchcord,
   materialRequiereDetalle,
@@ -530,16 +531,19 @@ export default function OrdenPage() {
           <Link href="/tecnico" className="p-1 hover:bg-white/10 rounded-lg">
             <ArrowLeft className="w-5 h-5" />
           </Link>
-          <div>
+          <div className="flex-1 min-w-0">
             <h1 className="font-bold">{ticket.codigo}</h1>
             <p className="text-infinity-200 text-sm">
-              {TIPO_LABELS[ticket.tipo]} — {ESTADO_LABELS[ticket.estado]}
+              {TIPO_LABELS[ticket.tipo]}
               {esInstalacion && (
                 <span className="ml-2 inline-block px-2 py-0.5 rounded bg-sky-500/30 text-sky-100 text-xs font-semibold">
                   Nueva instalación
                 </span>
               )}
             </p>
+            <div className="mt-1.5 [&_span.text-xs]:text-amber-100">
+              <TicketSemaforo estado={ticket.estado} size="md" />
+            </div>
           </div>
         </div>
       </header>

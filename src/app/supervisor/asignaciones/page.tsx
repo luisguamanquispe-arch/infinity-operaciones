@@ -12,7 +12,8 @@ import {
 } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
 import { TecnicoMultiSelect } from "@/components/TecnicoMultiSelect";
-import { ESTADO_LABELS, PRIORIDAD_LABELS, TIPO_LABELS, formatDateTime } from "@/lib/utils";
+import { TicketSemaforo } from "@/components/TicketSemaforo";
+import { PRIORIDAD_LABELS, TIPO_LABELS, formatDateTime } from "@/lib/utils";
 
 type TecnicoOpt = {
   id: string;
@@ -211,9 +212,7 @@ export default function AsignacionesPage() {
                       >
                         {PRIORIDAD_LABELS[t.prioridad]}
                       </span>
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-800">
-                        {ESTADO_LABELS[t.estado]}
-                      </span>
+                      <TicketSemaforo estado={t.estado} />
                       {t.sinAsignar && (
                         <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 font-medium">
                           Sin técnico

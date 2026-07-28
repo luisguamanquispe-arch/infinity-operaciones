@@ -6,7 +6,8 @@ import { Loader2, AlertTriangle, CheckCircle, Clock, Users, Plus, FileText, Cale
 import Link from "next/link";
 import { AppHeader } from "@/components/AppHeader";
 import { StatCard } from "@/components/StatCard";
-import { ESTADO_LABELS, ESTADO_TECNICO_LABELS, PRIORIDAD_LABELS } from "@/lib/utils";
+import { TicketSemaforo } from "@/components/TicketSemaforo";
+import { ESTADO_TECNICO_LABELS, PRIORIDAD_LABELS } from "@/lib/utils";
 import { fetchJson } from "@/lib/fetch-json-client";
 
 const MapInner = dynamic(() => import("@/components/MapInner"), {
@@ -318,7 +319,7 @@ export default function SupervisorDashboard() {
 
         {/* Tickets activos */}
         <section>
-          <h2 className="font-semibold mb-3 flex items-center gap-2">
+          <h2 className="font-semibold mb-1 flex items-center gap-2">
             <AlertTriangle className="w-4 h-4" />
             Tickets activos
             {data.tickets.some((t) => t.novedadPendiente) && (
@@ -327,6 +328,9 @@ export default function SupervisorDashboard() {
               </span>
             )}
           </h2>
+          <p className="text-xs text-slate-500 mb-3">
+            Semáforo: amarillo leído · azul en proceso · verde terminado
+          </p>
           <div className="bg-white rounded-xl border overflow-hidden">
             <table className="w-full text-sm">
               <thead className="bg-slate-50">
@@ -335,7 +339,7 @@ export default function SupervisorDashboard() {
                   <th className="text-left p-3">Cliente</th>
                   <th className="text-left p-3 hidden sm:table-cell">Técnicos</th>
                   <th className="text-left p-3">Prioridad</th>
-                  <th className="text-left p-3">Estado</th>
+                  <th className="text-left p-3">Semáforo</th>
                   <th className="text-left p-3"></th>
                 </tr>
               </thead>
@@ -365,7 +369,9 @@ export default function SupervisorDashboard() {
                       {t.tecnicosLabel}
                     </td>
                     <td className="p-3">{PRIORIDAD_LABELS[t.prioridad]}</td>
-                    <td className="p-3">{ESTADO_LABELS[t.estado]}</td>
+                    <td className="p-3">
+                      <TicketSemaforo estado={t.estado} />
+                    </td>
                     <td className="p-3">
                       <div className="flex flex-wrap items-center gap-2">
                         {t.novedadPendiente && (

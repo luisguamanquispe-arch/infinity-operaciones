@@ -248,7 +248,8 @@ export default function TecnicoDashboard() {
         <section>
           <h2 className="font-semibold mb-1">Mis órdenes de trabajo</h2>
           <p className="text-sm text-slate-500 mb-3">
-            Tickets activos (pendientes y en proceso) destinados a usted
+            Semáforo: amarillo leído · azul en proceso · verde terminado. Abra la
+            orden para marcarla leída; inicie el cronómetro para pasar a en proceso.
           </p>
           <TecnicoOrdenesPendientes ordenes={ordenesPendientes} />
         </section>

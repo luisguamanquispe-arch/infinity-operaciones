@@ -142,7 +142,7 @@ export async function sincronizarAsignacionesTicket(ticketId: string): Promise<s
 }
 
 /**
- * Repara todos los tickets activos (PENDIENTE / EN_PROCESO):
+ * Repara todos los tickets activos (PENDIENTE / LEIDO / EN_PROCESO):
  * - Si tienen tecnicoId pero falta fila en TicketTecnico, la crea.
  * - Si solo hay filas en TicketTecnico, alinea tecnicoId al primero.
  * Así aparecen en la app de cada técnico designado.
@@ -153,7 +153,7 @@ export async function sincronizarAsignacionesActivas(): Promise<{
   sinAsignar: number;
 }> {
   const activos = await prisma.ticket.findMany({
-    where: { estado: { in: ["PENDIENTE", "EN_PROCESO"] } },
+    where: { estado: { in: ["PENDIENTE", "LEIDO", "EN_PROCESO"] } },
     select: {
       id: true,
       tecnicoId: true,

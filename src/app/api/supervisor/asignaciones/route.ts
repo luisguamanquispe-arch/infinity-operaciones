@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getFullSession } from "@/lib/auth";
+import { ESTADOS_ACTIVOS_TICKET } from "@/lib/ticket-gerencia";
 import {
   asignarTecnicosTicket,
   nombresTecnicosTicket,
@@ -24,7 +25,7 @@ export async function GET() {
 
   const [tickets, tecnicos] = await Promise.all([
     prisma.ticket.findMany({
-      where: { estado: { in: ["PENDIENTE", "EN_PROCESO"] } },
+      where: { estado: { in: [...ESTADOS_ACTIVOS_TICKET] } },
       include: ticketIncludeTecnicos,
       orderBy: [{ prioridad: "asc" }, { programadoEn: "asc" }, { createdAt: "asc" }],
       take: 200,
@@ -105,7 +106,7 @@ export async function PATCH(request: Request) {
   if (!ticket) {
     return NextResponse.json({ error: "Ticket no encontrado" }, { status: 404 });
   }
-  if (!["PENDIENTE", "EN_PROCESO"].includes(ticket.estado)) {
+  if (!(ESTADOS_ACTIVOS_TICKET as readonly string[]).includes(ticket.estado)) {
     return NextResponse.json(
       { error: "Solo se pueden destinar tickets activos (pendiente o en proceso)" },
       { status: 400 }

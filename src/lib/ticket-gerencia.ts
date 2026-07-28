@@ -10,7 +10,7 @@ export const TIPOS_ELIMINABLES_GERENCIA: TipoTrabajo[] = [
   "RETIRO",
 ];
 
-export const ESTADOS_ACTIVOS_TICKET = ["PENDIENTE", "EN_PROCESO"] as const;
+export const ESTADOS_ACTIVOS_TICKET = ["PENDIENTE", "LEIDO", "EN_PROCESO"] as const;
 
 export function ticketEliminableEnGerencia(tipo: TipoTrabajo): boolean {
   return TIPOS_ELIMINABLES_GERENCIA.includes(tipo);

@@ -79,10 +79,10 @@ export function Cronometro({
           {readOnly
             ? "Tiempo registrado por el técnico que reportó el ticket"
             : pendienteInicio
-              ? "Iniciando registro de tiempo…"
+              ? "Pulse Iniciar para pasar el semáforo a en proceso"
               : finalizado
                 ? "Tiempo efectivo registrado para este soporte"
-                : "Contando desde que abrió el ticket"}
+                : "Contando tiempo de trabajo en campo"}
         </p>
       </div>
 

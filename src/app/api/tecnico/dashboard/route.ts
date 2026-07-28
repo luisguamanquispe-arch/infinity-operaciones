@@ -55,7 +55,7 @@ export async function GET() {
     prisma.ticket.findMany({
       where: {
         ...asignado,
-        estado: { in: ["PENDIENTE", "EN_PROCESO"] },
+        estado: { in: ["PENDIENTE", "LEIDO", "EN_PROCESO"] },
       },
       include: {
         cliente: clienteSelect,
@@ -83,7 +83,9 @@ export async function GET() {
     (t) => t.programadoEn && diaKey(t.programadoEn) === diaKey(new Date())
   ).length;
 
-  const pendientes = activos.filter((t) => t.estado === "PENDIENTE").length;
+  const pendientes = activos.filter(
+    (t) => t.estado === "PENDIENTE" || t.estado === "LEIDO"
+  ).length;
   const enProceso = activos.filter((t) => t.estado === "EN_PROCESO").length;
 
   const agendaRaw = activos
@@ -93,9 +95,11 @@ export async function GET() {
   const ahora = Date.now();
   const proxima =
     agendaRaw.find(
-      (t) => t.estado === "PENDIENTE" && t.programadoEn!.getTime() >= ahora - 15 * 60 * 1000
+      (t) =>
+        (t.estado === "PENDIENTE" || t.estado === "LEIDO") &&
+        t.programadoEn!.getTime() >= ahora - 15 * 60 * 1000
     ) ??
-    agendaRaw.find((t) => t.estado === "PENDIENTE") ??
+    agendaRaw.find((t) => t.estado === "PENDIENTE" || t.estado === "LEIDO") ??
     agendaRaw.find((t) => t.estado === "EN_PROCESO") ??
     null;
 

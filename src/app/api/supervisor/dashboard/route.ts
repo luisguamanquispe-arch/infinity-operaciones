@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getFullSession } from "@/lib/auth";
 
+import { ESTADOS_ACTIVOS_TICKET } from "@/lib/ticket-gerencia";
 import { nombresTecnicosTicket, ticketIncludeTecnicos } from "@/lib/ticket-tecnicos";
 import { sincronizarTicketsConOrdenCerrada } from "@/lib/ticket-cerrado";
 import { TIPO_NOVEDAD_LABELS } from "@/lib/novedad-ticket";
@@ -17,17 +18,18 @@ export async function GET() {
   const now = new Date();
   const hoy = new Date(now);
   hoy.setHours(0, 0, 0, 0);
+  const activos = [...ESTADOS_ACTIVOS_TICKET];
 
   const [abiertos, cerrados, vencidos, tecnicos, ticketsRecientes] = await Promise.all([
     prisma.ticket.count({
-      where: { estado: { in: ["PENDIENTE", "EN_PROCESO"] } },
+      where: { estado: { in: activos } },
     }),
     prisma.ticket.count({
       where: { estado: "CERRADO", updatedAt: { gte: hoy } },
     }),
     prisma.ticket.count({
       where: {
-        estado: { in: ["PENDIENTE", "EN_PROCESO"] },
+        estado: { in: activos },
         slaVenceEn: { lt: now },
       },
     }),
@@ -35,7 +37,7 @@ export async function GET() {
       include: { usuario: true },
     }),
     prisma.ticket.findMany({
-      where: { estado: { in: ["PENDIENTE", "EN_PROCESO"] } },
+      where: { estado: { in: activos } },
       include: ticketIncludeTecnicos,
       orderBy: { prioridad: "asc" },
       take: 20,

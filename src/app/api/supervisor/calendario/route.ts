@@ -17,9 +17,10 @@ import {
   format,
 } from "date-fns";
 import { es } from "date-fns/locale";
+import { ESTADOS_ACTIVOS_TICKET } from "@/lib/ticket-gerencia";
 import { mensajeErrorPrisma } from "@/lib/prisma-errors";
 
-const ESTADOS_ACTIVOS = ["PENDIENTE", "EN_PROCESO"] as const;
+const ESTADOS_ACTIVOS = ESTADOS_ACTIVOS_TICKET;
 
 function ticketEnTecnico(
   t: { tecnicoId: string | null; tecnicos: { tecnicoId: string }[] },

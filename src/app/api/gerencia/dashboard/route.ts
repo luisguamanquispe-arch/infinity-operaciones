@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getFullSession } from "@/lib/auth";
+import { ESTADOS_ACTIVOS_TICKET } from "@/lib/ticket-gerencia";
 import { tecnicoIdsFromTicket } from "@/lib/ticket-tecnicos";
 
 export async function GET() {
@@ -22,7 +23,7 @@ export async function GET() {
     tecnicos,
   ] = await Promise.all([
     prisma.cliente.count({ where: { activo: true } }),
-    prisma.ticket.count({ where: { estado: { in: ["PENDIENTE", "EN_PROCESO"] } } }),
+    prisma.ticket.count({ where: { estado: { in: [...ESTADOS_ACTIVOS_TICKET] } } }),
     prisma.ticket.count({
       where: { tipo: "INSTALACION", createdAt: { gte: inicioMes } },
     }),

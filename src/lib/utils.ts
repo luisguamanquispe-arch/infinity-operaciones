@@ -58,10 +58,11 @@ export const TIPO_LABELS: Record<string, string> = {
 };
 
 export const ESTADO_LABELS: Record<string, string> = {
-  PENDIENTE: "Pendiente",
+  PENDIENTE: "Por leer",
+  LEIDO: "Leído",
   EN_PROCESO: "En proceso",
-  FINALIZADO: "Finalizado",
-  CERRADO: "Cerrado",
+  FINALIZADO: "Terminado",
+  CERRADO: "Terminado",
   CANCELADO: "Cancelado",
 };
 

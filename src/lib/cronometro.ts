@@ -68,7 +68,7 @@ export async function iniciarCronometroTicket({
     },
   });
 
-  if (ticket.estado === "PENDIENTE") {
+  if (ticket.estado === "PENDIENTE" || ticket.estado === "LEIDO") {
     await prisma.ticket.update({
       where: { id: ticketId },
       data: { estado: "EN_PROCESO" },

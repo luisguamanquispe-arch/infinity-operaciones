@@ -2,7 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { ESTADO_LABELS, PRIORIDAD_LABELS, TIPO_LABELS, formatDateTime } from "@/lib/utils";
+import { PRIORIDAD_LABELS, TIPO_LABELS, formatDateTime } from "@/lib/utils";
+import { TicketSemaforo } from "@/components/TicketSemaforo";
 
 interface Ticket {
   id: string;
@@ -33,13 +34,6 @@ const FILTROS = [
   { id: "CORTE", label: "Cortes" },
   { id: "RECONEXION", label: "Reconexiones" },
 ];
-
-const estadoColor: Record<string, string> = {
-  PENDIENTE: "bg-amber-100 text-amber-800",
-  EN_PROCESO: "bg-blue-100 text-blue-800",
-  FINALIZADO: "bg-emerald-100 text-emerald-800",
-  CERRADO: "bg-slate-100 text-slate-600",
-};
 
 const prioridadColor: Record<string, string> = {
   ALTA: "text-red-600 font-semibold",
@@ -121,14 +115,7 @@ export function TicketList({ tickets, filtro, onFiltroChange, soloPendientes }: 
                       {PRIORIDAD_LABELS[t.prioridad]}
                     </td>
                     <td className="p-3">
-                      <span
-                        className={cn(
-                          "px-2 py-0.5 rounded-full text-xs font-medium",
-                          estadoColor[t.estado]
-                        )}
-                      >
-                        {ESTADO_LABELS[t.estado]}
-                      </span>
+                      <TicketSemaforo estado={t.estado} />
                     </td>
                   </tr>
                 ))

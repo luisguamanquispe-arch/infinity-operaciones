@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
 import { getFullSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { iniciarCronometroTicket } from "@/lib/cronometro";
 import { tecnicoAsignadoAlTicket } from "@/lib/ticket-tecnicos";
 import { asegurarReportadorOrden, infoReporteOrden } from "@/lib/ticket-reporte";
 import { verificarTicketEditable } from "@/lib/ticket-cerrado";
 
-/** Una sola vez al abrir la orden: reclama reporte (multi-técnico) e inicia cronómetro. */
+/**
+ * Al abrir la orden: reclama reporte (multi-técnico) y marca LEIDO (semáforo).
+ * No inicia el cronómetro: eso pasa al pulsar Iniciar (→ EN_PROCESO).
+ */
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -17,9 +19,8 @@ export async function POST(
   }
 
   const { id } = await params;
-  const body = await request.json().catch(() => ({}));
-  const lat = typeof body.lat === "number" ? body.lat : null;
-  const lng = typeof body.lng === "number" ? body.lng : null;
+  // GPS opcional en body (compat); no se usa al solo marcar leído
+  await request.json().catch(() => ({}));
 
   const ticket = await prisma.ticket.findUnique({
     where: { id },
@@ -52,15 +53,26 @@ export async function POST(
     );
   }
 
-  await iniciarCronometroTicket({
-    ticketId: id,
-    tecnicoId: session.tecnicoId,
-    usuarioId: session.id,
-    lat,
-    lng,
-  });
+  if (ticket.estado === "PENDIENTE") {
+    await prisma.ticket.update({
+      where: { id },
+      data: { estado: "LEIDO" },
+    });
+    await prisma.eventoTicket.create({
+      data: {
+        ticketId: id,
+        usuarioId: session.id,
+        accion: "TICKET_LEIDO",
+        metadata: "Técnico abrió la orden — semáforo: leído",
+      },
+    });
+  }
 
   const reporte = await infoReporteOrden(id, session.tecnicoId);
 
-  return NextResponse.json({ ok: true, reporte });
+  return NextResponse.json({
+    ok: true,
+    reporte,
+    estado: ticket.estado === "PENDIENTE" ? "LEIDO" : ticket.estado,
+  });
 }

@@ -25,7 +25,7 @@ interface ClienteBusqueda {
 }
 
 const TIPOS = ["SOPORTE", "INFRAESTRUCTURA", "INSTALACION", "RECONEXION", "CORTE", "MIGRACION", "RETIRO"];
-const ESTADOS = ["PENDIENTE", "EN_PROCESO", "FINALIZADO", "CERRADO", "CANCELADO"];
+const ESTADOS = ["PENDIENTE", "LEIDO", "EN_PROCESO", "FINALIZADO", "CERRADO", "CANCELADO"];
 
 export default function EditarTicketPage() {
   const { id } = useParams<{ id: string }>();
