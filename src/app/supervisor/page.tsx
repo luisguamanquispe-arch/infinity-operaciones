@@ -7,6 +7,7 @@ import Link from "next/link";
 import { AppHeader } from "@/components/AppHeader";
 import { StatCard } from "@/components/StatCard";
 import { TicketSemaforo } from "@/components/TicketSemaforo";
+import { GitShaBadge } from "@/components/GitShaBadge";
 import { ESTADO_TECNICO_LABELS, PRIORIDAD_LABELS } from "@/lib/utils";
 import { fetchJson } from "@/lib/fetch-json-client";
 
@@ -397,6 +398,9 @@ export default function SupervisorDashboard() {
           </div>
         </section>
       </main>
+      <div className="max-w-6xl mx-auto px-4 pb-4">
+        <GitShaBadge />
+      </div>
     </div>
   );
 }

@@ -1,4 +1,4 @@
-const { spawn } = require("child_process");
+const { spawn, spawnSync } = require("child_process");
 const fs = require("fs");
 const path = require("path");
 const { migrateDeploy } = require("./migrate-deploy.cjs");
@@ -32,8 +32,17 @@ if (!process.env.JWT_SECRET) {
 
 migrateDeploy(root);
 
+console.log("[startup] Asegurando enum LEIDO (semáforo)...");
+const ensure = spawnSync(process.execPath, [path.join(__dirname, "ensure-leido-enum.cjs")], {
+  cwd: root,
+  env: process.env,
+  stdio: "inherit",
+});
+if (ensure.status !== 0) {
+  console.warn(`[startup] ensure-leido-enum terminó con código ${ensure.status ?? 1}`);
+}
+
 console.log("[startup] Verificando usuarios iniciales...");
-const { spawnSync } = require("child_process");
 const seedResult = spawnSync(process.execPath, [path.join(__dirname, "ensure-seed.cjs")], {
   cwd: root,
   env: process.env,

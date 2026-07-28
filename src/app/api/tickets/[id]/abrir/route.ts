@@ -54,18 +54,32 @@ export async function POST(
   }
 
   if (ticket.estado === "PENDIENTE") {
-    await prisma.ticket.update({
-      where: { id },
-      data: { estado: "LEIDO" },
-    });
-    await prisma.eventoTicket.create({
-      data: {
-        ticketId: id,
-        usuarioId: session.id,
-        accion: "TICKET_LEIDO",
-        metadata: "Técnico abrió la orden — semáforo: leído",
-      },
-    });
+    try {
+      await prisma.ticket.update({
+        where: { id },
+        data: { estado: "LEIDO" },
+      });
+      await prisma.eventoTicket.create({
+        data: {
+          ticketId: id,
+          usuarioId: session.id,
+          accion: "TICKET_LEIDO",
+          metadata: "Técnico abrió la orden — semáforo: leído",
+        },
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("[abrir] No se pudo marcar LEIDO:", msg);
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "No se pudo marcar el ticket como leído. Falta migrar el enum LEIDO en la base de datos.",
+          detail: msg.includes("LEIDO") ? "enum_leido_missing" : "update_failed",
+        },
+        { status: 503 }
+      );
+    }
   }
 
   const reporte = await infoReporteOrden(id, session.tecnicoId);
