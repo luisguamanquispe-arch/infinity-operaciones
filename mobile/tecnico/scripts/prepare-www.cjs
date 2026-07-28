@@ -3,6 +3,7 @@ const path = require("path");
 
 const root = path.join(__dirname, "..");
 const envPath = path.join(root, ".env");
+/** Única producción — no usar …-b3ij-3z9n… */
 const serverDefault = "https://infinity-operaciones-b3ij.onrender.com";
 
 function readEnv() {
@@ -18,6 +19,14 @@ function readEnv() {
 
 const env = readEnv();
 const serverUrl = (env.CAPACITOR_SERVER_URL || serverDefault).replace(/\/$/, "");
+
+if (/b3ij-3z9n/i.test(serverUrl)) {
+  console.error(
+    "[prepare-www] ERROR: CAPACITOR_SERVER_URL apunta a 3z9n (decomisado). Use",
+    serverDefault
+  );
+  process.exit(1);
+}
 
 fs.writeFileSync(
   path.join(root, "www", "config.js"),

@@ -272,6 +272,24 @@ export async function PATCH(
 
   const updateData: Record<string, unknown> = {};
 
+  // Restaurar códigos tras migración entre entornos (SUPERVISOR/ADMIN).
+  if (typeof body.codigo === "string" && body.codigo.trim()) {
+    const codigoNuevo = body.codigo.trim().toUpperCase();
+    if (codigoNuevo !== ticket.codigo) {
+      const ocupado = await prisma.ticket.findFirst({
+        where: { codigo: codigoNuevo, NOT: { id } },
+        select: { id: true },
+      });
+      if (ocupado) {
+        return NextResponse.json(
+          { error: `El código ${codigoNuevo} ya está en uso` },
+          { status: 409 }
+        );
+      }
+      updateData.codigo = codigoNuevo;
+    }
+  }
+
   if (body.tipo && TIPOS_VALIDOS.includes(body.tipo)) updateData.tipo = body.tipo;
   if (body.prioridad && PRIORIDADES_VALIDAS.includes(body.prioridad)) {
     updateData.prioridad = body.prioridad;
