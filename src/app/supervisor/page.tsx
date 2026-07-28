@@ -141,7 +141,7 @@ export default function SupervisorDashboard() {
             className="flex items-center justify-center gap-2 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl transition sm:col-span-2 lg:col-span-4"
           >
             <Contact className="w-5 h-5" />
-            Clientes CRM — Importar desde Wispro
+            Clientes CRM — Importar Wispro (CSV/Excel)
           </Link>
         </div>
 

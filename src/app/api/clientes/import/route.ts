@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { getFullSession } from "@/lib/auth";
-import { decodeCsvBuffer, importClientesFromCsv } from "@/lib/clientes-import-wispro";
+import { importClientesFromBuffer } from "@/lib/clientes-import-wispro";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
 
-const MAX_BYTES = 15 * 1024 * 1024;
+const MAX_BYTES = 25 * 1024 * 1024;
 
 function isUploadFile(value: FormDataEntryValue | null): value is File {
   return (
@@ -30,7 +30,7 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           error:
-            "No se pudo leer el archivo (cuerpo demasiado grande o no es multipart). Use un CSV de máximo 15 MB.",
+            "No se pudo leer el archivo (cuerpo demasiado grande o no es multipart). Máximo 25 MB.",
         },
         { status: 400 }
       );
@@ -39,40 +39,37 @@ export async function POST(request: Request) {
     const raw = form.get("file") ?? form.get("csv") ?? form.get("archivo");
     if (!isUploadFile(raw)) {
       return NextResponse.json(
-        { error: "Falta el archivo. Envíe el campo file con un CSV de Wispro." },
-        { status: 400 }
-      );
-    }
-
-    const fileName = raw.name || "clientes.csv";
-    const nameLower = fileName.toLowerCase();
-
-    if (
-      nameLower.endsWith(".xlsx") ||
-      nameLower.endsWith(".xls") ||
-      nameLower.endsWith(".ods")
-    ) {
-      return NextResponse.json(
         {
           error:
-            "No se admite Excel. En Wispro: Clientes → Exportar → elija CSV (no Excel) y suba ese archivo.",
+            "Falta el archivo. Envíe el campo file con un CSV o Excel exportado desde Wispro.",
         },
         { status: 400 }
       );
     }
 
-    if (
-      nameLower &&
-      !nameLower.endsWith(".csv") &&
-      !nameLower.endsWith(".txt") &&
-      !nameLower.endsWith(".tsv")
-    ) {
-      // Algunos navegadores mandan nombre vacío o sin extensión; se intenta parsear igual
-      console.warn("[clientes/import] extensión inusual:", fileName);
+    const fileName = raw.name || "clientes-wispro.csv";
+    const nameLower = fileName.toLowerCase();
+
+    const okExt =
+      !nameLower ||
+      nameLower.endsWith(".csv") ||
+      nameLower.endsWith(".txt") ||
+      nameLower.endsWith(".tsv") ||
+      nameLower.endsWith(".xlsx") ||
+      nameLower.endsWith(".xls");
+
+    if (!okExt) {
+      return NextResponse.json(
+        {
+          error:
+            "Formato no admitido. Use CSV (.csv) o Excel (.xlsx / .xls) exportado desde Wispro.",
+        },
+        { status: 400 }
+      );
     }
 
     if (raw.size > MAX_BYTES) {
-      return NextResponse.json({ error: "Archivo demasiado grande (máx. 15 MB)" }, { status: 400 });
+      return NextResponse.json({ error: "Archivo demasiado grande (máx. 25 MB)" }, { status: 400 });
     }
 
     const buf = Buffer.from(await raw.arrayBuffer());
@@ -80,12 +77,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "El archivo está vacío" }, { status: 400 });
     }
 
-    const text = decodeCsvBuffer(buf);
-    const result = await importClientesFromCsv(text, session.id);
+    const result = await importClientesFromBuffer(buf, fileName, session.id);
 
     return NextResponse.json({
       ok: true,
       archivo: fileName,
+      formato: nameLower.endsWith(".xlsx") || nameLower.endsWith(".xls") ? "excel" : "csv",
       ...result,
       mensaje: `Importación lista: ${result.creados} creados, ${result.actualizados} actualizados, ${result.omitidos} omitidos/con error.`,
     });

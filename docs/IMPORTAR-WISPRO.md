@@ -1,23 +1,31 @@
-# Importar clientes Wispro (CSV) a Infinity Operaciones
+# Importar clientes Wispro (CSV o Excel) a Infinity Operaciones
 
-## Importante
+## Acceso
 
-1. En Wispro debe exportar en formato **CSV**, no Excel.
-2. El servidor de producción debe estar en un deploy que incluya esta función (revise `/api/health` → `gitSha`).
+Solo **supervisor** o **admin**:
 
-## Cómo cargar el archivo
+1. Entrar a Operaciones.
+2. Abrir **Clientes CRM / Importar Wispro** (panel supervisor o gerencia).
+3. URL directa: `https://infinity-operaciones-b3ij.onrender.com/supervisor/clientes`
 
-1. Wispro → **Clientes** → **Exportar** → elija **CSV**.
-2. Abra el correo de Wispro y descargue el adjunto `.csv`.
-3. En Operaciones (supervisor/admin): **Clientes CRM** → panel **Importar clientes desde Wispro**.
-4. **Elegir archivo CSV** → **Subir e importar**.
-5. Revise creados / actualizados / errores.
+## Cómo exportar desde Wispro
 
-URL: `https://infinity-operaciones-b3ij.onrender.com/supervisor/clientes`
+1. Wispro → **Clientes** → **Exportar**.
+2. Elija **CSV** o **Excel** (.xlsx).
+3. Descargue el archivo (correo o descarga del panel).
 
-## Columnas del export Wispro (oficial)
+## Cómo importar en Operaciones
 
-Wispro incluye, entre otras:
+1. En el panel verde **Importar todos los clientes desde Wispro**.
+2. **Elegir CSV o Excel** → seleccione el archivo.
+3. **Subir e importar**.
+4. Revise creados / actualizados / errores.
+
+- Clientes **nuevos** se crean.
+- Si la **cédula** ya existe, se **actualiza** el registro.
+- Máximo **25 MB** por archivo.
+
+## Columnas del export Wispro
 
 | Columna Wispro | Campo Operaciones |
 |----------------|-------------------|
@@ -28,22 +36,25 @@ Wispro incluye, entre otras:
 | Barrio / Zona / Ciudad | sector |
 | Observaciones / Dato adicional | referencia |
 | Latitud / Longitud | lat / lng |
+| Plan | plan |
 
-Obligatorios para importar: cédula, nombre, teléfono (o celular), dirección, sector (barrio/zona/ciudad).
+Obligatorios: cédula, nombre, teléfono (o celular), dirección, sector (barrio/zona/ciudad).
 
 ## Si falla
 
 | Mensaje | Qué hacer |
 |---------|-----------|
-| No se admite Excel | Vuelva a exportar eligiendo CSV |
-| Faltan columnas… | Revise encabezados; use la plantilla de ejemplo |
+| Faltan columnas… | Revise encabezados; use la plantilla CSV de ejemplo |
 | Cédula inválida | Corrija el documento (10 dígitos EC) |
 | No autorizado | Entre como supervisor o admin |
+| Formato no admitido | Use `.csv`, `.xlsx` o `.xls` |
 
 ## API
 
 ```http
 POST /api/clientes/import
 Content-Type: multipart/form-data
-file: <clientes.csv>
+file: <clientes.csv|clientes.xlsx>
 ```
+
+Roles: `SUPERVISOR` o `ADMIN`.

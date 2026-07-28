@@ -282,9 +282,8 @@ function rowToInput(
   return out;
 }
 
-/** Detecta Excel binario (no es CSV). */
+/** Detecta Excel binario (ZIP/XLSX o OLE/XLS). */
 export function looksLikeExcel(buf: Buffer): boolean {
-  // ZIP/XLSX: PK\x03\x04 ; XLS OLE: D0 CF 11 E0
   if (buf.length < 4) return false;
   if (buf[0] === 0x50 && buf[1] === 0x4b) return true;
   if (buf[0] === 0xd0 && buf[1] === 0xcf && buf[2] === 0x11 && buf[3] === 0xe0) return true;
@@ -292,17 +291,11 @@ export function looksLikeExcel(buf: Buffer): boolean {
 }
 
 export function decodeCsvBuffer(buf: Buffer): string {
-  if (looksLikeExcel(buf)) {
-    throw new Error(
-      "El archivo es Excel (.xlsx/.xls). En Wispro exporte de nuevo eligiendo formato CSV, no Excel."
-    );
-  }
   // UTF-8 con BOM
   if (buf.length >= 3 && buf[0] === 0xef && buf[1] === 0xbb && buf[2] === 0xbf) {
     return buf.slice(3).toString("utf8");
   }
   let text = buf.toString("utf8");
-  // Heurística: muchos � → intentar latin1/windows-1252
   const bad = (text.match(/\uFFFD/g) || []).length;
   if (bad > 3 || text.includes("\u0000")) {
     text = buf.toString("latin1");
@@ -310,18 +303,58 @@ export function decodeCsvBuffer(buf: Buffer): string {
   return text;
 }
 
-export async function importClientesFromCsv(
-  csvText: string,
+/** Lee la primera hoja de un .xlsx / .xls a encabezados + filas de texto. */
+export function parseExcelBuffer(buf: Buffer): { headers: string[]; rows: string[][] } {
+  // Import dinámico tipado mínimo (SheetJS)
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const XLSX = require("xlsx") as {
+    read: (data: Buffer, opts: { type: string; cellDates?: boolean }) => {
+      SheetNames: string[];
+      Sheets: Record<string, unknown>;
+    };
+    utils: {
+      sheet_to_json: (
+        sheet: unknown,
+        opts: { header: number; defval: string; raw: boolean }
+      ) => string[][];
+    };
+  };
+
+  const workbook = XLSX.read(buf, { type: "buffer", cellDates: false });
+  const sheetName = workbook.SheetNames[0];
+  if (!sheetName) return { headers: [], rows: [] };
+
+  const sheet = workbook.Sheets[sheetName];
+  const matrix = XLSX.utils.sheet_to_json(sheet, {
+    header: 1,
+    defval: "",
+    raw: false,
+  }) as string[][];
+
+  const nonEmpty = matrix.filter((row) =>
+    row.some((cell) => String(cell ?? "").trim().length > 0)
+  );
+  if (nonEmpty.length === 0) return { headers: [], rows: [] };
+
+  const headers = nonEmpty[0].map((h) => String(h ?? "").trim());
+  const rows = nonEmpty.slice(1).map((row) =>
+    headers.map((_, i) => String(row[i] ?? "").trim())
+  );
+  return { headers, rows };
+}
+
+export async function importClientesFromRows(
+  headers: string[],
+  rows: string[][],
   usuarioId?: string
 ): Promise<ImportResult> {
-  const { headers, rows } = parseCsv(csvText);
   if (headers.length === 0) {
     return {
       totalFilas: 0,
       creados: 0,
       actualizados: 0,
       omitidos: 0,
-      errores: [{ fila: 0, motivo: "CSV vacío o sin encabezados" }],
+      errores: [{ fila: 0, motivo: "Archivo vacío o sin encabezados" }],
       columnasDetectadas: [],
       columnasMapeadas: [],
     };
@@ -345,7 +378,7 @@ export async function importClientesFromCsv(
           motivo:
             `Faltan columnas obligatorias: ${missingHeaders.join(", ")}. ` +
             `Encabezados detectados: ${headers.join(" | ")}. ` +
-            `En Wispro use Exportar → CSV. Columnas típicas: Documento/Cédula, Nombre, Teléfono o Celular, Dirección, Barrio o Zona.`,
+            `En Wispro: Clientes → Exportar → CSV o Excel. Columnas típicas: Documento/Cédula, Nombre, Teléfono o Celular, Dirección, Barrio o Zona.`,
         },
       ],
     };
@@ -391,7 +424,6 @@ export async function importClientesFromCsv(
 
     try {
       const cedulaNorm = normalizarCedula(input.cedula);
-      // RUC 13 dígitos: usar los 10 primeros si parecen cédula
       let cedulaUsar = cedulaNorm;
       if (cedulaNorm.length === 13 && cedulaNorm.endsWith("001")) {
         cedulaUsar = cedulaNorm.slice(0, 10);
@@ -435,4 +467,34 @@ export async function importClientesFromCsv(
     columnasDetectadas: headers,
     columnasMapeadas: mappedLabels,
   };
+}
+
+export async function importClientesFromCsv(
+  csvText: string,
+  usuarioId?: string
+): Promise<ImportResult> {
+  const { headers, rows } = parseCsv(csvText);
+  return importClientesFromRows(headers, rows, usuarioId);
+}
+
+/** CSV o Excel (.xlsx / .xls) exportado desde Wispro. */
+export async function importClientesFromBuffer(
+  buf: Buffer,
+  fileName: string,
+  usuarioId?: string
+): Promise<ImportResult> {
+  const name = fileName.toLowerCase();
+  const isExcelExt =
+    name.endsWith(".xlsx") || name.endsWith(".xls") || name.endsWith(".ods");
+
+  if (isExcelExt || looksLikeExcel(buf)) {
+    if (name.endsWith(".ods")) {
+      throw new Error("No se admite ODS. Exporte desde Wispro en CSV o Excel (.xlsx).");
+    }
+    const { headers, rows } = parseExcelBuffer(buf);
+    return importClientesFromRows(headers, rows, usuarioId);
+  }
+
+  const text = decodeCsvBuffer(buf);
+  return importClientesFromCsv(text, usuarioId);
 }

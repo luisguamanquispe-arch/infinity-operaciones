@@ -71,11 +71,16 @@ export default function ClientesListPage() {
       return;
     }
     const n = file.name.toLowerCase();
-    if (n.endsWith(".xlsx") || n.endsWith(".xls") || n.endsWith(".ods")) {
+    const ok =
+      n.endsWith(".csv") ||
+      n.endsWith(".txt") ||
+      n.endsWith(".tsv") ||
+      n.endsWith(".xlsx") ||
+      n.endsWith(".xls") ||
+      !n.includes(".");
+    if (!ok) {
       setSelectedFile(null);
-      setImportError(
-        "Ese archivo es Excel. En Wispro exporte de nuevo eligiendo CSV (no Excel) y luego selecciónelo aquí."
-      );
+      setImportError("Use un archivo CSV (.csv) o Excel (.xlsx / .xls) exportado desde Wispro.");
       if (fileRef.current) fileRef.current.value = "";
       return;
     }
@@ -84,7 +89,7 @@ export default function ClientesListPage() {
 
   async function ejecutarImportacion() {
     if (!selectedFile) {
-      setImportError("Seleccione primero un archivo CSV de Wispro.");
+      setImportError("Seleccione primero un archivo CSV o Excel de Wispro.");
       return;
     }
     setImporting(true);
@@ -132,11 +137,17 @@ export default function ClientesListPage() {
         <section className="bg-white rounded-xl border border-emerald-200 p-4 space-y-3">
           <h2 className="font-semibold text-emerald-900 flex items-center gap-2">
             <FileSpreadsheet className="w-4 h-4" />
-            Importar clientes desde Wispro (CSV)
+            Importar todos los clientes desde Wispro
           </h2>
           <ol className="text-xs text-slate-600 list-decimal pl-4 space-y-1">
-            <li>En Wispro: Clientes → Exportar → elija <strong>CSV</strong> (no Excel).</li>
-            <li>Descargue el correo con el archivo y selecciónelo aquí.</li>
+            <li>
+              En Wispro: <strong>Clientes → Exportar</strong> → CSV o Excel (.xlsx).
+            </li>
+            <li>Descargue el archivo del correo o del panel Wispro.</li>
+            <li>
+              Aquí: elija el archivo → <strong>Subir e importar</strong>. Se crean clientes nuevos y
+              se actualizan los existentes por cédula.
+            </li>
             <li>
               Columnas usadas: Documento/Cédula, Nombre, Teléfono o Celular, Dirección, Barrio o
               Zona.
@@ -148,7 +159,7 @@ export default function ClientesListPage() {
               download
               className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border text-sm font-medium hover:bg-slate-50"
             >
-              <FileDown className="w-4 h-4" /> Plantilla de ejemplo
+              <FileDown className="w-4 h-4" /> Plantilla CSV de ejemplo
             </a>
             <button
               type="button"
@@ -157,12 +168,12 @@ export default function ClientesListPage() {
               className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-emerald-600 text-emerald-800 text-sm font-medium hover:bg-emerald-50 disabled:opacity-50"
             >
               <Upload className="w-4 h-4" />
-              Elegir archivo CSV
+              Elegir CSV o Excel
             </button>
             <input
               ref={fileRef}
               type="file"
-              accept=".csv,.txt,.tsv,text/csv,text/plain"
+              accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
               className="hidden"
               onChange={(e) => onPickFile(e.target.files?.[0] ?? null)}
             />
