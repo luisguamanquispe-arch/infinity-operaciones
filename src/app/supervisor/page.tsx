@@ -137,8 +137,15 @@ export default function SupervisorDashboard() {
             Reportes finalizados
           </Link>
           <Link
+            href="/supervisor/asignaciones"
+            className="flex items-center justify-center gap-2 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl transition"
+          >
+            <Users className="w-5 h-5" />
+            Destinar tickets a técnicos
+          </Link>
+          <Link
             href="/supervisor/clientes"
-            className="flex items-center justify-center gap-2 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl transition sm:col-span-2 lg:col-span-4"
+            className="flex items-center justify-center gap-2 py-3 bg-emerald-700 hover:bg-emerald-800 text-white font-semibold rounded-xl transition sm:col-span-2 lg:col-span-3"
           >
             <Contact className="w-5 h-5" />
             Clientes CRM — Importar Wispro (CSV/Excel)

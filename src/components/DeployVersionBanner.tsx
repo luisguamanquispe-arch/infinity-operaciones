@@ -141,6 +141,12 @@ export function SupervisorQuickNav() {
         + Ticket soporte
       </Link>
       <Link
+        href="/supervisor/asignaciones"
+        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border-2 border-emerald-500 bg-emerald-50 text-emerald-900 text-sm font-semibold hover:bg-emerald-100"
+      >
+        Destinar tickets
+      </Link>
+      <Link
         href="/supervisor/clientes"
         className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-sky-600 text-sky-700 text-sm font-medium hover:bg-sky-50"
       >

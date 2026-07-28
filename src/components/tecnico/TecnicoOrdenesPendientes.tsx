@@ -24,7 +24,7 @@ const prioridadColor: Record<string, string> = {
   BAJA: "text-slate-500",
 };
 
-/** Lista fija de órdenes pendientes del técnico — sin filtros ni estados mezclados. */
+/** Lista de órdenes activas del técnico (pendientes + en proceso). */
 export function TecnicoOrdenesPendientes({ ordenes }: Props) {
   const router = useRouter();
 
@@ -46,7 +46,7 @@ export function TecnicoOrdenesPendientes({ ordenes }: Props) {
             {ordenes.length === 0 ? (
               <tr>
                 <td colSpan={6} className="p-6 text-center text-slate-400">
-                  No tiene órdenes pendientes asignadas
+                  No tiene órdenes activas asignadas. El supervisor debe destinarle tickets.
                 </td>
               </tr>
             ) : (
@@ -75,7 +75,13 @@ export function TecnicoOrdenesPendientes({ ordenes }: Props) {
                     {PRIORIDAD_LABELS[t.prioridad]}
                   </td>
                   <td className="p-3">
-                    <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+                    <span
+                      className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                        t.estado === "EN_PROCESO"
+                          ? "bg-blue-100 text-blue-800"
+                          : "bg-amber-100 text-amber-800"
+                      }`}
+                    >
                       {ESTADO_LABELS[t.estado] ?? t.estado}
                     </span>
                   </td>

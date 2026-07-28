@@ -3,9 +3,11 @@ import { prisma } from "@/lib/prisma";
 import { getFullSession } from "@/lib/auth";
 import { calcularDuracionCronometro } from "@/lib/tickets";
 import { diaKey } from "@/lib/calendario";
-import { whereTecnicoAsignado } from "@/lib/ticket-tecnicos";
+import {
+  sincronizarAsignacionesActivas,
+  whereTecnicoAsignado,
+} from "@/lib/ticket-tecnicos";
 import { sincronizarTicketsConOrdenCerrada } from "@/lib/ticket-cerrado";
-import type { Prisma } from "@prisma/client";
 
 export const runtime = "nodejs";
 
@@ -19,14 +21,7 @@ const clienteSelect = {
   },
 } as const;
 
-function buildTicketWherePendientes(tecnicoId: string): Prisma.TicketWhereInput {
-  return {
-    ...whereTecnicoAsignado(tecnicoId),
-    estado: "PENDIENTE",
-  };
-}
-
-export async function GET(request: Request) {
+export async function GET() {
   const session = await getFullSession();
   if (!session || session.rol !== "TECNICO") {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
@@ -39,15 +34,16 @@ export async function GET(request: Request) {
   }
 
   await sincronizarTicketsConOrdenCerrada();
-
-  const ticketWhere = buildTicketWherePendientes(session.tecnicoId);
+  await sincronizarAsignacionesActivas();
 
   const hoy = new Date();
   hoy.setHours(0, 0, 0, 0);
   const finHoy = new Date(hoy);
   finHoy.setHours(23, 59, 59, 999);
 
-  const [tecnico, activos, tickets, finalizadasHoy] = await Promise.all([
+  const asignado = whereTecnicoAsignado(session.tecnicoId);
+
+  const [tecnico, activos, finalizadasHoy] = await Promise.all([
     prisma.tecnico.findUnique({
       where: { id: session.tecnicoId },
       select: {
@@ -58,14 +54,9 @@ export async function GET(request: Request) {
     }),
     prisma.ticket.findMany({
       where: {
-        ...whereTecnicoAsignado(session.tecnicoId),
+        ...asignado,
         estado: { in: ["PENDIENTE", "EN_PROCESO"] },
       },
-      include: { cliente: clienteSelect },
-      orderBy: [{ programadoEn: "asc" }, { prioridad: "asc" }],
-    }),
-    prisma.ticket.findMany({
-      where: ticketWhere,
       include: {
         cliente: clienteSelect,
         orden: {
@@ -77,11 +68,11 @@ export async function GET(request: Request) {
         },
       },
       orderBy: [{ programadoEn: "asc" }, { prioridad: "asc" }, { createdAt: "asc" }],
-      take: 60,
+      take: 80,
     }),
     prisma.ticket.count({
       where: {
-        ...whereTecnicoAsignado(session.tecnicoId),
+        ...asignado,
         estado: { in: ["FINALIZADO", "CERRADO"] },
         updatedAt: { gte: hoy, lte: finHoy },
       },
@@ -103,9 +94,12 @@ export async function GET(request: Request) {
   const proxima =
     agendaRaw.find(
       (t) => t.estado === "PENDIENTE" && t.programadoEn!.getTime() >= ahora - 15 * 60 * 1000
-    ) ?? agendaRaw.find((t) => t.estado === "PENDIENTE") ?? null;
+    ) ??
+    agendaRaw.find((t) => t.estado === "PENDIENTE") ??
+    agendaRaw.find((t) => t.estado === "EN_PROCESO") ??
+    null;
 
-  const serializeTicket = (t: (typeof tickets)[0]) => ({
+  const serializeTicket = (t: (typeof activos)[0]) => ({
     id: t.id,
     codigo: t.codigo,
     tipo: t.tipo,
@@ -148,6 +142,8 @@ export async function GET(request: Request) {
     cliente: t.cliente,
   });
 
+  const ordenes = activos.map(serializeTicket);
+
   return NextResponse.json(
     {
       resumen: {
@@ -160,12 +156,14 @@ export async function GET(request: Request) {
         enProceso,
         finalizadas: finalizadasHoy,
         tiempoPromedioMin: 0,
+        asignadas: activos.length,
       },
       proximaOrden: proxima ? serializeAgenda(proxima) : null,
       agenda: agendaRaw.map(serializeAgenda),
       activosMapa: activos.map(serializeActivoMapa),
-      ordenesPendientes: tickets.map(serializeTicket),
-      tickets: tickets.map(serializeTicket),
+      /** Órdenes activas del técnico (pendientes + en proceso) para la app de campo. */
+      ordenesPendientes: ordenes,
+      tickets: ordenes,
     },
     {
       headers: {
