@@ -10,12 +10,50 @@ const BOOTSTRAP_TECNICO = {
   nombre: "TECNICO DEMO",
 };
 
+async function activarTecnicosRegistrados(prisma) {
+  const usuarios = await prisma.usuario.findMany({
+    where: { rol: "TECNICO" },
+    include: { tecnico: true },
+  });
+
+  const activados = [];
+  const reparados = [];
+
+  for (const u of usuarios) {
+    if (!u.activo) {
+      await prisma.usuario.update({
+        where: { id: u.id },
+        data: { activo: true },
+      });
+      activados.push(u.email);
+    }
+    if (!u.tecnico) {
+      await prisma.tecnico.create({
+        data: {
+          usuarioId: u.id,
+          estadoActual: "DISPONIBLE",
+        },
+      });
+      reparados.push(u.email);
+    }
+  }
+
+  return { total: usuarios.length, activados, reparados };
+}
+
 async function ensureBootstrapTecnico(prisma) {
+  const activacion = await activarTecnicosRegistrados(prisma);
+
   const activos = await prisma.tecnico.count({
     where: { usuario: { activo: true } },
   });
   if (activos > 0) {
-    return { skipped: true, reason: "already_has_tecnicos", count: activos };
+    return { skipped: true, reason: "already_has_tecnicos", count: activos, activacion };
+  }
+
+  const totalTecnicos = await prisma.usuario.count({ where: { rol: "TECNICO" } });
+  if (totalTecnicos > 0) {
+    return { skipped: true, reason: "tecnicos_sin_perfil", count: 0, activacion };
   }
 
   const email = BOOTSTRAP_TECNICO.email;
@@ -72,4 +110,4 @@ async function ensureBootstrapTecnico(prisma) {
   };
 }
 
-module.exports = { BOOTSTRAP_TECNICO, ensureBootstrapTecnico };
+module.exports = { BOOTSTRAP_TECNICO, activarTecnicosRegistrados, ensureBootstrapTecnico };

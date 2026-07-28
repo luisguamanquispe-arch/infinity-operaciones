@@ -56,6 +56,12 @@ async function main() {
     }
 
     const tecnico = await ensureBootstrapTecnico(prisma);
+    if (tecnico.activacion?.activados?.length) {
+      console.log(`[Seed] Técnicos activados: ${tecnico.activacion.activados.join(", ")}`);
+    }
+    if (tecnico.activacion?.reparados?.length) {
+      console.log(`[Seed] Perfiles técnico reparados: ${tecnico.activacion.reparados.join(", ")}`);
+    }
     if (tecnico.skipped) {
       console.log(`[Seed] ${tecnico.count} técnico(s) activo(s) — bootstrap técnico omitido.`);
     } else if (tecnico.repaired) {

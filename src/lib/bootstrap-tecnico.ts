@@ -7,12 +7,65 @@ export const BOOTSTRAP_TECNICO = {
   nombre: "TECNICO DEMO",
 } as const;
 
+/** Activa usuarios TECNICO registrados y repara perfil tecnico faltante. */
+export async function activarTecnicosRegistrados(prisma: PrismaClient) {
+  const usuarios = await prisma.usuario.findMany({
+    where: { rol: "TECNICO" },
+    include: { tecnico: true },
+  });
+
+  const activados: string[] = [];
+  const reparados: string[] = [];
+
+  for (const u of usuarios) {
+    if (!u.activo) {
+      await prisma.usuario.update({
+        where: { id: u.id },
+        data: { activo: true },
+      });
+      activados.push(u.email);
+    }
+    if (!u.tecnico) {
+      await prisma.tecnico.create({
+        data: {
+          usuarioId: u.id,
+          estadoActual: "DISPONIBLE",
+        },
+      });
+      reparados.push(u.email);
+    }
+  }
+
+  return {
+    total: usuarios.length,
+    activados,
+    reparados,
+  };
+}
+
 export async function ensureBootstrapTecnico(prisma: PrismaClient) {
+  const activacion = await activarTecnicosRegistrados(prisma);
+
   const activos = await prisma.tecnico.count({
     where: { usuario: { activo: true } },
   });
   if (activos > 0) {
-    return { skipped: true as const, reason: "already_has_tecnicos", count: activos };
+    return {
+      skipped: true as const,
+      reason: "already_has_tecnicos" as const,
+      count: activos,
+      activacion,
+    };
+  }
+
+  const totalTecnicos = await prisma.usuario.count({ where: { rol: "TECNICO" } });
+  if (totalTecnicos > 0) {
+    return {
+      skipped: true as const,
+      reason: "tecnicos_sin_perfil" as const,
+      count: 0,
+      activacion,
+    };
   }
 
   const email = BOOTSTRAP_TECNICO.email;
