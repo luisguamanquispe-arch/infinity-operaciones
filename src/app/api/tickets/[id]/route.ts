@@ -18,7 +18,6 @@ import { normalizarTextoTicket } from "@/lib/mayusculas";
 import { infoReporteOrden } from "@/lib/ticket-reporte";
 import {
   estadoTicketEfectivo,
-  sincronizarTicketSiOrdenCerrada,
   ticketPermiteEdicion,
   verificarTicketEditable,
 } from "@/lib/ticket-cerrado";
@@ -142,14 +141,9 @@ export async function GET(
 
   const ordenFinal = ordenActual ?? orden;
 
-  await sincronizarTicketSiOrdenCerrada(ticketData.id);
-
-  const ticketDb = await prisma.ticket.findUnique({
-    where: { id: ticketData.id },
-    select: { estado: true },
-  });
+  // F4/E5: no mutar estado en GET; el cliente ve estado efectivo si la orden ya cerró.
   const estadoEfectivo = estadoTicketEfectivo(
-    { estado: ticketDb?.estado ?? ticketData.estado },
+    { estado: ticketData.estado },
     ordenFinal
   );
 

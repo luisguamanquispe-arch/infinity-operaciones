@@ -1,9 +1,12 @@
 import { prisma } from "./prisma";
+import type { Prisma } from "@prisma/client";
 
 export const MSG_ORDEN_CERRADA =
   "La orden de servicio está cerrada. No se puede modificar el ticket.";
 
 const ESTADOS_TERMINALES = new Set(["CERRADO", "FINALIZADO", "CANCELADO"]);
+
+export const ESTADOS_TICKET_OPERATIVOS = ["PENDIENTE", "LEIDO", "EN_PROCESO"] as const;
 
 export function ordenServicioCerrada(
   orden: { finalizadoEn: Date | string | null } | null | undefined
@@ -37,6 +40,21 @@ export function ticketPermiteEdicion(
   return !ticketEstaCerrado(ticket, orden);
 }
 
+/**
+ * Filtro de lectura (F4/E5): tickets operativos cuya orden no está finalizada.
+ * No escribe en BD — evita que un GET “cierre” tickets en masa.
+ */
+export function whereTicketOperativamenteAbierto(
+  extra?: Prisma.TicketWhereInput
+): Prisma.TicketWhereInput {
+  const base: Prisma.TicketWhereInput = {
+    estado: { in: [...ESTADOS_TICKET_OPERATIVOS] },
+    OR: [{ orden: { is: null } }, { orden: { finalizadoEn: null } }],
+  };
+  if (!extra) return base;
+  return { AND: [base, extra] };
+}
+
 export async function verificarTicketEditable(
   ticketId: string
 ): Promise<{ ok: true } | { ok: false; status: number; error: string }> {
@@ -59,7 +77,10 @@ export async function verificarTicketEditable(
   return { ok: true };
 }
 
-/** Alinea ticket.estado = CERRADO cuando la orden ya tiene finalizadoEn. */
+/**
+ * Alinea ticket.estado = CERRADO cuando la orden ya tiene finalizadoEn.
+ * F4/E5: NO usar en GET/listados. Solo cierre explícito o mantenimiento admin.
+ */
 export async function sincronizarTicketsConOrdenCerrada(): Promise<number> {
   const result = await prisma.ticket.updateMany({
     where: {
@@ -71,7 +92,10 @@ export async function sincronizarTicketsConOrdenCerrada(): Promise<number> {
   return result.count;
 }
 
-/** Sincroniza un ticket si su orden está cerrada. */
+/**
+ * Sincroniza un ticket si su orden está cerrada.
+ * F4/E5: preferir estadoTicketEfectivo en lecturas; usar esto solo en writes.
+ */
 export async function sincronizarTicketSiOrdenCerrada(ticketId: string): Promise<void> {
   const ticket = await prisma.ticket.findUnique({
     where: { id: ticketId },

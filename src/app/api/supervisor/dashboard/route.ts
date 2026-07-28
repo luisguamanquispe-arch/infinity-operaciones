@@ -2,9 +2,8 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getFullSession } from "@/lib/auth";
 
-import { ESTADOS_ACTIVOS_TICKET } from "@/lib/ticket-gerencia";
 import { nombresTecnicosTicket, ticketIncludeTecnicos } from "@/lib/ticket-tecnicos";
-import { sincronizarTicketsConOrdenCerrada } from "@/lib/ticket-cerrado";
+import { whereTicketOperativamenteAbierto } from "@/lib/ticket-cerrado";
 import { TIPO_NOVEDAD_LABELS } from "@/lib/novedad-ticket";
 
 export async function GET() {
@@ -13,31 +12,28 @@ export async function GET() {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 
-  await sincronizarTicketsConOrdenCerrada();
+  // F4/E5: GET solo lectura — no sincronizar cierres en masa.
 
   const now = new Date();
   const hoy = new Date(now);
   hoy.setHours(0, 0, 0, 0);
-  const activos = [...ESTADOS_ACTIVOS_TICKET];
+  const abiertosWhere = whereTicketOperativamenteAbierto();
 
   const [abiertos, cerrados, vencidos, tecnicos, ticketsRecientes] = await Promise.all([
     prisma.ticket.count({
-      where: { estado: { in: activos } },
+      where: abiertosWhere,
     }),
     prisma.ticket.count({
       where: { estado: "CERRADO", updatedAt: { gte: hoy } },
     }),
     prisma.ticket.count({
-      where: {
-        estado: { in: activos },
-        slaVenceEn: { lt: now },
-      },
+      where: whereTicketOperativamenteAbierto({ slaVenceEn: { lt: now } }),
     }),
     prisma.tecnico.findMany({
       include: { usuario: true },
     }),
     prisma.ticket.findMany({
-      where: { estado: { in: activos } },
+      where: abiertosWhere,
       include: ticketIncludeTecnicos,
       orderBy: { prioridad: "asc" },
       take: 20,

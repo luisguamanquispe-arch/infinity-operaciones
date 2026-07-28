@@ -2,9 +2,8 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getFullSession } from "@/lib/auth";
 import { nombresTecnicosTicket, ticketIncludeTecnicos } from "@/lib/ticket-tecnicos";
-import { sincronizarTicketsConOrdenCerrada } from "@/lib/ticket-cerrado";
+import { whereTicketOperativamenteAbierto } from "@/lib/ticket-cerrado";
 import {
-  ESTADOS_ACTIVOS_TICKET,
   TIPOS_ELIMINABLES_GERENCIA,
   esCodigoTicketExacto,
 } from "@/lib/ticket-gerencia";
@@ -12,6 +11,7 @@ import type { EstadoTicket, Prisma } from "@prisma/client";
 
 const ESTADOS_VALIDOS: EstadoTicket[] = [
   "PENDIENTE",
+  "LEIDO",
   "EN_PROCESO",
   "FINALIZADO",
   "CERRADO",
@@ -24,7 +24,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 
-  await sincronizarTicketsConOrdenCerrada();
+  // F4/E5: GET solo lectura — no sincronizar cierres en masa.
 
   const { searchParams } = new URL(request.url);
   const q = searchParams.get("q")?.trim();
@@ -38,7 +38,7 @@ export async function GET(request: Request) {
 
   if (!busquedaExacta) {
     if (estado === "activos") {
-      and.push({ estado: { in: [...ESTADOS_ACTIVOS_TICKET] } });
+      and.push(whereTicketOperativamenteAbierto());
     } else if (estado !== "todos" && ESTADOS_VALIDOS.includes(estado as EstadoTicket)) {
       and.push({ estado: estado as EstadoTicket });
     }

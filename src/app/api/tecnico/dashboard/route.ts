@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getFullSession } from "@/lib/auth";
 import { calcularDuracionCronometro } from "@/lib/tickets";
 import { diaKey } from "@/lib/calendario";
-import { sincronizarTicketsConOrdenCerrada } from "@/lib/ticket-cerrado";
+import { whereTicketOperativamenteAbierto } from "@/lib/ticket-cerrado";
 
 export const runtime = "nodejs";
 
@@ -29,8 +29,7 @@ export async function GET() {
     );
   }
 
-  await sincronizarTicketsConOrdenCerrada();
-  // F3/E6: no mutar asignaciones en GET del técnico (sync solo en Ops / publicar).
+  // F3/E6 + F4/E5: GET solo lectura (sin sync de asignaciones ni cierres en masa).
 
   const hoy = new Date();
   hoy.setHours(0, 0, 0, 0);
@@ -38,7 +37,6 @@ export async function GET() {
   finHoy.setHours(23, 59, 59, 999);
 
   const tecnicoId = session.tecnicoId;
-  const estadosActivos = ["PENDIENTE", "LEIDO", "EN_PROCESO"] as const;
 
   const [tecnico, activos, finalizadasHoy] = await Promise.all([
     prisma.tecnico.findUnique({
@@ -50,17 +48,9 @@ export async function GET() {
       },
     }),
     prisma.ticket.findMany({
-      where: {
-        AND: [
-          { estado: { in: [...estadosActivos] } },
-          {
-            OR: [
-              { tecnicoId },
-              { tecnicos: { some: { tecnicoId } } },
-            ],
-          },
-        ],
-      },
+      where: whereTicketOperativamenteAbierto({
+        OR: [{ tecnicoId }, { tecnicos: { some: { tecnicoId } } }],
+      }),
       include: {
         cliente: clienteSelect,
         orden: {
