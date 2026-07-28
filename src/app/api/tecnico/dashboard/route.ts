@@ -3,9 +3,6 @@ import { prisma } from "@/lib/prisma";
 import { getFullSession } from "@/lib/auth";
 import { calcularDuracionCronometro } from "@/lib/tickets";
 import { diaKey } from "@/lib/calendario";
-import {
-  sincronizarAsignacionesActivas,
-} from "@/lib/ticket-tecnicos";
 import { sincronizarTicketsConOrdenCerrada } from "@/lib/ticket-cerrado";
 
 export const runtime = "nodejs";
@@ -33,7 +30,7 @@ export async function GET() {
   }
 
   await sincronizarTicketsConOrdenCerrada();
-  await sincronizarAsignacionesActivas();
+  // F3/E6: no mutar asignaciones en GET del técnico (sync solo en Ops / publicar).
 
   const hoy = new Date();
   hoy.setHours(0, 0, 0, 0);

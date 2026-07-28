@@ -61,27 +61,45 @@ export async function validarTecnicoIds(ids: string[]): Promise<string | null> {
   return null;
 }
 
-/** Reemplaza asignaciones del ticket y sincroniza tecnicoId (primer técnico). */
+/** Reemplaza asignaciones del ticket y sincroniza tecnicoId (primer técnico).
+ * F3/E6: diff (add/remove) en lugar de deleteMany de todas las filas — evita carreras
+ * y conserva asignadoEn de técnicos que no cambian.
+ */
 export async function asignarTecnicosTicket(
   ticketId: string,
   tecnicoIds: string[]
 ): Promise<string[]> {
   const unicos = [...new Set(tecnicoIds.filter(Boolean))];
 
-  await prisma.$transaction([
-    prisma.ticketTecnico.deleteMany({ where: { ticketId } }),
-    ...(unicos.length
-      ? [
-          prisma.ticketTecnico.createMany({
-            data: unicos.map((tecnicoId) => ({ ticketId, tecnicoId })),
-          }),
-        ]
-      : []),
-    prisma.ticket.update({
+  await prisma.$transaction(async (tx) => {
+    const actuales = await tx.ticketTecnico.findMany({
+      where: { ticketId },
+      select: { tecnicoId: true },
+    });
+    const actualSet = new Set(actuales.map((a) => a.tecnicoId));
+    const nuevoSet = new Set(unicos);
+
+    const toRemove = actuales
+      .map((a) => a.tecnicoId)
+      .filter((id) => !nuevoSet.has(id));
+    const toAdd = unicos.filter((id) => !actualSet.has(id));
+
+    if (toRemove.length > 0) {
+      await tx.ticketTecnico.deleteMany({
+        where: { ticketId, tecnicoId: { in: toRemove } },
+      });
+    }
+    if (toAdd.length > 0) {
+      await tx.ticketTecnico.createMany({
+        data: toAdd.map((tecnicoId) => ({ ticketId, tecnicoId })),
+      });
+    }
+
+    await tx.ticket.update({
       where: { id: ticketId },
       data: { tecnicoId: unicos[0] ?? null },
-    }),
-  ]);
+    });
+  });
 
   return unicos;
 }
@@ -266,10 +284,10 @@ export async function sincronizarAsignacionesTicket(ticketId: string): Promise<s
 }
 
 /**
- * Repara todos los tickets activos (PENDIENTE / LEIDO / EN_PROCESO):
+ * Repara tickets activos (PENDIENTE / LEIDO / EN_PROCESO) de forma aditiva:
  * - Si tienen tecnicoId pero falta fila en TicketTecnico, la crea.
  * - Si solo hay filas en TicketTecnico, alinea tecnicoId al primero.
- * Así aparecen en la app de cada técnico designado.
+ * F3/E6: no debe llamarse en GET de lectura del técnico (solo Ops/publicar).
  */
 export async function sincronizarAsignacionesActivas(): Promise<{
   revisados: number;
