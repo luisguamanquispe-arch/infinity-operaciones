@@ -1,5 +1,3 @@
-import Image from "next/image";
-
 const LOGO_SRC = "/brand/logo-infinity.png";
 
 export type BrandLogoVariant = "hero" | "header" | "compact";
@@ -7,43 +5,64 @@ export type BrandLogoVariant = "hero" | "header" | "compact";
 type BrandLogoProps = {
   variant?: BrandLogoVariant;
   className?: string;
+  /** @deprecated next/image no requerido; se mantiene por compatibilidad */
   priority?: boolean;
 };
 
 /**
  * Logo Infinity Internet — proporciones naturales (object-contain).
- * - hero: login / pantallas de marca (fondo claro bajo el logo)
- * - header: barra superior compacta
- * - compact: marca pequeña en chips / nav
+ * Usa <img> nativo para que cargue siempre desde /public (supervisor, gerencia, login).
  */
-export function BrandLogo({
-  variant = "hero",
-  className = "",
-  priority = false,
-}: BrandLogoProps) {
-  const sizes =
-    variant === "hero"
-      ? { width: 220, height: 220, imgClass: "w-40 sm:w-48 h-auto" }
-      : variant === "header"
-        ? { width: 120, height: 120, imgClass: "h-9 w-auto sm:h-10" }
-        : { width: 72, height: 72, imgClass: "h-8 w-auto" };
+export function BrandLogo({ variant = "hero", className = "" }: BrandLogoProps) {
+  if (variant === "hero") {
+    return (
+      <div
+        className={`inline-flex items-center justify-center rounded-2xl bg-white p-4 sm:p-5 shadow-lg shadow-black/10 ${className}`}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={LOGO_SRC}
+          alt="Infinity Internet"
+          width={192}
+          height={192}
+          className="w-40 sm:w-48 h-auto object-contain"
+          decoding="async"
+        />
+      </div>
+    );
+  }
 
-  const frame =
-    variant === "hero"
-      ? "rounded-2xl bg-white p-4 sm:p-5 shadow-lg shadow-black/10"
-      : variant === "header"
-        ? "rounded-lg bg-white/95 px-2 py-1"
-        : "rounded-md bg-white/95 px-1.5 py-0.5";
+  if (variant === "header") {
+    return (
+      <div
+        className={`inline-flex items-center justify-center rounded-xl bg-white px-2.5 py-1.5 shadow-sm shrink-0 ${className}`}
+        title="Infinity Internet"
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={LOGO_SRC}
+          alt="Infinity Internet"
+          width={96}
+          height={96}
+          className="h-11 w-auto max-w-[7.5rem] object-contain object-center"
+          decoding="async"
+        />
+      </div>
+    );
+  }
 
   return (
-    <div className={`inline-flex items-center justify-center ${frame} ${className}`}>
-      <Image
+    <div
+      className={`inline-flex items-center justify-center rounded-lg bg-white px-1.5 py-1 shadow-sm shrink-0 ${className}`}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
         src={LOGO_SRC}
         alt="Infinity Internet"
-        width={sizes.width}
-        height={sizes.height}
-        className={`${sizes.imgClass} object-contain`}
-        priority={priority}
+        width={64}
+        height={64}
+        className="h-8 w-auto max-w-[4.5rem] object-contain"
+        decoding="async"
       />
     </div>
   );
