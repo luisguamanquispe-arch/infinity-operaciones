@@ -19,8 +19,8 @@ const STALE_DEPLOY_PREFIXES = new Set([
   "200d4ee",
 ]);
 
-/** Último commit con marca Infinity (logo web + app) + permisos CRM. */
-export const LATEST_GIT_SHA_PREFIX = "ebbcf7c";
+/** Último commit con logo Infinity visible en supervisor/gerencia. */
+export const LATEST_GIT_SHA_PREFIX = "3dd4ac6";
 
 /** @deprecated Usar gitShaIsStale — mantenido para compatibilidad con badges. */
 export const EXPECTED_GIT_SHA_PREFIX = LATEST_GIT_SHA_PREFIX;
