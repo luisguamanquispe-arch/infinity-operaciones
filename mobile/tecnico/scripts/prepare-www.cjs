@@ -34,4 +34,14 @@ fs.writeFileSync(
   "utf8"
 );
 
+// Mantener logo en www/brand sincronizado desde resources (si existe).
+const logoSrc = path.join(root, "resources", "logo-infinity.png");
+const logoDestDir = path.join(root, "www", "brand");
+const logoDest = path.join(logoDestDir, "logo-infinity.png");
+if (fs.existsSync(logoSrc)) {
+  fs.mkdirSync(logoDestDir, { recursive: true });
+  fs.copyFileSync(logoSrc, logoDest);
+  console.log("[prepare-www] Logo sincronizado:", logoDest);
+}
+
 console.log(`[prepare-www] Servidor: ${serverUrl}`);

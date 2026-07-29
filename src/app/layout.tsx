@@ -5,6 +5,10 @@ export const metadata: Metadata = {
   title: "Infinity Operaciones",
   description: "Dashboard operativo para técnicos ISP — Infinity Internet",
   manifest: "/manifest.json",
+  icons: {
+    icon: [{ url: "/brand/logo-infinity.png", type: "image/png" }],
+    apple: [{ url: "/brand/logo-infinity.png" }],
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",

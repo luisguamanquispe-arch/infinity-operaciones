@@ -10,6 +10,7 @@
     <meta name="background-color" content="#1e40af" />
     <meta name="color-scheme" content="dark" />
     <title>Infinity Técnicos</title>
+    <link rel="icon" href="brand/logo-infinity.png" />
     <script src="config.js"></script>
     <style>
       * {
@@ -33,19 +34,29 @@
         font-family: system-ui, -apple-system, sans-serif;
         padding: env(safe-area-inset-top) 24px env(safe-area-inset-bottom);
       }
-      .logo {
-        width: 88px;
-        height: 88px;
-        border-radius: 22px;
-        background: rgba(255, 255, 255, 0.12);
+      .brand {
         display: flex;
+        flex-direction: column;
         align-items: center;
-        justify-content: center;
-        font-size: 40px;
-        margin-bottom: 20px;
+        margin-bottom: 8px;
       }
-      h1 {
-        font-size: 1.5rem;
+      .logo-frame {
+        background: #fff;
+        border-radius: 20px;
+        padding: 18px 22px;
+        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18);
+        margin-bottom: 18px;
+      }
+      .logo-frame img {
+        display: block;
+        width: min(200px, 58vw);
+        height: auto;
+        object-fit: contain;
+      }
+      .role {
+        font-size: 1.15rem;
+        font-weight: 650;
+        letter-spacing: 0.04em;
         margin-bottom: 8px;
       }
       p {
@@ -61,7 +72,7 @@
         border: 3px solid rgba(255, 255, 255, 0.25);
         border-top-color: #fff;
         border-radius: 50%;
-        animation: spin 0.8s linear infinite;
+        animation: spin 0.8s ease-in-out infinite;
         margin-top: 28px;
       }
       @keyframes spin {
@@ -72,8 +83,17 @@
     </style>
   </head>
   <body>
-    <div class="logo" aria-hidden="true">📡</div>
-    <h1>Infinity Técnicos</h1>
+    <div class="brand">
+      <div class="logo-frame">
+        <img
+          src="brand/logo-infinity.png"
+          alt="Infinity Internet"
+          width="200"
+          height="200"
+        />
+      </div>
+      <div class="role">Técnicos</div>
+    </div>
     <p id="msg">Preparando conexión…</p>
     <div class="spinner" aria-hidden="true"></div>
     <script>

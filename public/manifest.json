@@ -1,7 +1,7 @@
 {
-  "name": "LGB Técnicos",
-  "short_name": "Técnicos",
-  "description": "App de campo para técnicos ISP — LGB Sistemas",
+  "name": "Infinity Técnicos",
+  "short_name": "Infinity",
+  "description": "App de campo para técnicos ISP — Infinity Internet",
   "start_url": "/login?app=tecnico",
   "scope": "/",
   "display": "standalone",
@@ -10,6 +10,12 @@
   "orientation": "portrait-primary",
   "categories": ["business", "productivity"],
   "icons": [
+    {
+      "src": "/brand/logo-infinity.png",
+      "sizes": "any",
+      "type": "image/png",
+      "purpose": "any"
+    },
     {
       "src": "/icons/icon-192.png",
       "sizes": "192x192",

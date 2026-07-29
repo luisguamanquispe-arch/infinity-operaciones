@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Smartphone, Wifi } from "lucide-react";
 import { fetchWithRetry } from "@/lib/compress-image";
 import { hideCapacitorSplash } from "@/lib/hide-capacitor-splash";
+import { BrandLogo } from "@/components/BrandLogo";
 
 interface LoginFormProps {
   esAppTecnico: boolean;
@@ -104,10 +104,10 @@ export function LoginForm({ esAppTecnico: esAppTecnicoInicial }: LoginFormProps)
         sessionStorage.setItem("infinity-app-tecnico", "1");
       }
 
-      // Full navigation so Firefox applies Set-Cookie before protected routes
-      const dest = typeof data.redirect === "string" && data.redirect.startsWith("/")
-        ? data.redirect
-        : "/";
+      const dest =
+        typeof data.redirect === "string" && data.redirect.startsWith("/")
+          ? data.redirect
+          : "/";
       window.location.assign(dest);
     } catch {
       setError("El servidor está iniciando. Espere unos segundos e intente de nuevo.");
@@ -119,18 +119,12 @@ export function LoginForm({ esAppTecnico: esAppTecnicoInicial }: LoginFormProps)
   return (
     <div className="min-h-dvh flex flex-col items-center justify-center p-4 bg-gradient-to-br from-infinity-800 to-infinity-900 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
       <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-white/10 mb-4">
-            {esAppTecnico ? (
-              <Smartphone className="w-8 h-8 text-white" />
-            ) : (
-              <Wifi className="w-8 h-8 text-white" />
-            )}
-          </div>
-          <h1 className="text-2xl font-bold text-white">
-            {esAppTecnico ? "Infinity Técnicos" : "Infinity Operaciones"}
-          </h1>
-          <p className="text-infinity-200 mt-1">
+        <div className="text-center mb-8 flex flex-col items-center">
+          <BrandLogo variant="hero" priority className="mb-5" />
+          <p className="text-white font-semibold text-lg tracking-wide">
+            {esAppTecnico ? "Técnicos" : "Operaciones"}
+          </p>
+          <p className="text-infinity-200 mt-1 text-sm max-w-xs">
             {esAppTecnico
               ? "App de campo — soporte e instalaciones"
               : "Panel operativo ISP"}

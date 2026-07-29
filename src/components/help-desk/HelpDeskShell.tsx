@@ -6,7 +6,6 @@ import { useEffect, useState } from "react";
 import {
   BarChart3,
   BookOpen,
-  Headphones,
   LayoutDashboard,
   LogOut,
   MessageSquare,
@@ -14,6 +13,7 @@ import {
   Sun,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { BrandLogo } from "@/components/BrandLogo";
 
 const NAV = [
   { href: "/help-desk", label: "Dashboard", icon: LayoutDashboard, exact: true },
@@ -76,8 +76,8 @@ export function HelpDeskShell({ children }: { children: React.ReactNode }) {
     <div className="min-h-dvh flex bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
       <aside className="hidden md:flex w-64 flex-col bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800">
         <div className="p-5 border-b border-slate-200 dark:border-slate-800">
-          <div className="flex items-center gap-2">
-            <Headphones className="w-6 h-6 text-teal-600" />
+          <div className="flex items-center gap-3">
+            <BrandLogo variant="compact" />
             <div>
               <p className="font-bold text-sm">Infinity Remote</p>
               <p className="text-xs text-slate-500 dark:text-slate-400">Help Desk N1</p>
