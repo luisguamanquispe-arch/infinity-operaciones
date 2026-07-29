@@ -2,10 +2,11 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getFullSession } from "@/lib/auth";
 import { actualizarCliente, eliminarClientePorId } from "@/lib/cliente-crud";
-
-function puedeGestionarClientes(rol: string) {
-  return ["SUPERVISOR", "ADMIN"].includes(rol);
-}
+import {
+  MSG_SOLO_ADMIN_ELIMINAR_CLIENTE,
+  puedeEliminarClientes,
+  puedeGestionarClientes,
+} from "@/lib/cliente-permisos";
 
 export async function GET(
   _request: Request,
@@ -53,17 +54,14 @@ export async function PATCH(
   }
 }
 
-/** Eliminar cliente — solo ADMIN. */
+/** Eliminar cliente — ADMIN sí; SUPERVISOR no. */
 export async function DELETE(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getFullSession();
-  if (!session || session.rol !== "ADMIN") {
-    return NextResponse.json(
-      { error: "Solo gerencia (ADMIN) puede eliminar clientes" },
-      { status: 403 }
-    );
+  if (!session || !puedeEliminarClientes(session.rol)) {
+    return NextResponse.json({ error: MSG_SOLO_ADMIN_ELIMINAR_CLIENTE }, { status: 403 });
   }
 
   const { id } = await params;

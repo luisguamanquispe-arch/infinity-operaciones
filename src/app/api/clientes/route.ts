@@ -3,10 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getFullSession } from "@/lib/auth";
 import { crearCliente } from "@/lib/cliente-crud";
 import { esClienteInfraestructura } from "@/lib/cliente-infraestructura";
-
-function puedeGestionarClientes(rol: string) {
-  return ["SUPERVISOR", "ADMIN"].includes(rol);
-}
+import { puedeGestionarClientes } from "@/lib/cliente-permisos";
 
 export async function GET(request: Request) {
   const session = await getFullSession();

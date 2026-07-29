@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { getFullSession } from "@/lib/auth";
 import { importClientesFromBuffer } from "@/lib/clientes-import-wispro";
+import {
+  MSG_SOLO_ADMIN_IMPORTAR_WISPRO,
+  puedeImportarWispro,
+} from "@/lib/cliente-permisos";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -18,11 +22,8 @@ function isUploadFile(value: FormDataEntryValue | null): value is File {
 
 export async function POST(request: Request) {
   const session = await getFullSession();
-  if (!session || session.rol !== "ADMIN") {
-    return NextResponse.json(
-      { error: "Solo gerencia (ADMIN) puede importar clientes desde Wispro" },
-      { status: 403 }
-    );
+  if (!session || !puedeImportarWispro(session.rol)) {
+    return NextResponse.json({ error: MSG_SOLO_ADMIN_IMPORTAR_WISPRO }, { status: 403 });
   }
 
   try {

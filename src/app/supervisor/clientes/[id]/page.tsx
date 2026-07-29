@@ -50,7 +50,7 @@ export default function EditarClientePage() {
       setTicketsCount(dataCliente.cliente._count?.tickets ?? 0);
     }
     if (resHist.ok) setHistorial(dataHist.historial || []);
-    if (resMe.ok && dataMe.user?.rol === "ADMIN") setEsAdmin(true);
+    if (resMe.ok && dataMe.permisos?.clientes?.eliminar === true) setEsAdmin(true);
     setLoading(false);
   }
 

@@ -64,7 +64,7 @@ export default function ClientesListPage() {
     void fetch("/api/auth/me")
       .then((r) => r.json())
       .then((d) => {
-        if (d?.user?.rol === "ADMIN") setEsAdmin(true);
+        if (d?.permisos?.clientes?.importarWispro === true) setEsAdmin(true);
       })
       .catch(() => {});
   }, []);

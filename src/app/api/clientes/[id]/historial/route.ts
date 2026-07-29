@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
 import { getFullSession } from "@/lib/auth";
 import { CAMPOS_CLIENTE_LABELS, obtenerHistorialCliente } from "@/lib/cliente-crud";
+import { puedeGestionarClientes } from "@/lib/cliente-permisos";
 
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getFullSession();
-  if (!session || !["SUPERVISOR", "ADMIN"].includes(session.rol)) {
+  if (!session || !puedeGestionarClientes(session.rol)) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 
