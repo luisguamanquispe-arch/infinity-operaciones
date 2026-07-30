@@ -168,7 +168,19 @@ export async function PUT(
         },
       });
 
-      return NextResponse.json({ firma });
+      // Evita que el técnico deba marcar a mano "Firma registrada" / "Cliente conforme"
+      await prisma.ordenServicio.update({
+        where: { id: orden.id },
+        data: {
+          firmaOk: true,
+          clienteConforme: true,
+        },
+      });
+
+      return NextResponse.json({
+        firma,
+        checklist: { firmaOk: true, clienteConforme: true },
+      });
     }
 
     if (body.materiales) {
@@ -208,6 +220,18 @@ export async function PUT(
       });
       const esInfra = ticketMat ? esTicketInfraestructura(ticketMat.tipo) : false;
 
+      // Devolver stock de materiales previos antes de reemplazar (evita doble descuento)
+      const previos = await prisma.materialUtilizado.findMany({
+        where: { ordenId: orden.id },
+        select: { inventarioId: true, cantidad: true },
+      });
+      for (const prev of previos) {
+        await prisma.inventario.update({
+          where: { id: prev.inventarioId },
+          data: { stock: { increment: prev.cantidad } },
+        });
+      }
+
       await prisma.materialUtilizado.deleteMany({ where: { ordenId: orden.id } });
 
       for (const m of items) {
@@ -232,7 +256,7 @@ export async function PUT(
 
         await prisma.inventario.update({
           where: { id: m.inventarioId },
-          data: { stock: { decrement: parseFloat(String(m.cantidad)) } },
+          data: { stock: { decrement: cantidad } },
         });
       }
 

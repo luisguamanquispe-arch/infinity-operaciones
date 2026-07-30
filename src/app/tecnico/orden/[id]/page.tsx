@@ -20,6 +20,9 @@ import { leerGpsActual } from "@/lib/gps-client";
 import { useTecnicoGpsTracking } from "@/hooks/useTecnicoGpsTracking";
 import { TicketSemaforo } from "@/components/TicketSemaforo";
 import {
+  etiquetasDetalleMaterial,
+  materialEsCableOFibra,
+  materialEsEquipoActivo,
   materialEsPatchcord,
   materialRequiereDetalle,
   TIPO_PATCHCORD_LABELS,
@@ -315,6 +318,11 @@ export default function OrdenPage() {
     void cargar({ silent: true });
   }, [cargar]);
 
+  /** Tras guardar firma: recarga completa para sincronizar checklist firmaOk/clienteConforme. */
+  const refrescarTrasFirma = useCallback(() => {
+    void cargar({ silent: false });
+  }, [cargar]);
+
   useEffect(() => {
     abrirHecho.current = false;
     initialLoadedRef.current = false;
@@ -554,6 +562,18 @@ export default function OrdenPage() {
         { key: "clienteConforme" as const, label: "Cliente conforme" },
         { key: "firmaOk" as const, label: "Firma registrada" },
       ];
+
+  const inventarioEquipos = data.inventario.filter(
+    (inv) =>
+      tipoInventarioEfectivo(inv.tipo, inv.nombre) === "EQUIPO" ||
+      materialEsEquipoActivo(inv.nombre)
+  );
+  const inventarioCables = data.inventario.filter((inv) => materialEsCableOFibra(inv.nombre));
+  const inventarioOtros = data.inventario.filter(
+    (inv) =>
+      !inventarioEquipos.some((e) => e.id === inv.id) &&
+      !inventarioCables.some((c) => c.id === inv.id)
+  );
 
   return (
     <div className="min-h-dvh bg-slate-50 pb-8">
@@ -806,9 +826,10 @@ export default function OrdenPage() {
             <section className="bg-white rounded-xl border p-4 space-y-3">
               <h3 className="font-semibold">Material utilizado</h3>
               <p className="text-xs text-slate-500">
-                Caja NAP, pigtails, patch cord y equipos requieren serie, modelo y marca.
+                Soporte e instalaciones: ONU, router, bridge y RB requieren serie, modelo y marca.
+                Cable drop y fibras: lote/bobina, modelo y marca. Patch cord: tipo APC/UPC.
                 Cable drop / fibra droop: incluye {FIBRA_DROP_LIMITE_M} m; el excedente se marca en
-                rojo para revisar cobro.
+                rojo.
               </p>
               {materiales.map((m, i) => {
                 const nombreMat = nombreMaterial(m.inventarioId);
@@ -816,6 +837,7 @@ export default function OrdenPage() {
                 const tipoMat = tipoMaterialSeleccionado(m.inventarioId);
                 const requiereDetalle = tipoMat ? materialRequiereDetalle(tipoMat, nombreMat) : false;
                 const esPatchcord = tipoMat ? materialEsPatchcord(tipoMat, nombreMat) : false;
+                const labels = etiquetasDetalleMaterial(nombreMat);
                 const excedenteFibra =
                   !esInfra && nombreMat
                     ? calcularExcedenteMaterial(nombreMat, m.cantidad, false)
@@ -839,11 +861,33 @@ export default function OrdenPage() {
                         className="flex-1 px-3 py-2 border rounded-lg text-sm"
                       >
                         <option value="">Seleccionar material</option>
-                        {data.inventario.map((inv) => (
-                          <option key={inv.id} value={inv.id}>
-                            {inv.nombre} (stock: {inv.stock} {inv.unidad})
-                          </option>
-                        ))}
+                        {inventarioEquipos.length > 0 && (
+                          <optgroup label="Equipos (ONU / router / bridge)">
+                            {inventarioEquipos.map((inv) => (
+                              <option key={inv.id} value={inv.id}>
+                                {inv.nombre} (stock: {inv.stock} {inv.unidad})
+                              </option>
+                            ))}
+                          </optgroup>
+                        )}
+                        {inventarioCables.length > 0 && (
+                          <optgroup label="Cable y fibra">
+                            {inventarioCables.map((inv) => (
+                              <option key={inv.id} value={inv.id}>
+                                {inv.nombre} (stock: {inv.stock} {inv.unidad})
+                              </option>
+                            ))}
+                          </optgroup>
+                        )}
+                        {inventarioOtros.length > 0 && (
+                          <optgroup label="Otros materiales">
+                            {inventarioOtros.map((inv) => (
+                              <option key={inv.id} value={inv.id}>
+                                {inv.nombre} (stock: {inv.stock} {inv.unidad})
+                              </option>
+                            ))}
+                          </optgroup>
+                        )}
                       </select>
                       <input
                         type="number"
@@ -881,29 +925,35 @@ export default function OrdenPage() {
                     )}
 
                     {requiereDetalle && (
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                        <input
-                          type="text"
-                          placeholder="Serie *"
-                          value={m.serie}
-                          onChange={(e) => actualizarMaterial(i, { serie: e.target.value })}
-                          className="px-3 py-2 border rounded-lg text-sm uppercase"
-                        />
-                        <input
-                          type="text"
-                          placeholder="Modelo *"
-                          value={m.modelo}
-                          onChange={(e) => actualizarMaterial(i, { modelo: e.target.value })}
-                          className="px-3 py-2 border rounded-lg text-sm uppercase"
-                        />
-                        <input
-                          type="text"
-                          placeholder="Marca *"
-                          value={m.marca}
-                          onChange={(e) => actualizarMaterial(i, { marca: e.target.value })}
-                          className="px-3 py-2 border rounded-lg text-sm uppercase"
-                        />
-                      </div>
+                      <>
+                        <p className="text-[11px] text-slate-500">{labels.ayuda}</p>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                          <input
+                            type="text"
+                            placeholder={labels.serie}
+                            value={m.serie}
+                            onChange={(e) => actualizarMaterial(i, { serie: e.target.value })}
+                            className="px-3 py-2 border rounded-lg text-sm uppercase"
+                            autoComplete="off"
+                          />
+                          <input
+                            type="text"
+                            placeholder={labels.modelo}
+                            value={m.modelo}
+                            onChange={(e) => actualizarMaterial(i, { modelo: e.target.value })}
+                            className="px-3 py-2 border rounded-lg text-sm uppercase"
+                            autoComplete="off"
+                          />
+                          <input
+                            type="text"
+                            placeholder={labels.marca}
+                            value={m.marca}
+                            onChange={(e) => actualizarMaterial(i, { marca: e.target.value })}
+                            className="px-3 py-2 border rounded-lg text-sm uppercase"
+                            autoComplete="off"
+                          />
+                        </div>
+                      </>
                     )}
 
                     {esPatchcord && (
@@ -928,6 +978,7 @@ export default function OrdenPage() {
                 );
               })}
               <button
+                type="button"
                 onClick={() => setMateriales([...materiales, materialVacio()])}
                 className="text-sm text-infinity-600"
               >
@@ -937,10 +988,11 @@ export default function OrdenPage() {
                 <div className="bg-red-50 text-red-700 text-sm p-3 rounded-lg">{materialError}</div>
               )}
               <button
-                onClick={guardarMateriales}
+                type="button"
+                onClick={() => void guardarMateriales()}
                 className="w-full py-2 border border-infinity-600 text-infinity-600 rounded-lg text-sm font-medium"
               >
-                Descontar del inventario
+                Guardar materiales / descontar inventario
               </button>
             </section>
 
@@ -964,7 +1016,7 @@ export default function OrdenPage() {
               existing={orden.firma}
               clienteNombre={ticket.cliente.nombre}
               clienteCedula={ticket.cliente.cedula}
-              onSaved={refrescar}
+              onSaved={refrescarTrasFirma}
             />
             )}
 
@@ -1036,9 +1088,23 @@ export default function OrdenPage() {
                   <section className="bg-white rounded-xl border p-4 space-y-2">
                     <h3 className="font-semibold">Material utilizado</h3>
                     {orden.materiales.map((m, i) => (
-                      <p key={i} className="text-sm">
-                        {m.inventario.nombre}: {m.cantidad} {m.inventario.unidad}
-                      </p>
+                      <div key={i} className="text-sm border-b border-slate-100 last:border-0 py-2">
+                        <p className="font-medium">
+                          {m.inventario.nombre}: {m.cantidad} {m.inventario.unidad}
+                        </p>
+                        {(m.serie || m.modelo || m.marca) && (
+                          <p className="text-xs text-slate-500 mt-0.5">
+                            {[
+                              m.serie && `Serie/lote: ${m.serie}`,
+                              m.modelo && `Modelo: ${m.modelo}`,
+                              m.marca && `Marca: ${m.marca}`,
+                              m.tipoPatchCord && `Patch: ${m.tipoPatchCord}`,
+                            ]
+                              .filter(Boolean)
+                              .join(" · ")}
+                          </p>
+                        )}
+                      </div>
                     ))}
                   </section>
                 )}

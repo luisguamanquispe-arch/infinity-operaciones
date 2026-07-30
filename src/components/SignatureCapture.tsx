@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useEffect, useState } from "react";
+import { useRef, useEffect, useState, useCallback } from "react";
 import SignaturePad from "signature_pad";
 import { fetchWithRetry } from "@/lib/compress-image";
 import {
@@ -29,6 +29,10 @@ interface SignatureCaptureProps {
   onSaved: () => void;
 }
 
+/**
+ * Firma del cliente. Conserva trazos al redimensionar (evita que el canvas
+ * se borre al abrir teclado / rotar / aceptar condiciones).
+ */
 export function SignatureCapture({
   ticketId,
   existing,
@@ -38,38 +42,92 @@ export function SignatureCapture({
 }: SignatureCaptureProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const padRef = useRef<SignaturePad | null>(null);
+  const lastSizeRef = useRef({ w: 0, h: 0 });
   const [nombre, setNombre] = useState(clienteNombre);
   const [cedula, setCedula] = useState(clienteCedula);
   const [aceptaCondiciones, setAceptaCondiciones] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  const resizeCanvas = useCallback((pad: SignaturePad) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const cssW = Math.max(1, Math.floor(canvas.offsetWidth));
+    const cssH = Math.max(1, Math.floor(canvas.offsetHeight));
+    if (cssW < 2 || cssH < 2) return;
+
+    if (lastSizeRef.current.w === cssW && lastSizeRef.current.h === cssH) {
+      return;
+    }
+
+    // Preservar trazos antes de cambiar el bitmap del canvas
+    const data = pad.isEmpty() ? null : pad.toData();
+
+    const ratio = Math.max(window.devicePixelRatio || 1, 1);
+    canvas.width = cssW * ratio;
+    canvas.height = cssH * ratio;
+    const ctx = canvas.getContext("2d");
+    if (ctx) {
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.scale(ratio, ratio);
+    }
+    lastSizeRef.current = { w: cssW, h: cssH };
+
+    pad.clear();
+    if (data && data.length > 0) {
+      pad.fromData(data);
+    }
+  }, []);
+
   useEffect(() => {
     if (!canvasRef.current || existing) return;
 
-    const pad = new SignaturePad(canvasRef.current, {
+    const canvas = canvasRef.current;
+    const pad = new SignaturePad(canvas, {
       backgroundColor: "rgb(255, 255, 255)",
       penColor: "rgb(0, 0, 0)",
+      minWidth: 0.8,
+      maxWidth: 2.2,
     });
     padRef.current = pad;
+    lastSizeRef.current = { w: 0, h: 0 };
 
-    function resize() {
-      if (!canvasRef.current) return;
-      const ratio = Math.max(window.devicePixelRatio || 1, 1);
-      canvasRef.current.width = canvasRef.current.offsetWidth * ratio;
-      canvasRef.current.height = canvasRef.current.offsetHeight * ratio;
-      canvasRef.current.getContext("2d")?.scale(ratio, ratio);
-      pad.clear();
+    const apply = () => resizeCanvas(pad);
+    apply();
+
+    // Debounce: teclado móvil dispara resize en ráfagas
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    function onWindowResize() {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(apply, 120);
     }
 
-    resize();
-    window.addEventListener("resize", resize);
-    return () => window.removeEventListener("resize", resize);
-  }, [existing]);
+    window.addEventListener("resize", onWindowResize);
+    window.addEventListener("orientationchange", onWindowResize);
+
+    const ro =
+      typeof ResizeObserver !== "undefined"
+        ? new ResizeObserver(() => {
+            if (timer) clearTimeout(timer);
+            timer = setTimeout(apply, 80);
+          })
+        : null;
+    if (ro) ro.observe(canvas.parentElement || canvas);
+
+    return () => {
+      if (timer) clearTimeout(timer);
+      window.removeEventListener("resize", onWindowResize);
+      window.removeEventListener("orientationchange", onWindowResize);
+      ro?.disconnect();
+      pad.off();
+      padRef.current = null;
+    };
+  }, [existing, resizeCanvas]);
 
   async function guardar() {
     if (!padRef.current || padRef.current.isEmpty()) {
-      alert("Por favor firme en el área");
+      setError("Por favor firme en el área blanca");
       return;
     }
 
@@ -124,10 +182,11 @@ export function SignatureCapture({
         <p className="text-sm text-slate-600">
           {existing.nombreCliente} — {existing.cedula}
         </p>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={existing.imagenSrc || existing.imagenUrl}
           alt="Firma"
-          className="border rounded-lg max-h-32"
+          className="border rounded-lg max-h-32 bg-white"
         />
         {existing.aceptacionCondiciones && (
           <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900 space-y-2">
@@ -163,8 +222,11 @@ export function SignatureCapture({
 
       <canvas
         ref={canvasRef}
-        className="w-full h-40 border-2 border-dashed border-slate-300 rounded-xl touch-none"
+        className="w-full h-44 border-2 border-dashed border-slate-300 rounded-xl touch-none bg-white"
       />
+      <p className="text-[11px] text-slate-500">
+        Firme con el dedo en el área blanca. Use Limpiar solo si desea volver a firmar.
+      </p>
 
       <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 space-y-2">
         <p className="text-xs font-semibold text-amber-900 uppercase tracking-wide">
@@ -187,13 +249,18 @@ export function SignatureCapture({
 
       <div className="flex gap-2">
         <button
-          onClick={() => padRef.current?.clear()}
+          type="button"
+          onClick={() => {
+            padRef.current?.clear();
+            setError("");
+          }}
           className="flex-1 py-2 border rounded-lg text-sm"
         >
           Limpiar
         </button>
         <button
-          onClick={guardar}
+          type="button"
+          onClick={() => void guardar()}
           disabled={loading || !aceptaCondiciones}
           className="flex-1 py-2 bg-infinity-600 text-white rounded-lg text-sm font-medium disabled:opacity-50"
         >

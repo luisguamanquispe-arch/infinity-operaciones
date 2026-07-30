@@ -16,14 +16,41 @@ export function materialEsPigtail(nombre: string): boolean {
   return nombreNorm(nombre).includes("pigtail");
 }
 
+/** Cable drop / fibras (metros) — requieren lote, modelo y marca. */
+export function materialEsCableOFibra(nombre: string): boolean {
+  const n = nombreNorm(nombre);
+  return (
+    n.includes("cable drop") ||
+    n.includes("cable droop") ||
+    n.includes("fibra") ||
+    (n.includes("drop") && (n.includes("cable") || n.includes("fibra")))
+  );
+}
+
+/** Equipos activos (ONU, router, bridge, etc.). */
+export function materialEsEquipoActivo(nombre: string): boolean {
+  const n = nombreNorm(nombre);
+  return (
+    n.includes("onu") ||
+    n.includes("router") ||
+    n.includes("route") ||
+    n.includes("bridge") ||
+    n.includes("repetidor") ||
+    n.includes("mikrotik") ||
+    n === "rb mikrotik" ||
+    n.startsWith("rb ")
+  );
+}
+
 /** Equipos/passivos de infra que exigen serie, modelo y marca. */
 export function materialInfraConDetalle(nombre: string): boolean {
   const n = nombreNorm(nombre);
   return (
     materialEsPigtail(nombre) ||
+    materialEsEquipoActivo(nombre) ||
+    materialEsCableOFibra(nombre) ||
     n.includes("caja nap") ||
-    n.includes("splitter") ||
-    n.includes("mikrotik")
+    n.includes("splitter")
   );
 }
 
@@ -43,16 +70,7 @@ export function materialEsPatchcord(tipo: TipoInventario, nombre?: string): bool
 export function inferTipoInventario(nombre: string): TipoInventario {
   const n = nombreNorm(nombre);
   if (n.includes("patch") && !n.includes("pigtail")) return "PATCHCORD";
-  if (
-    n.includes("onu") ||
-    n.includes("router") ||
-    n.includes("route") ||
-    n.includes("bridge") ||
-    n.includes("repetidor") ||
-    n.includes("mikrotik") ||
-    n.includes("caja nap") ||
-    n.includes("splitter")
-  ) {
+  if (materialEsEquipoActivo(nombre) || n.includes("caja nap") || n.includes("splitter")) {
     return "EQUIPO";
   }
   return "CONSUMIBLE";
@@ -64,6 +82,37 @@ export function tipoInventarioEfectivo(
 ): TipoInventario {
   if (tipo && tipo !== "CONSUMIBLE") return tipo;
   return inferTipoInventario(nombre);
+}
+
+/** Etiquetas de campos según material (app técnicos). */
+export function etiquetasDetalleMaterial(nombre: string): {
+  serie: string;
+  modelo: string;
+  marca: string;
+  ayuda: string;
+} {
+  if (materialEsCableOFibra(nombre)) {
+    return {
+      serie: "Lote / bobina *",
+      modelo: "Modelo / tipo *",
+      marca: "Marca *",
+      ayuda: "Cable y fibra: registre lote/bobina, modelo (ej. G657A) y marca.",
+    };
+  }
+  if (materialEsEquipoActivo(nombre)) {
+    return {
+      serie: "Serie / SN *",
+      modelo: "Modelo *",
+      marca: "Marca *",
+      ayuda: "ONU, router, bridge, etc.: serie, modelo y marca obligatorios.",
+    };
+  }
+  return {
+    serie: "Serie *",
+    modelo: "Modelo *",
+    marca: "Marca *",
+    ayuda: "Indique serie, modelo y marca del material.",
+  };
 }
 
 export interface MaterialDetalleInput {
@@ -85,9 +134,14 @@ export function validarMaterialDetalle(
   const serie = material.serie?.trim();
   const modelo = material.modelo?.trim();
   const marca = material.marca?.trim();
+  const labels = etiquetasDetalleMaterial(nombre || "");
 
-  if (!serie) return "Indique la serie del material";
-  if (!modelo) return "Indique el modelo del material";
+  if (!serie) {
+    return materialEsCableOFibra(nombre || "")
+      ? "Indique el lote/bobina del cable o fibra"
+      : "Indique la serie del material";
+  }
+  if (!modelo) return `Indique el modelo (${labels.modelo.replace(" *", "")})`;
   if (!marca) return "Indique la marca del material";
 
   if (materialEsPatchcord(tipo, nombre)) {
