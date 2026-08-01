@@ -3,17 +3,21 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, FileDown, Loader2 } from "lucide-react";
+import { ArrowLeft, FileDown, Loader2, Pencil } from "lucide-react";
 import SignaturePad from "signature_pad";
 import { AppHeader } from "@/components/AppHeader";
 import { fetchWithRetry } from "@/lib/compress-image";
 import {
+  IR_EQUIPO_LABELS,
   IR_ESTADO_LABELS,
+  IR_ESTADOS,
   IR_PRIORIDAD_LABELS,
+  IR_RESULTADO_LABELS,
   IR_TIPO_FOTO_LABELS,
   IR_TIPO_FIRMA_LABELS,
   IR_TIPO_TRABAJO_LABELS,
   IR_TIPOS_FOTO,
+  formatoTiempoMinutos,
   type IrTipoFoto,
 } from "@/lib/infraestructura-red/labels";
 
@@ -23,10 +27,12 @@ type Reporte = {
   fecha: string;
   horaInicio: string | null;
   horaFin: string | null;
+  tiempoMinutos: number | null;
   estado: keyof typeof IR_ESTADO_LABELS;
   prioridad: keyof typeof IR_PRIORIDAD_LABELS;
   tipoTrabajo: keyof typeof IR_TIPO_TRABAJO_LABELS;
   tipoTrabajoOtro: string | null;
+  resultado: keyof typeof IR_RESULTADO_LABELS | null;
   provincia: string;
   canton: string;
   parroquia: string;
@@ -34,13 +40,38 @@ type Reporte = {
   direccion: string;
   lat: number | null;
   lng: number | null;
+  nodo: string | null;
+  nap: string | null;
+  cto: string | null;
+  odf: string | null;
+  splitter: string | null;
+  manga: string | null;
+  cajaPaso: string | null;
+  tramoFibra: string | null;
+  cantidadHilos: number | null;
+  longitudAfectadaM: number | null;
+  kmRedIntervenida: number | null;
+  clientesAfectadosN: number;
   descripcion: string;
+  trabajosRealizados: string | null;
   observaciones: string | null;
   tecnico: { usuario: { nombre: string } };
   supervisor: { nombre: string } | null;
   materiales: { id: string; material: string; cantidad: number; unidad: string }[];
+  equipos: { id: string; tipo: keyof typeof IR_EQUIPO_LABELS; detalle: string | null }[];
+  participantes: { tecnico: { usuario: { nombre: string } } }[];
+  clientesAfectados: {
+    cliente: { id: string; nombre: string; cedula: string };
+  }[];
   fotografias: { id: string; tipo: string; url: string; imagenData: string | null }[];
   firmas: { id: string; tipo: string; nombre: string; imagenData: string | null }[];
+  historial: {
+    id: string;
+    fecha: string;
+    usuarioNombre: string;
+    estado: keyof typeof IR_ESTADO_LABELS;
+    nota: string | null;
+  }[];
 };
 
 function FirmaBox({
@@ -108,7 +139,9 @@ function FirmaBox({
   if (existing?.imagenData) {
     return (
       <div className="border rounded-xl p-3 space-y-2">
-        <p className="text-sm font-medium">{IR_TIPO_FIRMA_LABELS[tipo]}: {existing.nombre}</p>
+        <p className="text-sm font-medium">
+          {IR_TIPO_FIRMA_LABELS[tipo]}: {existing.nombre}
+        </p>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={existing.imagenData} alt="Firma" className="max-h-24 border rounded bg-white" />
       </div>
@@ -158,6 +191,11 @@ export default function IrReporteDetallePage() {
   const [error, setError] = useState("");
   const [msg, setMsg] = useState("");
   const [uploading, setUploading] = useState<string | null>(null);
+  const [editando, setEditando] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [editEstado, setEditEstado] = useState("");
+  const [editTrabajos, setEditTrabajos] = useState("");
+  const [editObs, setEditObs] = useState("");
   const fileRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   const cargar = useCallback(async () => {
@@ -167,6 +205,9 @@ export default function IrReporteDetallePage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Error");
       setReporte(data.reporte);
+      setEditEstado(data.reporte.estado);
+      setEditTrabajos(data.reporte.trabajosRealizados || "");
+      setEditObs(data.reporte.observaciones || "");
       setError("");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error");
@@ -179,6 +220,31 @@ export default function IrReporteDetallePage() {
   useEffect(() => {
     void cargar();
   }, [cargar]);
+
+  async function guardarEdicion() {
+    setSaving(true);
+    setMsg("");
+    try {
+      const res = await fetch(`/api/infraestructura/reportes/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          estado: editEstado,
+          trabajosRealizados: editTrabajos,
+          observaciones: editObs,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "No se pudo guardar");
+      setReporte(data.reporte);
+      setEditando(false);
+      setMsg("Cambios guardados");
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : "Error");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   async function finalizar() {
     setMsg("");
@@ -246,10 +312,27 @@ export default function IrReporteDetallePage() {
       ? `Otro: ${reporte.tipoTrabajoOtro}`
       : IR_TIPO_TRABAJO_LABELS[reporte.tipoTrabajo];
 
+  const infraRows = [
+    ["Nodo", reporte.nodo],
+    ["NAP", reporte.nap],
+    ["CTO", reporte.cto],
+    ["ODF", reporte.odf],
+    ["Splitter", reporte.splitter],
+    ["Manga", reporte.manga],
+    ["Caja de paso", reporte.cajaPaso],
+    ["Tramo", reporte.tramoFibra],
+    ["Hilos", reporte.cantidadHilos != null ? String(reporte.cantidadHilos) : null],
+    [
+      "Longitud (m)",
+      reporte.longitudAfectadaM != null ? String(reporte.longitudAfectadaM) : null,
+    ],
+    ["Km", reporte.kmRedIntervenida != null ? String(reporte.kmRedIntervenida) : null],
+  ] as const;
+
   return (
     <div className="min-h-dvh bg-slate-50">
       <AppHeader title={reporte.codigo} subtitle="Infraestructura de Red" />
-      <main className="max-w-3xl mx-auto p-4 space-y-4">
+      <main className="max-w-3xl mx-auto p-4 space-y-4 pb-16">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <Link
             href="/infraestructura"
@@ -257,12 +340,21 @@ export default function IrReporteDetallePage() {
           >
             <ArrowLeft className="w-4 h-4" /> Listado
           </Link>
-          <a
-            href={`/api/infraestructura/reportes/${id}/pdf`}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border text-sm font-medium hover:bg-white"
-          >
-            <FileDown className="w-4 h-4" /> Descargar PDF
-          </a>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setEditando((v) => !v)}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border text-sm font-medium bg-white"
+            >
+              <Pencil className="w-4 h-4" /> {editando ? "Cancelar" : "Editar"}
+            </button>
+            <a
+              href={`/api/infraestructura/reportes/${id}/pdf`}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border text-sm font-medium hover:bg-white"
+            >
+              <FileDown className="w-4 h-4" /> Imprimir PDF
+            </a>
+          </div>
         </div>
 
         {msg && (
@@ -283,8 +375,18 @@ export default function IrReporteDetallePage() {
             {new Date(reporte.fecha).toLocaleString("es-EC")}
           </p>
           <p>
+            <span className="text-slate-500">Tiempo:</span>{" "}
+            {formatoTiempoMinutos(reporte.tiempoMinutos)}
+          </p>
+          <p>
             <span className="text-slate-500">Técnico:</span> {reporte.tecnico.usuario.nombre}
           </p>
+          {reporte.participantes.length > 0 && (
+            <p>
+              <span className="text-slate-500">Participantes:</span>{" "}
+              {reporte.participantes.map((p) => p.tecnico.usuario.nombre).join(", ")}
+            </p>
+          )}
           <p>
             <span className="text-slate-500">Supervisor:</span>{" "}
             {reporte.supervisor?.nombre ?? "—"}
@@ -293,25 +395,127 @@ export default function IrReporteDetallePage() {
             <span className="text-slate-500">Tipo:</span> {tipoLabel} · Prioridad{" "}
             {IR_PRIORIDAD_LABELS[reporte.prioridad]}
           </p>
+          {reporte.resultado && (
+            <p>
+              <span className="text-slate-500">Resultado:</span>{" "}
+              {IR_RESULTADO_LABELS[reporte.resultado]}
+            </p>
+          )}
           <p>
             <span className="text-slate-500">Ubicación:</span> {reporte.provincia} /{" "}
             {reporte.canton} / {reporte.parroquia} — {reporte.sector}
           </p>
           <p>{reporte.direccion}</p>
-          {reporte.lat != null && reporte.lng != null && (
-            <p className="text-xs text-slate-500">
-              GPS: {reporte.lat}, {reporte.lng}
-            </p>
+        </section>
+
+        {editando && (
+          <section className="bg-white rounded-xl border p-4 space-y-3">
+            <h3 className="font-semibold">Editar</h3>
+            <label className="text-sm block space-y-1">
+              <span className="font-medium">Estado</span>
+              <select
+                value={editEstado}
+                onChange={(e) => setEditEstado(e.target.value)}
+                className="w-full px-3 py-2 border rounded-xl"
+              >
+                {IR_ESTADOS.map((e) => (
+                  <option key={e} value={e}>
+                    {IR_ESTADO_LABELS[e]}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="text-sm block space-y-1">
+              <span className="font-medium">Trabajos realizados</span>
+              <textarea
+                rows={4}
+                value={editTrabajos}
+                onChange={(e) => setEditTrabajos(e.target.value)}
+                className="w-full px-3 py-2 border rounded-xl"
+              />
+            </label>
+            <label className="text-sm block space-y-1">
+              <span className="font-medium">Observaciones</span>
+              <textarea
+                rows={3}
+                value={editObs}
+                onChange={(e) => setEditObs(e.target.value)}
+                className="w-full px-3 py-2 border rounded-xl"
+              />
+            </label>
+            <button
+              type="button"
+              disabled={saving}
+              onClick={() => void guardarEdicion()}
+              className="w-full py-2.5 bg-cyan-700 text-white rounded-xl font-medium disabled:opacity-50"
+            >
+              {saving ? "Guardando…" : "Guardar cambios"}
+            </button>
+          </section>
+        )}
+
+        <section className="bg-white rounded-xl border p-4 space-y-2 text-sm">
+          <h3 className="font-semibold">Infraestructura afectada</h3>
+          {infraRows.some(([, v]) => v) ? (
+            <ul className="space-y-1">
+              {infraRows
+                .filter(([, v]) => v)
+                .map(([k, v]) => (
+                  <li key={k}>
+                    <span className="text-slate-500">{k}:</span> {v}
+                  </li>
+                ))}
+            </ul>
+          ) : (
+            <p className="text-slate-500">Sin detalle de infraestructura</p>
           )}
-          <div className="pt-2 border-t">
-            <p className="font-medium mb-1">Descripción</p>
-            <p className="whitespace-pre-wrap text-slate-700">{reporte.descripcion}</p>
-          </div>
+          <p>
+            <span className="text-slate-500">Clientes afectados (nº):</span>{" "}
+            {reporte.clientesAfectadosN}
+          </p>
+        </section>
+
+        {reporte.clientesAfectados.length > 0 && (
+          <section className="bg-white rounded-xl border p-4 space-y-2 text-sm">
+            <h3 className="font-semibold">Clientes vinculados</h3>
+            <ul className="space-y-1">
+              {reporte.clientesAfectados.map((c) => (
+                <li key={c.cliente.id}>
+                  {c.cliente.nombre} · {c.cliente.cedula}
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
+        <section className="bg-white rounded-xl border p-4 space-y-2 text-sm">
+          <h3 className="font-semibold">Descripción del problema</h3>
+          <p className="whitespace-pre-wrap text-slate-700">{reporte.descripcion}</p>
+          <h3 className="font-semibold pt-2">Trabajos realizados</h3>
+          <p className="whitespace-pre-wrap text-slate-700">
+            {reporte.trabajosRealizados || "—"}
+          </p>
           {reporte.observaciones && (
-            <div>
-              <p className="font-medium mb-1">Observaciones</p>
+            <>
+              <h3 className="font-semibold pt-2">Observaciones</h3>
               <p className="whitespace-pre-wrap text-slate-700">{reporte.observaciones}</p>
-            </div>
+            </>
+          )}
+        </section>
+
+        <section className="bg-white rounded-xl border p-4 space-y-2">
+          <h3 className="font-semibold">Equipos</h3>
+          {reporte.equipos.length === 0 ? (
+            <p className="text-sm text-slate-500">Sin equipos</p>
+          ) : (
+            <ul className="text-sm space-y-1">
+              {reporte.equipos.map((e) => (
+                <li key={e.id}>
+                  {IR_EQUIPO_LABELS[e.tipo]}
+                  {e.detalle ? ` — ${e.detalle}` : ""}
+                </li>
+              ))}
+            </ul>
           )}
         </section>
 
@@ -393,13 +597,35 @@ export default function IrReporteDetallePage() {
           />
         </section>
 
-        {reporte.estado !== "FINALIZADO" && (
+        <section className="bg-white rounded-xl border p-4 space-y-2">
+          <h3 className="font-semibold">Historial</h3>
+          <p className="text-xs text-slate-500">Registro automático · no se puede eliminar</p>
+          {reporte.historial.length === 0 ? (
+            <p className="text-sm text-slate-500">Sin eventos</p>
+          ) : (
+            <ul className="text-sm space-y-2 max-h-64 overflow-auto">
+              {reporte.historial.map((h) => (
+                <li key={h.id} className="border-b pb-2 last:border-0">
+                  <p className="font-medium">
+                    {new Date(h.fecha).toLocaleString("es-EC")} · {h.usuarioNombre}
+                  </p>
+                  <p className="text-slate-600">
+                    {IR_ESTADO_LABELS[h.estado]}
+                    {h.nota ? ` — ${h.nota}` : ""}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        {reporte.estado !== "FINALIZADO" && reporte.estado !== "CANCELADO" && (
           <button
             type="button"
             onClick={() => void finalizar()}
             className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl"
           >
-            Marcar como finalizado
+            Finalizar
           </button>
         )}
       </main>

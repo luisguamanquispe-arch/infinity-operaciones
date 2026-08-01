@@ -103,6 +103,7 @@ model Usuario {
   deviceTokensCliente    AppClienteDeviceToken[]
   irReportesSupervisados IrReporte[] @relation("IrSupervisor")
   irReportesCreados      IrReporte[] @relation("IrCreadoPor")
+  irHistoriales          IrHistorial[]
   srTicketsOperados      SrTicket[]  @relation("SrOperador")
   srHistoriales          SrHistorial[]
 }
@@ -123,6 +124,7 @@ model Tecnico {
   ordenesReportadas OrdenServicio[] @relation("OrdenReportadaPor")
   novedadesReportadas NovedadTicket[]
   irReportes   IrReporte[]
+  irParticipaciones IrParticipante[]
 }
 
 model Cliente {
@@ -150,6 +152,7 @@ model Cliente {
   cuentaApp AppClienteCuenta?
   speedTests AppClienteSpeedTest[]
   srTickets SrTicket[]
+  irAfectaciones IrClienteAfectado[]
 }
 
 /// Cuenta de la app INFINITY Connect vinculada a un Cliente CRM.
@@ -371,6 +374,7 @@ model Inventario {
   stockMin   Float           @default(5)
   createdAt  DateTime        @default(now())
   materiales MaterialUtilizado[]
+  irMateriales IrMaterial[]
 }
 
 model MaterialUtilizado {
@@ -622,12 +626,14 @@ model HdSesionAgente {
   usuario    Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
 }
 
-// ─── Infraestructura de Red (módulo independiente; no altera tickets INFRA) ───
+// ─── Infraestructura de Red (trabajos sobre red de fibra; no soporte cliente) ───
 
 enum IrEstadoReporte {
   PENDIENTE
+  ASIGNADO
   EN_PROCESO
   FINALIZADO
+  CANCELADO
 }
 
 enum IrTipoTrabajo {
@@ -636,11 +642,37 @@ enum IrTipoTrabajo {
   CAMBIO_NAP
   CAMBIO_CTO
   CAMBIO_SPLITTER
+  CAMBIO_ODF
+  CAMBIO_CAJA_PASO
   CAMBIO_POSTE
+  CAMBIO_HERRAJES
+  CAMBIO_CABLE_TRONCAL
+  CAMBIO_CABLE_DISTRIBUCION
   CAMBIO_CABLE
   MANTENIMIENTO_PREVENTIVO
   MANTENIMIENTO_CORRECTIVO
+  REUBICACION_RED
   AMPLIACION_RED
+  INSTALACION_TRONCAL
+  INSPECCION_RED
+  OTRO
+}
+
+enum IrResultado {
+  REPARADO
+  REPARADO_PARCIAL
+  PENDIENTE_MATERIAL
+  REQUIERE_NUEVA_INTERVENCION
+  CANCELADO
+}
+
+enum IrEquipoTipo {
+  FUSIONADORA
+  OTDR
+  POWER_METER
+  VFL
+  ESCALERA
+  CAMIONETA
   OTRO
 }
 
@@ -661,6 +693,7 @@ model IrReporte {
   fecha               DateTime        @default(now())
   horaInicio          DateTime?
   horaFin             DateTime?
+  tiempoMinutos       Int?
   tecnicoId           String
   supervisorUsuarioId String?
   estado              IrEstadoReporte @default(PENDIENTE)
@@ -674,8 +707,23 @@ model IrReporte {
   direccion           String
   lat                 Float?
   lng                 Float?
+  nodo                String?
+  nap                 String?
+  cto                 String?
+  odf                 String?
+  splitter            String?
+  manga               String?
+  cajaPaso            String?
+  tramoFibra          String?
+  cantidadHilos       Int?
+  longitudAfectadaM   Float?
+  kmRedIntervenida    Float?
+  clientesAfectadosN  Int             @default(0)
   descripcion         String          @db.Text
+  trabajosRealizados  String?         @db.Text
+  resultado           IrResultado?
   observaciones       String?         @db.Text
+  inventarioDescontado Boolean        @default(false)
   creadoPorId         String
   createdAt           DateTime        @default(now())
   updatedAt           DateTime        @updatedAt
@@ -683,23 +731,64 @@ model IrReporte {
   supervisor          Usuario?        @relation("IrSupervisor", fields: [supervisorUsuarioId], references: [id])
   creadoPor           Usuario         @relation("IrCreadoPor", fields: [creadoPorId], references: [id])
   materiales          IrMaterial[]
+  equipos             IrEquipo[]
+  participantes       IrParticipante[]
+  clientesAfectados   IrClienteAfectado[]
   fotografias         IrFoto[]
   firmas              IrFirma[]
+  historial           IrHistorial[]
 
   @@index([estado, fecha])
   @@index([tecnicoId])
   @@index([sector])
+  @@index([tipoTrabajo])
 }
 
 model IrMaterial {
-  id        String    @id @default(cuid())
-  reporteId String
-  material  String
-  cantidad  Float
-  unidad    String    @default("unidad")
-  reporte   IrReporte @relation(fields: [reporteId], references: [id], onDelete: Cascade)
+  id           String      @id @default(cuid())
+  reporteId    String
+  inventarioId String?
+  material     String
+  cantidad     Float
+  unidad       String      @default("unidad")
+  reporte      IrReporte   @relation(fields: [reporteId], references: [id], onDelete: Cascade)
+  inventario   Inventario? @relation(fields: [inventarioId], references: [id], onDelete: SetNull)
 
   @@index([reporteId])
+  @@index([inventarioId])
+}
+
+model IrEquipo {
+  id        String       @id @default(cuid())
+  reporteId String
+  tipo      IrEquipoTipo
+  detalle   String?
+  reporte   IrReporte    @relation(fields: [reporteId], references: [id], onDelete: Cascade)
+
+  @@index([reporteId])
+}
+
+model IrParticipante {
+  id        String    @id @default(cuid())
+  reporteId String
+  tecnicoId String
+  reporte   IrReporte @relation(fields: [reporteId], references: [id], onDelete: Cascade)
+  tecnico   Tecnico   @relation(fields: [tecnicoId], references: [id])
+
+  @@unique([reporteId, tecnicoId])
+  @@index([reporteId])
+}
+
+model IrClienteAfectado {
+  id        String    @id @default(cuid())
+  reporteId String
+  clienteId String
+  nota      String?
+  reporte   IrReporte @relation(fields: [reporteId], references: [id], onDelete: Cascade)
+  cliente   Cliente   @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+
+  @@unique([reporteId, clienteId])
+  @@index([clienteId])
 }
 
 model IrFoto {
@@ -726,6 +815,20 @@ model IrFirma {
 
   @@unique([reporteId, tipo])
   @@index([reporteId])
+}
+
+model IrHistorial {
+  id            String          @id @default(cuid())
+  reporteId     String
+  fecha         DateTime        @default(now())
+  usuarioId     String
+  usuarioNombre String
+  estado        IrEstadoReporte
+  nota          String?
+  reporte       IrReporte       @relation(fields: [reporteId], references: [id], onDelete: Cascade)
+  usuario       Usuario         @relation(fields: [usuarioId], references: [id])
+
+  @@index([reporteId, fecha])
 }
 
 // ─── Soporte Remoto (oficina; reemplaza UI Help Desk conversacional) ───

@@ -19,6 +19,16 @@ interface GerenciaData {
     cerrados: number;
     tiempoPromedioMin: number;
   }[];
+  infraestructura?: {
+    abiertos: number;
+    enProceso: number;
+    finalizados: number;
+    preventivos: number;
+    correctivos: number;
+    kmRed: number;
+    clientesAfectados: number;
+    tiempoPromedioMin: number | null;
+  };
   sla: { menos4h: number; menos8h: number; mas24h: number };
   inventarioBajo: { nombre: string; stock: number; stockMin: number }[];
   totalTecnicos: number;
@@ -100,6 +110,34 @@ export default function GerenciaDashboard() {
                 />
               </div>
             </section>
+
+            {data.infraestructura && (
+              <section>
+                <h2 className="font-semibold mb-3">Infraestructura de Red</h2>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <StatCard
+                    label="Trabajos abiertos"
+                    value={data.infraestructura.abiertos}
+                    color="blue"
+                  />
+                  <StatCard
+                    label="En proceso"
+                    value={data.infraestructura.enProceso}
+                    color="yellow"
+                  />
+                  <StatCard
+                    label="Finalizados"
+                    value={data.infraestructura.finalizados}
+                    color="green"
+                  />
+                  <StatCard
+                    label="Clientes afectados"
+                    value={data.infraestructura.clientesAfectados}
+                    color="slate"
+                  />
+                </div>
+              </section>
+            )}
 
             <section>
               <h2 className="font-semibold mb-3">Rendimiento técnico</h2>

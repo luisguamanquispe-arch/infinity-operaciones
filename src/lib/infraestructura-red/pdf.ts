@@ -4,11 +4,14 @@ import PDFDocument from "pdfkit";
 import { prisma } from "@/lib/prisma";
 import { formatDateTime } from "@/lib/utils";
 import {
+  IR_EQUIPO_LABELS,
   IR_ESTADO_LABELS,
   IR_PRIORIDAD_LABELS,
+  IR_RESULTADO_LABELS,
   IR_TIPO_FOTO_LABELS,
   IR_TIPO_FIRMA_LABELS,
   IR_TIPO_TRABAJO_LABELS,
+  formatoTiempoMinutos,
 } from "./labels";
 
 function bufferFromPdf(doc: PDFKit.PDFDocument): Promise<Buffer> {
@@ -30,6 +33,14 @@ function dataUrlToBuffer(dataUrl: string | null | undefined): Buffer | null {
   }
 }
 
+function section(doc: PDFKit.PDFDocument, title: string) {
+  if (doc.y > 700) doc.addPage();
+  doc.moveDown(0.4);
+  doc.fontSize(12).fillColor("#0f172a").text(title, { underline: true });
+  doc.moveDown(0.25);
+  doc.fontSize(10).fillColor("#334155");
+}
+
 export async function generarPdfIrReporte(reporteId: string): Promise<{
   buffer: Buffer;
   filename: string;
@@ -41,6 +52,13 @@ export async function generarPdfIrReporte(reporteId: string): Promise<{
       tecnico: { include: { usuario: { select: { nombre: true } } } },
       supervisor: { select: { nombre: true } },
       materiales: true,
+      equipos: true,
+      participantes: {
+        include: { tecnico: { include: { usuario: { select: { nombre: true } } } } },
+      },
+      clientesAfectados: {
+        include: { cliente: { select: { nombre: true, cedula: true } } },
+      },
       fotografias: { orderBy: { tomadaEn: "asc" } },
       firmas: true,
     },
@@ -61,10 +79,7 @@ export async function generarPdfIrReporte(reporteId: string): Promise<{
     }
   }
 
-  doc
-    .fontSize(16)
-    .fillColor("#006B7A")
-    .text("INFINITY INTERNET", { align: "center" });
+  doc.fontSize(16).fillColor("#006B7A").text("INFINITY INTERNET", { align: "center" });
   doc
     .fontSize(12)
     .fillColor("#334155")
@@ -86,15 +101,22 @@ export async function generarPdfIrReporte(reporteId: string): Promise<{
   doc.text(`Fecha: ${formatDateTime(reporte.fecha)}`);
   if (reporte.horaInicio) doc.text(`Hora inicio: ${formatDateTime(reporte.horaInicio)}`);
   if (reporte.horaFin) doc.text(`Hora fin: ${formatDateTime(reporte.horaFin)}`);
-  doc.text(`Técnico: ${reporte.tecnico.usuario.nombre}`);
+  doc.text(`Tiempo empleado: ${formatoTiempoMinutos(reporte.tiempoMinutos)}`);
+  doc.text(`Técnico responsable: ${reporte.tecnico.usuario.nombre}`);
+  if (reporte.participantes.length) {
+    doc.text(
+      `Participantes: ${reporte.participantes.map((p) => p.tecnico.usuario.nombre).join(", ")}`
+    );
+  }
   doc.text(`Supervisor: ${reporte.supervisor?.nombre ?? "—"}`);
   doc.text(`Estado: ${IR_ESTADO_LABELS[reporte.estado]}`);
   doc.text(`Prioridad: ${IR_PRIORIDAD_LABELS[reporte.prioridad]}`);
   doc.text(`Tipo de trabajo: ${tipoLabel}`);
-  doc.moveDown(0.5);
+  if (reporte.resultado) {
+    doc.text(`Resultado: ${IR_RESULTADO_LABELS[reporte.resultado]}`);
+  }
 
-  doc.fontSize(12).text("Ubicación", { underline: true });
-  doc.fontSize(10);
+  section(doc, "Ubicación");
   doc.text(
     `${reporte.provincia} / ${reporte.canton} / ${reporte.parroquia} — ${reporte.sector}`
   );
@@ -102,25 +124,64 @@ export async function generarPdfIrReporte(reporteId: string): Promise<{
   if (reporte.lat != null && reporte.lng != null) {
     doc.text(`GPS: ${reporte.lat}, ${reporte.lng}`);
   }
-  doc.moveDown(0.5);
 
-  doc.fontSize(12).text("Descripción del trabajo", { underline: true });
-  doc.fontSize(10).text(reporte.descripcion || "—", { align: "justify" });
-  doc.moveDown(0.5);
+  section(doc, "Infraestructura afectada");
+  const infra = [
+    ["Nodo", reporte.nodo],
+    ["NAP", reporte.nap],
+    ["CTO", reporte.cto],
+    ["ODF", reporte.odf],
+    ["Splitter", reporte.splitter],
+    ["Manga", reporte.manga],
+    ["Caja de paso", reporte.cajaPaso],
+    ["Tramo de fibra", reporte.tramoFibra],
+    ["Hilos", reporte.cantidadHilos != null ? String(reporte.cantidadHilos) : null],
+    [
+      "Longitud afectada (m)",
+      reporte.longitudAfectadaM != null ? String(reporte.longitudAfectadaM) : null,
+    ],
+    [
+      "Km intervenidos",
+      reporte.kmRedIntervenida != null ? String(reporte.kmRedIntervenida) : null,
+    ],
+  ] as const;
+  for (const [label, val] of infra) {
+    if (val) doc.text(`${label}: ${val}`);
+  }
+  if (!infra.some(([, v]) => v)) doc.text("—");
 
-  if (reporte.observaciones) {
-    doc.fontSize(12).text("Observaciones", { underline: true });
-    doc.fontSize(10).text(reporte.observaciones, { align: "justify" });
-    doc.moveDown(0.5);
+  if (reporte.clientesAfectados.length) {
+    section(doc, "Clientes afectados");
+    for (const c of reporte.clientesAfectados) {
+      doc.text(`• ${c.cliente.nombre} (${c.cliente.cedula})`);
+    }
+  }
+
+  section(doc, "Descripción del problema");
+  doc.text(reporte.descripcion || "—", { align: "justify" });
+
+  section(doc, "Trabajos realizados");
+  doc.text(reporte.trabajosRealizados || "—", { align: "justify" });
+
+  if (reporte.equipos.length) {
+    section(doc, "Equipos utilizados");
+    for (const e of reporte.equipos) {
+      doc.text(
+        `• ${IR_EQUIPO_LABELS[e.tipo]}${e.detalle ? ` — ${e.detalle}` : ""}`
+      );
+    }
   }
 
   if (reporte.materiales.length) {
-    doc.fontSize(12).text("Materiales utilizados", { underline: true });
-    doc.fontSize(10);
+    section(doc, "Materiales utilizados");
     for (const m of reporte.materiales) {
       doc.text(`• ${m.material}: ${m.cantidad} ${m.unidad}`);
     }
-    doc.moveDown(0.5);
+  }
+
+  if (reporte.observaciones) {
+    section(doc, "Observaciones");
+    doc.text(reporte.observaciones, { align: "justify" });
   }
 
   for (const foto of reporte.fotografias) {
@@ -138,9 +199,7 @@ export async function generarPdfIrReporte(reporteId: string): Promise<{
 
   if (reporte.firmas.length) {
     if (doc.y > 620) doc.addPage();
-    doc.moveDown(0.5);
-    doc.fontSize(12).fillColor("#0f172a").text("Firmas", { underline: true });
-    doc.moveDown(0.3);
+    section(doc, "Firmas");
     for (const f of reporte.firmas) {
       doc.fontSize(10).text(`${IR_TIPO_FIRMA_LABELS[f.tipo]}: ${f.nombre}`);
       const buf = dataUrlToBuffer(f.imagenData);

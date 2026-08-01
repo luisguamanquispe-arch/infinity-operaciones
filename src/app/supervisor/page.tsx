@@ -24,6 +24,16 @@ interface DashboardData {
     tiempoPromedioMin: number;
     primeraVisitaPct: number;
   };
+  infraestructura?: {
+    abiertos: number;
+    enProceso: number;
+    finalizados: number;
+    preventivos: number;
+    correctivos: number;
+    kmRed: number;
+    clientesAfectados: number;
+    tiempoPromedioMin: number | null;
+  };
   tecnicos: {
     id: string;
     nombre: string;
@@ -256,6 +266,27 @@ export default function SupervisorDashboard() {
             color="green"
           />
         </div>
+
+        {data.infraestructura && (
+          <section>
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="font-semibold text-sm">Infraestructura de Red</h2>
+              <Link href="/infraestructura" className="text-xs text-cyan-700 hover:underline">
+                Ver módulo
+              </Link>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <StatCard label="IR abiertos" value={data.infraestructura.abiertos} color="blue" />
+              <StatCard label="IR en proceso" value={data.infraestructura.enProceso} color="yellow" />
+              <StatCard label="IR finalizados" value={data.infraestructura.finalizados} color="green" />
+              <StatCard
+                label="Km intervenidos"
+                value={data.infraestructura.kmRed.toFixed(1)}
+                color="slate"
+              />
+            </div>
+          </section>
+        )}
 
         {/* Mapa técnicos */}
         <section>

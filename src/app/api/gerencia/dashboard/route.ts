@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getFullSession } from "@/lib/auth";
 import { ESTADOS_ACTIVOS_TICKET } from "@/lib/ticket-gerencia";
 import { tecnicoIdsFromTicket } from "@/lib/ticket-tecnicos";
+import { obtenerIrKpis } from "@/lib/infraestructura-red/stats";
 
 export async function GET() {
   const session = await getFullSession();
@@ -21,6 +22,7 @@ export async function GET() {
     retirosMes,
     ticketsCerrados,
     tecnicos,
+    infraestructura,
   ] = await Promise.all([
     prisma.cliente.count({ where: { activo: true } }),
     prisma.ticket.count({ where: { estado: { in: [...ESTADOS_ACTIVOS_TICKET] } } }),
@@ -42,6 +44,7 @@ export async function GET() {
       },
     }),
     prisma.tecnico.findMany({ include: { usuario: true, tickets: true } }),
+    obtenerIrKpis(),
   ]);
 
   const rendimientoMap = new Map<
@@ -113,6 +116,7 @@ export async function GET() {
       retirosMes,
     },
     rendimiento,
+    infraestructura,
     sla: { menos4h: sla4h, menos8h: sla8h, mas24h: sla24h },
     inventarioBajo,
     totalTecnicos: tecnicos.length,
