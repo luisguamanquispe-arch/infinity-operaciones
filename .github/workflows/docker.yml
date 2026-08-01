@@ -50,15 +50,24 @@ jobs:
             ghcr.io/${{ github.repository }}:latest
             ghcr.io/${{ github.repository }}:${{ github.sha }}
 
-      - name: Trigger Render deploy
+      - name: Trigger Render deploy (solo b3ij producción)
         env:
           RENDER_DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
         run: |
-          if [ -n "$RENDER_DEPLOY_HOOK" ]; then
-            curl -fsSL -X POST "$RENDER_DEPLOY_HOOK"
-            echo "Deploy hook enviado a Render."
-          else
-            echo "::warning::RENDER_DEPLOY_HOOK no configurado — la imagen se subió a GHCR pero Render no se redeployó automáticamente."
-            echo "Render Dashboard → servicio → Settings → Deploy Hook → GitHub Secrets → RENDER_DEPLOY_HOOK"
-            echo "Luego: Manual Deploy → Clear build cache"
+          set -euo pipefail
+          if [ -z "${RENDER_DEPLOY_HOOK:-}" ]; then
+            echo "::error::RENDER_DEPLOY_HOOK no configurado en GitHub Secrets."
+            echo "1) Render → servicio infinity-operaciones-b3ij (NO el …-3z9n) → Settings → Deploy Hook"
+            echo "2) Copiar URL → GitHub → Settings → Secrets → RENDER_DEPLOY_HOOK"
+            echo "3) Render → b3ij → Manual Deploy"
+            exit 1
           fi
+          if echo "$RENDER_DEPLOY_HOOK" | grep -qi '3z9n'; then
+            echo "::error::RENDER_DEPLOY_HOOK apunta al servicio ORFAN 3z9n. Cámbielo al Deploy Hook de infinity-operaciones-b3ij."
+            exit 1
+          fi
+          echo "Disparando deploy en producción b3ij…"
+          curl -fsSL -X POST "$RENDER_DEPLOY_HOOK"
+          echo ""
+          echo "Deploy hook enviado. Verificar: https://infinity-operaciones-b3ij.onrender.com/api/health"
+          echo "Si 3z9n aún existe: Render → ese servicio → Settings → Delete / Suspend."

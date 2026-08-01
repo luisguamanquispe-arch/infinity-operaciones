@@ -2,6 +2,14 @@
 # GHCR debe ser PUBLICO: GitHub → Packages → infinity-operaciones → Public
 # Verificar deploy: /api/health → service=infinity-operaciones y gitSha con hash reciente
 #
+# PRODUCCIÓN ÚNICA:
+#   https://infinity-operaciones-b3ij.onrender.com
+# NO usar / NO redeployar el huérfano:
+#   https://infinity-operaciones-b3ij-3z9n.onrender.com  → Suspender o Delete en Render
+#
+# Deploy Hook de GitHub (secret RENDER_DEPLOY_HOOK) DEBE ser el del servicio b3ij,
+# nunca el de …-3z9n…
+#
 # IMPORTANTE: no usar el nombre "infinity-db" (lo usa Infinity Hoteles y otros).
 # Usar una cuenta/workspace de Render distinta a Hoteles para poder tener
 # Postgres Free (1 free DB por workspace). Esta BD es solo Operaciones.
