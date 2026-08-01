@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Loader2, Users, Ticket, Wrench, RefreshCw } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
 import { StatCard } from "@/components/StatCard";
-import { DeployVersionBanner, GerenciaQuickNav } from "@/components/DeployVersionBanner";
+import { GerenciaQuickNav } from "@/components/ModuleQuickNav";
 
 interface GerenciaData {
   operacion: {
@@ -59,7 +59,6 @@ export default function GerenciaDashboard() {
   return (
     <div className="min-h-dvh bg-slate-50">
       <AppHeader title="Panel Gerencial" subtitle="Infinity Internet" />
-      <DeployVersionBanner />
 
       <main className="max-w-6xl mx-auto p-4 space-y-6">
         <GerenciaQuickNav totalTecnicos={data?.totalTecnicos} />

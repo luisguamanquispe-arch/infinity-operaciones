@@ -1,7 +1,7 @@
 import { DeployVersionBanner } from "@/components/DeployVersionBanner";
 
-/** Layout Soporte Remoto / Help Desk. Módulos en AppHeader. */
-export default function HelpDeskLayout({
+/** Layout reportes de campo. Módulos en AppHeader. */
+export default function ReportesLayout({
   children,
 }: {
   children: React.ReactNode;

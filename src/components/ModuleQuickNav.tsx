@@ -108,13 +108,16 @@ function ModuleLinkList({
   );
 }
 
-/** Menú gerencial: agrupado por lógica de módulos (admin → campo → oficina → CRM). */
+/** Menú gerencial: solo herramientas de administración (hubs van en ModuleSwitcher). */
 export function GerenciaQuickNav({ totalTecnicos }: { totalTecnicos?: number }) {
   const items = navItemsPara("ADMIN", "gerencia", { totalTecnicos });
   const groups = agruparNavItems(items);
 
   return (
     <div className="space-y-3" aria-label="Menú gerencial">
+      <p className="text-xs text-slate-500">
+        Use la barra superior para cambiar de módulo (Operaciones, Infra, Remoto, CRM, Reportes).
+      </p>
       {groups.map((g) => (
         <div key={g.group}>
           <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
@@ -131,19 +134,19 @@ export function GerenciaQuickNav({ totalTecnicos }: { totalTecnicos?: number }) 
   );
 }
 
-/** Accesos del layout supervisor (misma matriz que las tiles del home). */
+/** Accesos del layout supervisor (legacy; preferir ModuleSwitcher en AppHeader). */
 export function SupervisorQuickNav({
   rol = "SUPERVISOR",
 }: {
   rol?: Extract<Rol, "ADMIN" | "SUPERVISOR">;
 }) {
-  const items = navItemsPara(rol, "supervisor");
+  const items = navItemsPara(rol, "acciones");
   return (
     <ModuleLinkList
       items={items}
       toneMap={TONE_COMPACT}
       size="sm"
-      ariaLabel="Módulos de operaciones"
+      ariaLabel="Acciones de operaciones"
     />
   );
 }

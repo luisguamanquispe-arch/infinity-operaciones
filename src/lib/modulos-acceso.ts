@@ -35,7 +35,31 @@ export type ModuloId =
   | "eliminar_soportes"
   | "tecnico_home";
 
-export type NavContext = "gerencia" | "supervisor" | "home-tiles" | "help-desk";
+export type NavContext =
+  | "gerencia"
+  | "supervisor"
+  | "home-tiles"
+  | "help-desk"
+  | "acciones";
+
+/** Hubs principales para saltar entre módulos (barra sticky). */
+export type HubId =
+  | "gerencia"
+  | "operaciones"
+  | "soporte_infra"
+  | "soporte_remoto"
+  | "clientes"
+  | "reportes";
+
+export type HubDef = {
+  id: HubId;
+  href: string;
+  label: string;
+  shortLabel: string;
+  roles: Rol[];
+  /** Prefijos de ruta; el hub activo es el de mayor longitud que coincida. */
+  matchPrefixes: string[];
+};
 
 export type NavTone =
   | "primary"
@@ -128,18 +152,7 @@ export const MODULOS: ModuloDef[] = [
     contexts: ["gerencia"],
     order: 50,
   },
-  {
-    id: "operaciones",
-    href: "/supervisor",
-    label: "Panel operaciones",
-    group: "campo",
-    tone: "emerald",
-    roles: ["ADMIN"],
-    contexts: ["gerencia"],
-    order: 60,
-  },
-
-  // —— Campo / operaciones (ADMIN + SUPERVISOR)
+  // —— Campo / acciones rápidas (no hubs: esos van en ModuleSwitcher)
   {
     id: "ticket_soporte",
     href: "/supervisor/tickets/nuevo",
@@ -147,7 +160,7 @@ export const MODULOS: ModuloDef[] = [
     group: "campo",
     tone: "primary",
     roles: ["ADMIN", "SUPERVISOR"],
-    contexts: ["supervisor", "home-tiles"],
+    contexts: ["supervisor", "home-tiles", "acciones"],
     order: 100,
     homeIcon: "plus",
   },
@@ -158,7 +171,7 @@ export const MODULOS: ModuloDef[] = [
     group: "campo",
     tone: "violet",
     roles: ["ADMIN", "SUPERVISOR"],
-    contexts: ["gerencia", "supervisor", "home-tiles"],
+    contexts: ["home-tiles"],
     order: 110,
     homeIcon: "plus",
   },
@@ -169,7 +182,7 @@ export const MODULOS: ModuloDef[] = [
     group: "oficina",
     tone: "teal",
     roles: ["ADMIN", "SUPERVISOR", "HELP_DESK"],
-    contexts: ["gerencia", "supervisor", "home-tiles", "help-desk"],
+    contexts: ["home-tiles"],
     order: 115,
     homeIcon: "plus",
   },
@@ -180,7 +193,7 @@ export const MODULOS: ModuloDef[] = [
     group: "campo",
     tone: "emerald",
     roles: ["ADMIN", "SUPERVISOR"],
-    contexts: ["supervisor", "home-tiles"],
+    contexts: ["supervisor", "home-tiles", "acciones"],
     order: 120,
     homeIcon: "users",
   },
@@ -191,7 +204,7 @@ export const MODULOS: ModuloDef[] = [
     group: "campo",
     tone: "outline",
     roles: ["ADMIN", "SUPERVISOR"],
-    contexts: ["supervisor", "home-tiles"],
+    contexts: ["supervisor", "home-tiles", "acciones"],
     order: 130,
     homeIcon: "calendar",
   },
@@ -202,7 +215,7 @@ export const MODULOS: ModuloDef[] = [
     group: "campo",
     tone: "amber",
     roles: ["ADMIN", "SUPERVISOR"],
-    contexts: ["supervisor", "home-tiles"],
+    contexts: ["supervisor", "home-tiles", "acciones"],
     order: 140,
     homeIcon: "bell",
   },
@@ -213,12 +226,12 @@ export const MODULOS: ModuloDef[] = [
     group: "sistema",
     tone: "outline",
     roles: ["ADMIN", "SUPERVISOR"],
-    contexts: ["gerencia", "supervisor", "home-tiles"],
+    contexts: ["home-tiles"],
     order: 150,
     homeIcon: "file",
   },
 
-  // —— CRM
+  // —— CRM (tile home; hub en ModuleSwitcher)
   {
     id: "clientes",
     href: "/supervisor/clientes",
@@ -227,11 +240,102 @@ export const MODULOS: ModuloDef[] = [
     group: "crm",
     tone: "sky",
     roles: ["ADMIN", "SUPERVISOR"],
-    contexts: ["gerencia", "supervisor", "home-tiles"],
+    contexts: ["home-tiles"],
     order: 300,
     homeIcon: "contact",
   },
 ];
+
+/**
+ * Barra de módulos: solo hubs de producto (sin acciones secundarias).
+ * El activo se resuelve por el prefijo más específico.
+ */
+export const HUBS: HubDef[] = [
+  {
+    id: "gerencia",
+    href: "/gerencia",
+    label: "Gerencia",
+    shortLabel: "Gerencia",
+    roles: ["ADMIN"],
+    matchPrefixes: ["/gerencia"],
+  },
+  {
+    id: "operaciones",
+    href: "/supervisor",
+    label: "Operaciones",
+    shortLabel: "Campo",
+    roles: ["ADMIN", "SUPERVISOR"],
+    matchPrefixes: ["/supervisor"],
+  },
+  {
+    id: "soporte_infra",
+    href: "/supervisor/soporte-infraestructura",
+    label: "Infraestructura",
+    shortLabel: "Infra",
+    roles: ["ADMIN", "SUPERVISOR"],
+    matchPrefixes: [
+      "/supervisor/soporte-infraestructura",
+      "/supervisor/tickets/nuevo-infraestructura",
+    ],
+  },
+  {
+    id: "soporte_remoto",
+    href: "/help-desk",
+    label: "Soporte Remoto",
+    shortLabel: "Remoto",
+    roles: ["ADMIN", "SUPERVISOR", "HELP_DESK"],
+    matchPrefixes: ["/help-desk", "/soporte-remoto"],
+  },
+  {
+    id: "clientes",
+    href: "/supervisor/clientes",
+    label: "Clientes",
+    shortLabel: "CRM",
+    roles: ["ADMIN", "SUPERVISOR"],
+    matchPrefixes: ["/supervisor/clientes"],
+  },
+  {
+    id: "reportes",
+    href: "/reportes",
+    label: "Reportes",
+    shortLabel: "Reportes",
+    roles: ["ADMIN", "SUPERVISOR"],
+    matchPrefixes: ["/reportes"],
+  },
+];
+
+export function hubsParaRol(rol: Rol | string | null | undefined): HubDef[] {
+  if (!rol) return [];
+  return HUBS.filter((h) => h.roles.includes(rol as Rol));
+}
+
+/** Hub activo: el que tenga el prefijo coincidente más largo. */
+export function hubActivo(
+  pathname: string,
+  rol: Rol | string | null | undefined
+): HubId | null {
+  const hubs = hubsParaRol(rol);
+  let best: HubDef | null = null;
+  let bestLen = -1;
+  for (const h of hubs) {
+    for (const prefix of h.matchPrefixes) {
+      if (
+        (pathname === prefix || pathname.startsWith(prefix + "/")) &&
+        prefix.length > bestLen
+      ) {
+        best = h;
+        bestLen = prefix.length;
+      }
+    }
+  }
+  return best?.id ?? null;
+}
+
+export function puedeUsarModuleSwitcher(
+  rol: Rol | string | null | undefined
+): boolean {
+  return rol === "ADMIN" || rol === "SUPERVISOR" || rol === "HELP_DESK";
+}
 
 export function puedeAccederModulo(
   rol: Rol | string | null | undefined,

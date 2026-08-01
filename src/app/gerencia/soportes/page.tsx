@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Loader2, Search, Trash2, AlertTriangle } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
-import { GerenciaQuickNav } from "@/components/DeployVersionBanner";
+import { GerenciaQuickNav } from "@/components/ModuleQuickNav";
 import {
   ESTADO_LABELS,
   PRIORIDAD_LABELS,

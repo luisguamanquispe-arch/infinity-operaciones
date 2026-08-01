@@ -24,6 +24,7 @@ import { MaterialesReporte } from "./MaterialesReporte";
 import { ReporteSection } from "./ReporteSection";
 import { ReporteQr } from "./ReporteQr";
 import { DescargarPdfCliente } from "./DescargarPdfCliente";
+import { AppHeader } from "@/components/AppHeader";
 import {
   TIPO_LABELS,
   ESTADO_LABELS,
@@ -220,29 +221,38 @@ export function ReporteDetalle({ backHref, backLabel }: ReporteDetalleProps) {
 
   return (
     <div className="min-h-dvh bg-slate-100 print:bg-white">
-      <header className="bg-infinity-800 text-white px-4 py-4 sticky top-0 z-50 print:hidden shadow-md">
-        <div className="max-w-4xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Link href={backHref} className="p-1 hover:bg-white/10 rounded-lg">
-              <ArrowLeft className="w-5 h-5" />
+      <div className="print:hidden">
+        <AppHeader
+          title={`Reporte ${ticket.codigo}`}
+          subtitle="Evidencia fotográfica y cierre"
+        />
+        <div className="bg-white border-b px-4 py-2">
+          <div className="max-w-4xl mx-auto flex flex-wrap items-center justify-between gap-2">
+            <Link
+              href={backHref}
+              className="inline-flex items-center gap-1.5 text-sm text-infinity-700 hover:underline font-medium"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              {backLabel}
             </Link>
-            <div>
-              <h1 className="font-bold">Reporte {ticket.codigo}</h1>
-              <p className="text-infinity-200 text-sm">{backLabel}</p>
+            <div className="flex items-center gap-2">
+              <DescargarPdfCliente
+                ticketId={ticket.id}
+                codigo={ticket.codigo}
+                variant="header"
+              />
+              <button
+                type="button"
+                onClick={imprimir}
+                className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg text-sm font-medium text-slate-800"
+              >
+                <Printer className="w-4 h-4" />
+                Imprimir
+              </button>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <DescargarPdfCliente ticketId={ticket.id} codigo={ticket.codigo} variant="header" />
-            <button
-              onClick={imprimir}
-              className="flex items-center gap-1.5 px-3 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-sm font-medium"
-            >
-              <Printer className="w-4 h-4" />
-              Imprimir
-            </button>
-          </div>
         </div>
-      </header>
+      </div>
 
       <main className="max-w-4xl mx-auto p-4 sm:p-6 space-y-5 print:p-0 print:space-y-4">
         {/* Encabezado del reporte */}

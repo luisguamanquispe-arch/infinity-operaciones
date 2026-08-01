@@ -1,7 +1,7 @@
 import { DeployVersionBanner } from "@/components/DeployVersionBanner";
 
-/** Layout Soporte Remoto / Help Desk. Módulos en AppHeader. */
-export default function HelpDeskLayout({
+/** Layout gerencia: banner de deploy. Módulos en AppHeader. */
+export default function GerenciaLayout({
   children,
 }: {
   children: React.ReactNode;
