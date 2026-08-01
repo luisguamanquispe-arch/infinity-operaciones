@@ -2,12 +2,13 @@
 
 import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
-import { Loader2, AlertTriangle, CheckCircle, Clock, Users, Plus, FileText, CalendarDays, Contact } from "lucide-react";
+import { Loader2, AlertTriangle, CheckCircle, Clock, Users } from "lucide-react";
 import Link from "next/link";
 import { AppHeader } from "@/components/AppHeader";
 import { StatCard } from "@/components/StatCard";
 import { TicketSemaforo } from "@/components/TicketSemaforo";
 import { GitShaBadge } from "@/components/GitShaBadge";
+import { SupervisorHomeTiles } from "@/components/ModuleQuickNav";
 import { ESTADO_TECNICO_LABELS, PRIORIDAD_LABELS } from "@/lib/utils";
 import { fetchJson } from "@/lib/fetch-json-client";
 
@@ -190,57 +191,7 @@ export default function SupervisorDashboard() {
       <AppHeader title="Panel Supervisor" subtitle="Tickets activos · GPS en vivo · reportes" />
 
       <main className="max-w-6xl mx-auto p-4 space-y-6">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          <Link
-            href="/supervisor/tickets/nuevo"
-            className="flex items-center justify-center gap-2 py-3 bg-infinity-600 hover:bg-infinity-700 text-white font-semibold rounded-xl transition"
-          >
-            <Plus className="w-5 h-5" />
-            Nuevo ticket de soporte
-          </Link>
-          <Link
-            href="/supervisor/soporte-infraestructura"
-            className="flex items-center justify-center gap-2 py-3 bg-violet-700 hover:bg-violet-800 text-white font-semibold rounded-xl transition"
-          >
-            <Plus className="w-5 h-5" />
-            Soporte de Infraestructura
-          </Link>
-          <Link
-            href="/help-desk"
-            className="flex items-center justify-center gap-2 py-3 bg-teal-700 hover:bg-teal-800 text-white font-semibold rounded-xl transition"
-          >
-            <Plus className="w-5 h-5" />
-            Soporte Remoto
-          </Link>
-          <Link
-            href="/supervisor/calendario"
-            className="flex items-center justify-center gap-2 py-3 bg-white border-2 border-infinity-600 text-infinity-600 font-semibold rounded-xl hover:bg-infinity-50 transition"
-          >
-            <CalendarDays className="w-5 h-5" />
-            Calendario de soporte
-          </Link>
-          <Link
-            href="/reportes"
-            className="flex items-center justify-center gap-2 py-3 border border-infinity-600 text-infinity-600 font-semibold rounded-xl hover:bg-infinity-50 transition"
-          >
-            <FileText className="w-5 h-5" />
-            Reportes finalizados
-          </Link>
-          <Link
-            href="/supervisor/asignaciones"
-            className="flex items-center justify-center gap-2 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl transition"
-          >
-            <Users className="w-5 h-5" />
-            Destinar tickets a técnicos
-          </Link>
-          <Link
-            href="/supervisor/clientes"
-            className="flex items-center justify-center gap-2 py-3 bg-emerald-700 hover:bg-emerald-800 text-white font-semibold rounded-xl transition sm:col-span-2 lg:col-span-3"
-          >
-            <Contact className="w-5 h-5" />
-            Clientes CRM
-          </Link>
-        </div>
+        <SupervisorHomeTiles />
 
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
           <StatCard label="Abiertos" value={data.kpis.abiertos} color="blue" />

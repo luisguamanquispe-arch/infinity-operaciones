@@ -1,8 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { AlertTriangle, RefreshCw } from "lucide-react";
+
+/** Reexport: menús viven en ModuleQuickNav (matriz src/lib/modulos-acceso). */
+export {
+  GerenciaQuickNav,
+  SupervisorQuickNav,
+} from "@/components/ModuleQuickNav";
 
 const VERSION_ESPERADA = "infinity-operaciones";
 
@@ -64,118 +69,6 @@ export function DeployVersionBanner() {
           Reintentar
         </button>
       </div>
-    </div>
-  );
-}
-
-/** Accesos rápidos del panel gerencial (admin). */
-export function GerenciaQuickNav({ totalTecnicos }: { totalTecnicos?: number }) {
-  return (
-    <nav aria-label="Menú gerencial" className="flex flex-wrap gap-2">
-      <Link
-        href="/gerencia/tecnicos/nuevo"
-        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-infinity-600 hover:bg-infinity-700 text-white text-sm font-medium"
-      >
-        + Nuevo técnico
-      </Link>
-      <Link
-        href="/gerencia/tecnicos"
-        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-infinity-600 text-infinity-700 text-sm font-medium hover:bg-infinity-50"
-      >
-        Técnicos{totalTecnicos != null ? ` (${totalTecnicos})` : ""}
-      </Link>
-      <Link
-        href="/gerencia/soportes"
-        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border-2 border-red-400 bg-red-50 text-red-800 text-sm font-semibold hover:bg-red-100"
-      >
-        Eliminar soportes
-      </Link>
-      <Link
-        href="/gerencia/usuarios"
-        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-purple-600 text-purple-700 text-sm font-medium hover:bg-purple-50"
-      >
-        Usuarios y claves
-      </Link>
-      <Link
-        href="/gerencia/backup"
-        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-amber-600 text-amber-800 text-sm font-medium hover:bg-amber-50"
-      >
-        Backup / Restore
-      </Link>
-      <Link
-        href="/reportes"
-        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-emerald-600 text-emerald-700 text-sm font-medium hover:bg-emerald-50"
-      >
-        Reportes
-      </Link>
-      <Link
-        href="/supervisor/soporte-infraestructura"
-        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-violet-700 text-violet-800 text-sm font-medium hover:bg-violet-50"
-      >
-        Soporte de Infraestructura
-      </Link>
-      <Link
-        href="/help-desk"
-        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-teal-700 text-teal-800 text-sm font-medium hover:bg-teal-50"
-      >
-        Soporte Remoto
-      </Link>
-      <Link
-        href="/supervisor/clientes"
-        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-sky-600 text-sky-700 text-sm font-medium hover:bg-sky-50"
-      >
-        Clientes CRM / Importar Wispro (admin)
-      </Link>
-    </nav>
-  );
-}
-
-/** Accesos rápidos del supervisor (infraestructura, calendario, reportes). */
-export function SupervisorQuickNav() {
-  return (
-    <div className="flex flex-wrap gap-2">
-      <Link
-        href="/supervisor/soporte-infraestructura"
-        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-violet-700 hover:bg-violet-800 text-white text-sm font-medium"
-      >
-        Soporte de Infraestructura
-      </Link>
-      <Link
-        href="/help-desk"
-        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-teal-700 hover:bg-teal-800 text-white text-sm font-medium"
-      >
-        Soporte Remoto
-      </Link>
-      <Link
-        href="/supervisor/tickets/nuevo"
-        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-infinity-600 hover:bg-infinity-700 text-white text-sm font-medium"
-      >
-        + Ticket soporte
-      </Link>
-      <Link
-        href="/supervisor/asignaciones"
-        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border-2 border-emerald-500 bg-emerald-50 text-emerald-900 text-sm font-semibold hover:bg-emerald-100"
-      >
-        Destinar tickets
-      </Link>
-      <Link
-        href="/supervisor/clientes"
-        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-sky-600 text-sky-700 text-sm font-medium hover:bg-sky-50"
-      >
-        Clientes CRM
-      </Link>
-      <Link
-        href="/supervisor/calendario"
-        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-infinity-600 text-infinity-700 text-sm font-medium hover:bg-infinity-50"
-      >
-        Calendario
-      </Link>
-      <Link
-        href="/supervisor/novedades"
-        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border-2 border-amber-500 bg-amber-50 text-amber-900 text-sm font-semibold hover:bg-amber-100"
-      >
-        Novedades soporte
-      </Link>
     </div>
   );
 }
