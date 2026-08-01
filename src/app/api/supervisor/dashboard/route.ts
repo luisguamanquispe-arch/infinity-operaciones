@@ -5,7 +5,7 @@ import { getFullSession } from "@/lib/auth";
 import { nombresTecnicosTicket, ticketIncludeTecnicos } from "@/lib/ticket-tecnicos";
 import { whereTicketOperativamenteAbierto } from "@/lib/ticket-cerrado";
 import { TIPO_NOVEDAD_LABELS } from "@/lib/novedad-ticket";
-import { obtenerIrKpis } from "@/lib/infraestructura-red/stats";
+import { obtenerSiKpis } from "@/lib/soporte-infraestructura/stats";
 
 export async function GET() {
   const session = await getFullSession();
@@ -20,7 +20,7 @@ export async function GET() {
   hoy.setHours(0, 0, 0, 0);
   const abiertosWhere = whereTicketOperativamenteAbierto();
 
-  const [abiertos, cerrados, vencidos, tecnicos, ticketsRecientes, infraestructura] =
+  const [abiertos, cerrados, vencidos, tecnicos, ticketsRecientes, soporteInfra] =
     await Promise.all([
     prisma.ticket.count({
       where: abiertosWhere,
@@ -40,7 +40,7 @@ export async function GET() {
       orderBy: { prioridad: "asc" },
       take: 20,
     }),
-    obtenerIrKpis(),
+    obtenerSiKpis(),
   ]);
 
   const ordenesCerradas = await prisma.ordenServicio.findMany({
@@ -87,7 +87,7 @@ export async function GET() {
       tiempoPromedioMin: tiempoPromedio,
       primeraVisitaPct: primeraVisita,
     },
-    infraestructura,
+    soporteInfra,
     tecnicos: tecnicos.map((t) => ({
       id: t.id,
       nombre: t.usuario.nombre,

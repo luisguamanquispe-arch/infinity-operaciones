@@ -47,6 +47,7 @@ export async function GET(
           medicion: true,
           fotografias: {
             select: { id: true, tipo: true, url: true, lat: true, lng: true },
+            orderBy: { tomadaEn: "asc" },
           },
           firma: {
             select: {
@@ -86,6 +87,7 @@ export async function GET(
             medicion: true,
             fotografias: {
               select: { id: true, tipo: true, url: true, lat: true, lng: true },
+              orderBy: { tomadaEn: "asc" },
             },
             firma: {
               select: {
@@ -124,6 +126,7 @@ export async function GET(
       medicion: true,
       fotografias: {
         select: { id: true, tipo: true, url: true, lat: true, lng: true },
+        orderBy: { tomadaEn: "asc" },
       },
       firma: {
         select: {
@@ -200,6 +203,10 @@ export async function GET(
     duracionSegundos,
     inventario,
     reporte,
+    esResponsableInfra:
+      ticketData.tipo === "INFRAESTRUCTURA" &&
+      !!session.tecnicoId &&
+      session.tecnicoId === ticketData.tecnicoId,
     novedadPendiente: novedadPendiente
       ? {
           id: novedadPendiente.id,

@@ -39,6 +39,30 @@ enum MotivoInfraestructura {
   ACTUALIZACION
 }
 
+/// Tipo de trabajo de Soporte de Infraestructura (órdenes INF-*).
+enum SiTipoTrabajo {
+  CORTE_FIBRA
+  EMPALME
+  CAMBIO_NAP
+  CAMBIO_CTO
+  CAMBIO_SPLITTER
+  CAMBIO_ODF
+  CAMBIO_POSTE
+  CAMBIO_CABLE
+  REUBICACION
+  MANTENIMIENTO_PREVENTIVO
+  MANTENIMIENTO_CORRECTIVO
+  EXPANSION_RED
+  OTRO
+}
+
+enum SiResultado {
+  REPARADO
+  REPARADO_PARCIAL
+  PENDIENTE
+  REQUIERE_NUEVA_INTERVENCION
+}
+
 enum Prioridad {
   ALTA
   MEDIA
@@ -106,6 +130,7 @@ model Usuario {
   irHistoriales          IrHistorial[]
   srTicketsOperados      SrTicket[]  @relation("SrOperador")
   srHistoriales          SrHistorial[]
+  siHistoriales          SiHistorial[]
 }
 
 model Tecnico {
@@ -125,6 +150,7 @@ model Tecnico {
   novedadesReportadas NovedadTicket[]
   irReportes   IrReporte[]
   irParticipaciones IrParticipante[]
+  siComentarios SiComentario[]
 }
 
 model Cliente {
@@ -237,6 +263,21 @@ model Ticket {
   motivoInfraestructura MotivoInfraestructura?
   nodoAfectado         String?
   zonaInfra            String?
+  /// Soporte de Infraestructura (INF-*): ubicación y tipo de trabajo de red
+  siTipoTrabajo        SiTipoTrabajo?
+  siTipoTrabajoOtro    String?
+  provincia            String?
+  canton               String?
+  parroquia            String?
+  sectorInfra          String?
+  direccionInfra       String?
+  referenciaInfra      String?
+  latInfra             Float?
+  lngInfra             Float?
+  diagnosticoInfra     String?                @db.Text
+  trabajoRealizadoInfra String?               @db.Text
+  resultadoInfra       SiResultado?
+  observacionesInfra   String?                @db.Text
   slaHoras             Int                    @default(8)
   slaVenceEn           DateTime?
   programadoEn         DateTime?
@@ -251,6 +292,37 @@ model Ticket {
   escalamientoHelpDesk HdEscalamiento?
   novedades            NovedadTicket[]
   srTicketOrigen       SrTicket?              @relation("SrTicketPresencial")
+  siHistorial          SiHistorial[]
+  siComentarios        SiComentario[]
+
+  @@index([tipo, estado])
+  @@index([siTipoTrabajo])
+}
+
+model SiHistorial {
+  id            String   @id @default(cuid())
+  ticketId      String
+  fecha         DateTime @default(now())
+  usuarioId     String?
+  usuarioNombre String
+  accion        String
+  detalle       String?  @db.Text
+  ticket        Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  usuario       Usuario? @relation(fields: [usuarioId], references: [id])
+
+  @@index([ticketId, fecha])
+}
+
+model SiComentario {
+  id        String   @id @default(cuid())
+  ticketId  String
+  tecnicoId String
+  texto     String   @db.Text
+  createdAt DateTime @default(now())
+  ticket    Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  tecnico   Tecnico  @relation(fields: [tecnicoId], references: [id])
+
+  @@index([ticketId, createdAt])
 }
 
 model TicketTecnico {

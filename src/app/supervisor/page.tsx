@@ -24,15 +24,15 @@ interface DashboardData {
     tiempoPromedioMin: number;
     primeraVisitaPct: number;
   };
-  infraestructura?: {
-    abiertos: number;
+  soporteInfra?: {
+    pendientes: number;
+    asignadas: number;
     enProceso: number;
-    finalizados: number;
-    preventivos: number;
-    correctivos: number;
-    kmRed: number;
-    clientesAfectados: number;
+    finalizadas: number;
+    criticas: number;
     tiempoPromedioMin: number | null;
+    tecnicosDisponibles: number;
+    tecnicosEnCampo: number;
   };
   tecnicos: {
     id: string;
@@ -199,11 +199,11 @@ export default function SupervisorDashboard() {
             Nuevo ticket de soporte
           </Link>
           <Link
-            href="/infraestructura"
-            className="flex items-center justify-center gap-2 py-3 bg-cyan-700 hover:bg-cyan-800 text-white font-semibold rounded-xl transition"
+            href="/supervisor/soporte-infraestructura"
+            className="flex items-center justify-center gap-2 py-3 bg-violet-700 hover:bg-violet-800 text-white font-semibold rounded-xl transition"
           >
             <Plus className="w-5 h-5" />
-            Infraestructura de Red
+            Soporte de Infraestructura
           </Link>
           <Link
             href="/help-desk"
@@ -211,13 +211,6 @@ export default function SupervisorDashboard() {
           >
             <Plus className="w-5 h-5" />
             Soporte Remoto
-          </Link>
-          <Link
-            href="/supervisor/tickets/nuevo-infraestructura"
-            className="flex items-center justify-center gap-2 py-3 bg-violet-700 hover:bg-violet-800 text-white font-semibold rounded-xl transition"
-          >
-            <Plus className="w-5 h-5" />
-            Ticket infraestructura
           </Link>
           <Link
             href="/supervisor/calendario"
@@ -267,23 +260,22 @@ export default function SupervisorDashboard() {
           />
         </div>
 
-        {data.infraestructura && (
+        {data.soporteInfra && (
           <section>
             <div className="flex items-center justify-between mb-2">
-              <h2 className="font-semibold text-sm">Infraestructura de Red</h2>
-              <Link href="/infraestructura" className="text-xs text-cyan-700 hover:underline">
-                Ver módulo
+              <h2 className="font-semibold text-sm">Soporte de Infraestructura</h2>
+              <Link
+                href="/supervisor/soporte-infraestructura"
+                className="text-xs text-violet-700 hover:underline"
+              >
+                Ver soportes / Nuevo Soporte
               </Link>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              <StatCard label="IR abiertos" value={data.infraestructura.abiertos} color="blue" />
-              <StatCard label="IR en proceso" value={data.infraestructura.enProceso} color="yellow" />
-              <StatCard label="IR finalizados" value={data.infraestructura.finalizados} color="green" />
-              <StatCard
-                label="Km intervenidos"
-                value={data.infraestructura.kmRed.toFixed(1)}
-                color="slate"
-              />
+              <StatCard label="Pendientes" value={data.soporteInfra.pendientes} color="slate" />
+              <StatCard label="Asignadas" value={data.soporteInfra.asignadas} color="blue" />
+              <StatCard label="En proceso" value={data.soporteInfra.enProceso} color="yellow" />
+              <StatCard label="Finalizadas" value={data.soporteInfra.finalizadas} color="green" />
             </div>
           </section>
         )}

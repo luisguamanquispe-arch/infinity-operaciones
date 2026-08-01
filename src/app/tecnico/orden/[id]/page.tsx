@@ -29,13 +29,23 @@ import {
   TIPOS_PATCHCORD,
   tipoInventarioEfectivo,
 } from "@/lib/material-detalle";
-import type { MotivoInfraestructura, TipoConexionInstalacion, TipoInventario, TipoPatchCord } from "@prisma/client";
+import type {
+  MotivoInfraestructura,
+  SiResultado,
+  SiTipoTrabajo,
+  TipoConexionInstalacion,
+  TipoInventario,
+  TipoPatchCord,
+} from "@prisma/client";
 import {
   esTicketInfraestructura,
   FOTOS_ANTES_INFRA,
   FOTOS_DURANTE_INFRA,
   FOTOS_FINAL_INFRA,
   MOTIVO_INFRA_LABELS,
+  SI_RESULTADO_LABELS,
+  SI_RESULTADOS,
+  siTipoTrabajoTexto,
 } from "@/lib/ticket-infraestructura";
 import {
   esTicketInstalacion,
@@ -85,8 +95,21 @@ interface OrdenData {
     motivo: string | null;
     descripcion: string | null;
     motivoInfraestructura: MotivoInfraestructura | null;
+    siTipoTrabajo?: SiTipoTrabajo | null;
+    siTipoTrabajoOtro?: string | null;
     nodoAfectado: string | null;
     zonaInfra: string | null;
+    provincia?: string | null;
+    canton?: string | null;
+    parroquia?: string | null;
+    sectorInfra?: string | null;
+    direccionInfra?: string | null;
+    referenciaInfra?: string | null;
+    diagnosticoInfra?: string | null;
+    trabajoRealizadoInfra?: string | null;
+    resultadoInfra?: SiResultado | null;
+    observacionesInfra?: string | null;
+    tecnicoId?: string | null;
     programadoEn: string | null;
     cliente: {
       nombre: string;
@@ -132,7 +155,7 @@ interface OrdenData {
       downloadMbps: number;
       uploadMbps: number;
     } | null;
-    fotografias: { tipo: string; url: string }[];
+    fotografias: { id: string; tipo: string; url: string; imagenSrc?: string }[];
     firma: {
       imagenUrl: string;
       imagenSrc?: string;
@@ -167,9 +190,10 @@ interface OrdenData {
     tipo: string;
     tipoLabel: string;
     comentario: string | null;
-    fechaSolicitada: string | null;
-    createdAt: string;
+    fechaSolicitada?: string | null;
+    createdAt?: string;
   } | null;
+  esResponsableInfra?: boolean;
 }
 
 const FOTOS_ANTES = FOTOS_ANTES_DEFAULT;
@@ -216,6 +240,15 @@ export default function OrdenPage() {
   });
   const [resumenTrabajo, setResumenTrabajo] = useState("");
   const resumenTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [diagnosticoInfra, setDiagnosticoInfra] = useState("");
+  const [trabajoRealizadoInfra, setTrabajoRealizadoInfra] = useState("");
+  const [resultadoInfra, setResultadoInfra] = useState<SiResultado | "">("");
+  const [observacionesInfra, setObservacionesInfra] = useState("");
+  const [comentarios, setComentarios] = useState<
+    { id: string; texto: string; createdAt: string; tecnicoNombre: string }[]
+  >([]);
+  const [nuevoComentario, setNuevoComentario] = useState("");
+  const [enviandoComentario, setEnviandoComentario] = useState(false);
 
   const aplicarDatosFormulario = useCallback((d: OrdenData) => {
     if (d.orden.medicion) {
@@ -235,6 +268,10 @@ export default function OrdenPage() {
       firmaOk: d.orden.firmaOk ?? false,
     });
     setResumenTrabajo(d.orden.resumenTrabajo ?? "");
+    setDiagnosticoInfra(d.ticket.diagnosticoInfra ?? "");
+    setTrabajoRealizadoInfra(d.ticket.trabajoRealizadoInfra ?? "");
+    setResultadoInfra(d.ticket.resultadoInfra ?? "");
+    setObservacionesInfra(d.ticket.observacionesInfra ?? "");
     if (d.orden.materiales?.length) {
       setMateriales(
         d.orden.materiales.map(
@@ -473,7 +510,29 @@ export default function OrdenPage() {
   async function cerrarTicket() {
     setCerrando(true);
     setError("");
-    // Persistir resumen antes de validar cierre
+    if (data && esTicketInfraestructura(data.ticket.tipo)) {
+      const res = await fetch(`/api/tickets/${id}/cerrar`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          diagnosticoInfra,
+          trabajoRealizadoInfra,
+          resultadoInfra: resultadoInfra || null,
+          observacionesInfra: observacionesInfra || null,
+        }),
+      });
+      const result = await res.json();
+      if (!res.ok) {
+        setError(result.errores?.join(", ") || result.error);
+        setCerrando(false);
+        return;
+      }
+      setCerrando(false);
+      // Genera el reporte PDF solo al finalizar
+      window.open(`/api/soporte-infraestructura/ordenes/${id}/pdf`, "_blank");
+      router.push(`/tecnico?cerrado=${encodeURIComponent(data.ticket.codigo || id)}`);
+      return;
+    }
     await fetch(`/api/tickets/${id}/medicion`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -487,9 +546,46 @@ export default function OrdenPage() {
       return;
     }
     setCerrando(false);
-    // Ticket cerrado = reporte finalizado disponible en /reportes
     router.push(`/tecnico?cerrado=${encodeURIComponent(data?.ticket.codigo || id)}`);
   }
+
+  async function cargarComentarios() {
+    try {
+      const res = await fetch(`/api/tickets/${id}/comentarios-infra`);
+      const d = await res.json();
+      if (res.ok) setComentarios(d.comentarios || []);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  async function enviarComentario() {
+    if (!nuevoComentario.trim()) return;
+    setEnviandoComentario(true);
+    try {
+      const res = await fetch(`/api/tickets/${id}/comentarios-infra`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ texto: nuevoComentario }),
+      });
+      const d = await res.json();
+      if (!res.ok) {
+        setError(d.error || "No se pudo enviar el comentario");
+        return;
+      }
+      setNuevoComentario("");
+      await cargarComentarios();
+    } finally {
+      setEnviandoComentario(false);
+    }
+  }
+
+  useEffect(() => {
+    if (data && esTicketInfraestructura(data.ticket.tipo)) {
+      void cargarComentarios();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data?.ticket.id, data?.ticket.tipo]);
 
   if (!initialLoaded && loading) {
     return (
@@ -665,7 +761,18 @@ export default function OrdenPage() {
           ticketId={ticket.id}
           cerrado={cerrado}
           esInfra={esInfra}
-          novedadPendiente={data.novedadPendiente ?? null}
+          novedadPendiente={
+            data.novedadPendiente
+              ? {
+                  id: data.novedadPendiente.id,
+                  tipo: data.novedadPendiente.tipo,
+                  tipoLabel: data.novedadPendiente.tipoLabel,
+                  comentario: data.novedadPendiente.comentario,
+                  fechaSolicitada: data.novedadPendiente.fechaSolicitada ?? null,
+                  createdAt: data.novedadPendiente.createdAt ?? "",
+                }
+              : null
+          }
           onReportada={refrescar}
         />
 
@@ -673,23 +780,48 @@ export default function OrdenPage() {
         <section className={`bg-white rounded-xl border p-4 space-y-2 ${esInfra ? "border-violet-200 bg-violet-50/30" : esInstalacion ? "border-sky-200 bg-sky-50/30" : ""}`}>
           {esInfra ? (
             <>
-              <h2 className="font-semibold text-lg text-violet-900">Infraestructura — {ticket.codigo}</h2>
+              <h2 className="font-semibold text-lg text-violet-900">
+                Soporte de Infraestructura — {ticket.codigo}
+              </h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
                 <p>
-                  <span className="text-slate-500">Incidente:</span>{" "}
-                  {ticket.motivoInfraestructura
-                    ? MOTIVO_INFRA_LABELS[ticket.motivoInfraestructura]
-                    : ticket.motivo}
+                  <span className="text-slate-500">Tipo:</span>{" "}
+                  {siTipoTrabajoTexto(ticket.siTipoTrabajo, ticket.siTipoTrabajoOtro) ||
+                    (ticket.motivoInfraestructura
+                      ? MOTIVO_INFRA_LABELS[ticket.motivoInfraestructura]
+                      : ticket.motivo)}
                 </p>
                 <p>
-                  <span className="text-slate-500">Nodo:</span> {ticket.nodoAfectado || "—"}
+                  <span className="text-slate-500">Ubicación:</span>{" "}
+                  {[ticket.provincia, ticket.canton, ticket.parroquia]
+                    .filter(Boolean)
+                    .join(" / ") || "—"}
                 </p>
-                {ticket.zonaInfra && (
+                <p>
+                  <span className="text-slate-500">Sector:</span>{" "}
+                  {ticket.sectorInfra || ticket.zonaInfra || "—"}
+                </p>
+                <p>
+                  <span className="text-slate-500">Dirección:</span>{" "}
+                  {ticket.direccionInfra || ticket.nodoAfectado || "—"}
+                </p>
+                {ticket.nodoAfectado && (
                   <p>
-                    <span className="text-slate-500">Zona:</span> {ticket.zonaInfra}
+                    <span className="text-slate-500">Nodo:</span> {ticket.nodoAfectado}
+                  </p>
+                )}
+                {ticket.referenciaInfra && (
+                  <p className="sm:col-span-2">
+                    <span className="text-slate-500">Referencia:</span> {ticket.referenciaInfra}
                   </p>
                 )}
               </div>
+              {!data.esResponsableInfra && puedeEditar && (
+                <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-2 mt-2">
+                  Usted es colaborador: puede registrar fotos, materiales y comentarios. Solo el
+                  Técnico Responsable puede finalizar la orden.
+                </p>
+              )}
             </>
           ) : (
             <>
@@ -730,6 +862,42 @@ export default function OrdenPage() {
           <p className="text-sm"><span className="text-slate-500">Descripción:</span> {ticket.descripcion}</p>
         </section>
 
+        {esInfra && puedeEditar && (
+          <section className="bg-white rounded-xl border p-4 space-y-3">
+            <h3 className="font-semibold">Comentarios / avances</h3>
+            <div className="flex gap-2">
+              <input
+                value={nuevoComentario}
+                onChange={(e) => setNuevoComentario(e.target.value)}
+                placeholder="Registrar avance o comentario…"
+                className="flex-1 px-3 py-2 border rounded-lg text-sm"
+              />
+              <button
+                type="button"
+                disabled={enviandoComentario}
+                onClick={() => void enviarComentario()}
+                className="px-3 py-2 bg-violet-700 text-white rounded-lg text-sm disabled:opacity-50"
+              >
+                Enviar
+              </button>
+            </div>
+            <ul className="space-y-2 max-h-48 overflow-auto text-sm">
+              {comentarios.length === 0 ? (
+                <li className="text-slate-400">Sin comentarios aún</li>
+              ) : (
+                comentarios.map((c) => (
+                  <li key={c.id} className="border-b pb-2">
+                    <p className="font-medium text-xs text-slate-500">
+                      {c.tecnicoNombre} · {new Date(c.createdAt).toLocaleString("es-EC")}
+                    </p>
+                    <p>{c.texto}</p>
+                  </li>
+                ))
+              )}
+            </ul>
+          </section>
+        )}
+
         {!cerrado && (
           <>
             <Cronometro
@@ -763,7 +931,7 @@ export default function OrdenPage() {
               <>
             {/* Fotos antes */}
             <section className="bg-white rounded-xl border p-4 space-y-2">
-              <h3 className="font-semibold">Evidencia — Antes de iniciar</h3>
+              <h3 className="font-semibold">Evidencia — Antes</h3>
               {fotosAntes.map((t) => (
                 <PhotoCapture
                   key={t}
@@ -776,7 +944,7 @@ export default function OrdenPage() {
             </section>
 
             <section className="bg-white rounded-xl border p-4 space-y-2">
-              <h3 className="font-semibold">Evidencia — Durante reparación</h3>
+              <h3 className="font-semibold">Evidencia — Durante</h3>
               {fotosDurante.map((t) => (
                 <PhotoCapture
                   key={t}
@@ -998,7 +1166,7 @@ export default function OrdenPage() {
 
             {/* Fotos final */}
             <section className="bg-white rounded-xl border p-4 space-y-2">
-              <h3 className="font-semibold">Evidencia — Al finalizar</h3>
+              <h3 className="font-semibold">Evidencia — Después</h3>
               {fotosFinal.map((t) => (
                 <PhotoCapture
                   key={t}
@@ -1042,17 +1210,77 @@ export default function OrdenPage() {
                 </label>
               ))}
 
+              {esInfra && data.esResponsableInfra && (
+                <div className="space-y-2 pt-2 border-t">
+                  <h4 className="font-medium text-sm">Informe final (Responsable)</h4>
+                  <label className="text-xs block space-y-1">
+                    <span className="text-slate-500">Diagnóstico *</span>
+                    <textarea
+                      rows={3}
+                      value={diagnosticoInfra}
+                      onChange={(e) => setDiagnosticoInfra(e.target.value)}
+                      className="w-full px-3 py-2 border rounded-lg text-sm"
+                    />
+                  </label>
+                  <label className="text-xs block space-y-1">
+                    <span className="text-slate-500">Trabajo realizado *</span>
+                    <textarea
+                      rows={3}
+                      value={trabajoRealizadoInfra}
+                      onChange={(e) => setTrabajoRealizadoInfra(e.target.value)}
+                      className="w-full px-3 py-2 border rounded-lg text-sm"
+                    />
+                  </label>
+                  <label className="text-xs block space-y-1">
+                    <span className="text-slate-500">Resultado *</span>
+                    <select
+                      value={resultadoInfra}
+                      onChange={(e) =>
+                        setResultadoInfra(e.target.value as SiResultado | "")
+                      }
+                      className="w-full px-3 py-2 border rounded-lg text-sm"
+                    >
+                      <option value="">Seleccionar…</option>
+                      {SI_RESULTADOS.map((r) => (
+                        <option key={r} value={r}>
+                          {SI_RESULTADO_LABELS[r]}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="text-xs block space-y-1">
+                    <span className="text-slate-500">Observaciones</span>
+                    <textarea
+                      rows={2}
+                      value={observacionesInfra}
+                      onChange={(e) => setObservacionesInfra(e.target.value)}
+                      className="w-full px-3 py-2 border rounded-lg text-sm"
+                    />
+                  </label>
+                </div>
+              )}
+
               {error && (
                 <div className="bg-red-50 text-red-700 text-sm p-3 rounded-lg">{error}</div>
               )}
 
-              <button
-                onClick={cerrarTicket}
-                disabled={cerrando}
-                className="w-full py-3 bg-emerald-600 text-white rounded-xl font-semibold hover:bg-emerald-700 disabled:opacity-50"
-              >
-                {cerrando ? "Cerrando..." : "✅ Cerrar ticket"}
-              </button>
+              {esInfra && !data.esResponsableInfra ? (
+                <p className="text-sm text-slate-600 bg-slate-50 border rounded-lg p-3">
+                  Solo el Técnico Responsable puede finalizar esta orden.
+                </p>
+              ) : (
+                <button
+                  onClick={cerrarTicket}
+                  disabled={cerrando}
+                  className="w-full py-3 bg-emerald-600 text-white rounded-xl font-semibold hover:bg-emerald-700 disabled:opacity-50"
+                >
+                  {cerrando
+                    ? "Finalizando…"
+                    : esInfra
+                      ? "Finalizar soporte"
+                      : "✅ Cerrar ticket"}
+                </button>
+              )}
             </section>
               </>
             ) : (
@@ -1069,6 +1297,16 @@ export default function OrdenPage() {
                       readOnly
                     />
                   ))}
+                  {esInfra && (
+                    <a
+                      href={`/api/soporte-infraestructura/ordenes/${id}/pdf`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block text-center text-sm text-violet-700 font-medium hover:underline pt-2"
+                    >
+                      Descargar reporte PDF
+                    </a>
+                  )}
                 </section>
 
                 {orden.medicion && !esInfra && (

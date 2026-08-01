@@ -109,10 +109,10 @@ export function GerenciaQuickNav({ totalTecnicos }: { totalTecnicos?: number }) 
         Reportes
       </Link>
       <Link
-        href="/infraestructura"
-        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-cyan-700 text-cyan-800 text-sm font-medium hover:bg-cyan-50"
+        href="/supervisor/soporte-infraestructura"
+        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-violet-700 text-violet-800 text-sm font-medium hover:bg-violet-50"
       >
-        Infraestructura de Red
+        Soporte de Infraestructura
       </Link>
       <Link
         href="/help-desk"
@@ -135,22 +135,16 @@ export function SupervisorQuickNav() {
   return (
     <div className="flex flex-wrap gap-2">
       <Link
-        href="/infraestructura"
-        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cyan-700 hover:bg-cyan-800 text-white text-sm font-medium"
+        href="/supervisor/soporte-infraestructura"
+        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-violet-700 hover:bg-violet-800 text-white text-sm font-medium"
       >
-        Infraestructura de Red
+        Soporte de Infraestructura
       </Link>
       <Link
         href="/help-desk"
         className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-teal-700 hover:bg-teal-800 text-white text-sm font-medium"
       >
         Soporte Remoto
-      </Link>
-      <Link
-        href="/supervisor/tickets/nuevo-infraestructura"
-        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-violet-700 hover:bg-violet-800 text-white text-sm font-medium"
-      >
-        + Ticket infraestructura
       </Link>
       <Link
         href="/supervisor/tickets/nuevo"

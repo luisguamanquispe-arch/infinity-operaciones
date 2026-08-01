@@ -3,12 +3,16 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, CheckCircle, Loader2, Server } from "lucide-react";
+import { ArrowLeft, CheckCircle, Loader2, Network } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
 import { TecnicoMultiSelect } from "@/components/TecnicoMultiSelect";
 import { inputMayusculasClass } from "@/lib/mayusculas";
-import { MOTIVO_INFRA_LABELS, MOTIVOS_INFRA, minTecnicosInfraestructura } from "@/lib/ticket-infraestructura";
-import type { MotivoInfraestructura } from "@prisma/client";
+import {
+  SI_TIPOS_TRABAJO,
+  SI_TIPO_TRABAJO_LABELS,
+  minTecnicosInfraestructura,
+} from "@/lib/ticket-infraestructura";
+import type { SiTipoTrabajo } from "@prisma/client";
 
 interface Tecnico {
   id: string;
@@ -16,7 +20,7 @@ interface Tecnico {
   estado: string;
 }
 
-export default function NuevoTicketInfraestructuraPage() {
+export default function NuevoSoporteInfraestructuraPage() {
   const router = useRouter();
   const [tecnicos, setTecnicos] = useState<Tecnico[]>([]);
   const [loading, setLoading] = useState(false);
@@ -24,19 +28,28 @@ export default function NuevoTicketInfraestructuraPage() {
   const [exito, setExito] = useState("");
 
   const [form, setForm] = useState({
-    motivoInfraestructura: "" as MotivoInfraestructura | "",
-    nodoAfectado: "",
-    zonaInfra: "",
+    siTipoTrabajo: "" as SiTipoTrabajo | "",
+    siTipoTrabajoOtro: "",
     prioridad: "ALTA",
     descripcion: "",
+    provincia: "TUNGURAHUA",
+    canton: "AMBATO",
+    parroquia: "",
+    sectorInfra: "",
+    direccionInfra: "",
+    referenciaInfra: "",
+    nodoAfectado: "",
+    latInfra: "",
+    lngInfra: "",
     tecnicoIds: [] as string[],
+    tecnicoResponsableId: "",
     programadoEn: "",
   });
 
   useEffect(() => {
     fetch("/api/tecnicos")
       .then((r) => r.json())
-      .then((d) => setTecnicos(d.tecnicos));
+      .then((d) => setTecnicos(d.tecnicos || []));
   }, []);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -50,8 +63,22 @@ export default function NuevoTicketInfraestructuraPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         tipo: "INFRAESTRUCTURA",
-        ...form,
-        motivoInfraestructura: form.motivoInfraestructura || undefined,
+        prioridad: form.prioridad,
+        descripcion: form.descripcion,
+        siTipoTrabajo: form.siTipoTrabajo || undefined,
+        siTipoTrabajoOtro: form.siTipoTrabajoOtro || undefined,
+        provincia: form.provincia,
+        canton: form.canton,
+        parroquia: form.parroquia,
+        sectorInfra: form.sectorInfra,
+        direccionInfra: form.direccionInfra,
+        referenciaInfra: form.referenciaInfra || undefined,
+        nodoAfectado: form.nodoAfectado || form.direccionInfra,
+        zonaInfra: form.sectorInfra,
+        latInfra: form.latInfra ? Number(form.latInfra) : null,
+        lngInfra: form.lngInfra ? Number(form.lngInfra) : null,
+        tecnicoIds: form.tecnicoIds,
+        tecnicoResponsableId: form.tecnicoResponsableId || form.tecnicoIds[0],
         programadoEn: form.programadoEn || null,
       }),
     });
@@ -60,12 +87,12 @@ export default function NuevoTicketInfraestructuraPage() {
     setLoading(false);
 
     if (!res.ok) {
-      setError(data.error || "Error al crear ticket");
+      setError(data.error || "Error al crear la orden");
       return;
     }
 
-    setExito(`Ticket ${data.ticket.codigo} creado — ${form.tecnicoIds.length} técnicos asignados`);
-    setTimeout(() => router.push("/supervisor"), 2000);
+    setExito(`Soporte ${data.ticket.codigo} creado — asignado a ${form.tecnicoIds.length} técnico(s)`);
+    setTimeout(() => router.push("/supervisor/soporte-infraestructura"), 1500);
   }
 
   const minTecnicos = minTecnicosInfraestructura();
@@ -73,24 +100,24 @@ export default function NuevoTicketInfraestructuraPage() {
   return (
     <div className="min-h-dvh bg-slate-50">
       <AppHeader
-        title="Infraestructura"
-        subtitle="Cortes eléctricos, fibra, nodos y actualizaciones"
+        title="Nuevo Soporte"
+        subtitle="Soporte de Infraestructura · orden de trabajo en red"
       />
 
-      <main className="max-w-2xl mx-auto p-4 space-y-4">
+      <main className="max-w-2xl mx-auto p-4 space-y-4 pb-16">
         <Link
-          href="/supervisor"
+          href="/supervisor/soporte-infraestructura"
           className="inline-flex items-center gap-1 text-sm text-infinity-600 hover:underline"
         >
           <ArrowLeft className="w-4 h-4" />
-          Volver al panel
+          Volver a soportes
         </Link>
 
         <div className="bg-violet-50 border border-violet-200 rounded-xl p-4 flex gap-3 text-sm text-violet-900">
-          <Server className="w-6 h-6 shrink-0" />
+          <Network className="w-6 h-6 shrink-0" />
           <p>
-            Ticket interno de red. Requiere <strong>mínimo {minTecnicos} técnicos</strong>.
-            Incluye cronómetro, materiales, fotos y cierre como un soporte normal.
+            Cree una <strong>orden de soporte</strong> (no un reporte). El PDF se genera solo
+            cuando el <strong>Técnico Responsable</strong> finalice el trabajo.
           </p>
         </div>
 
@@ -106,71 +133,38 @@ export default function NuevoTicketInfraestructuraPage() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <section className="bg-white rounded-xl border p-4 space-y-3">
-            <h2 className="font-semibold">1. Incidente</h2>
+            <h2 className="font-semibold">1. Trabajo solicitado</h2>
 
             <div>
-              <label className="text-xs text-slate-500">Tipo de incidente *</label>
+              <label className="text-xs text-slate-500">Tipo de trabajo *</label>
               <select
                 required
-                value={form.motivoInfraestructura}
+                value={form.siTipoTrabajo}
                 onChange={(e) =>
-                  setForm({
-                    ...form,
-                    motivoInfraestructura: e.target.value as MotivoInfraestructura,
-                  })
+                  setForm({ ...form, siTipoTrabajo: e.target.value as SiTipoTrabajo })
                 }
                 className="w-full px-3 py-2 border rounded-lg text-sm mt-0.5"
               >
                 <option value="">Seleccionar…</option>
-                {MOTIVOS_INFRA.map((m) => (
-                  <option key={m} value={m}>
-                    {MOTIVO_INFRA_LABELS[m]}
+                {SI_TIPOS_TRABAJO.map((t) => (
+                  <option key={t} value={t}>
+                    {SI_TIPO_TRABAJO_LABELS[t]}
                   </option>
                 ))}
               </select>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {form.siTipoTrabajo === "OTRO" && (
               <div>
-                <label className="text-xs text-slate-500">Nodo afectado *</label>
+                <label className="text-xs text-slate-500">Especifique *</label>
                 <input
-                  type="text"
                   required
-                  placeholder="Ej: NODO CENTRO, OLT-03"
-                  value={form.nodoAfectado}
-                  onChange={(e) =>
-                    setForm({ ...form, nodoAfectado: e.target.value })
-                  }
+                  value={form.siTipoTrabajoOtro}
+                  onChange={(e) => setForm({ ...form, siTipoTrabajoOtro: e.target.value })}
                   className={`w-full px-3 py-2 border rounded-lg text-sm mt-0.5 ${inputMayusculasClass}`}
                 />
               </div>
-              <div>
-                <label className="text-xs text-slate-500">Zona / sector</label>
-                <input
-                  type="text"
-                  placeholder="Ej: NORTE, URB. LA FLORESTA"
-                  value={form.zonaInfra}
-                  onChange={(e) =>
-                    setForm({ ...form, zonaInfra: e.target.value })
-                  }
-                  className={`w-full px-3 py-2 border rounded-lg text-sm mt-0.5 ${inputMayusculasClass}`}
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="text-xs text-slate-500">Descripción del trabajo *</label>
-              <textarea
-                required
-                rows={4}
-                placeholder="Detalle: tramo afectado, equipos involucrados, acciones requeridas…"
-                value={form.descripcion}
-                onChange={(e) =>
-                  setForm({ ...form, descripcion: e.target.value })
-                }
-                className={`w-full px-3 py-2 border rounded-lg text-sm mt-0.5 resize-none ${inputMayusculasClass}`}
-              />
-            </div>
+            )}
 
             <div>
               <label className="text-xs text-slate-500">Prioridad *</label>
@@ -184,10 +178,91 @@ export default function NuevoTicketInfraestructuraPage() {
                 <option value="BAJA">Baja (SLA 24h)</option>
               </select>
             </div>
+
+            <div>
+              <label className="text-xs text-slate-500">Descripción del problema / trabajo *</label>
+              <textarea
+                required
+                rows={4}
+                value={form.descripcion}
+                onChange={(e) => setForm({ ...form, descripcion: e.target.value })}
+                className={`w-full px-3 py-2 border rounded-lg text-sm mt-0.5 resize-none ${inputMayusculasClass}`}
+                placeholder="Detalle el incidente y el trabajo solicitado…"
+              />
+            </div>
           </section>
 
           <section className="bg-white rounded-xl border p-4 space-y-3">
-            <h2 className="font-semibold">2. Equipo técnico</h2>
+            <h2 className="font-semibold">2. Ubicación</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {(
+                [
+                  ["provincia", "Provincia"],
+                  ["canton", "Cantón"],
+                  ["parroquia", "Parroquia"],
+                  ["sectorInfra", "Sector"],
+                ] as const
+              ).map(([k, label]) => (
+                <div key={k}>
+                  <label className="text-xs text-slate-500">{label} *</label>
+                  <input
+                    required
+                    value={form[k]}
+                    onChange={(e) => setForm({ ...form, [k]: e.target.value })}
+                    className={`w-full px-3 py-2 border rounded-lg text-sm mt-0.5 ${inputMayusculasClass}`}
+                  />
+                </div>
+              ))}
+              <div className="sm:col-span-2">
+                <label className="text-xs text-slate-500">Dirección *</label>
+                <input
+                  required
+                  value={form.direccionInfra}
+                  onChange={(e) => setForm({ ...form, direccionInfra: e.target.value })}
+                  className={`w-full px-3 py-2 border rounded-lg text-sm mt-0.5 ${inputMayusculasClass}`}
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="text-xs text-slate-500">Referencia</label>
+                <input
+                  value={form.referenciaInfra}
+                  onChange={(e) => setForm({ ...form, referenciaInfra: e.target.value })}
+                  className={`w-full px-3 py-2 border rounded-lg text-sm mt-0.5 ${inputMayusculasClass}`}
+                />
+              </div>
+              <div>
+                <label className="text-xs text-slate-500">Nodo (opcional)</label>
+                <input
+                  value={form.nodoAfectado}
+                  onChange={(e) => setForm({ ...form, nodoAfectado: e.target.value })}
+                  className={`w-full px-3 py-2 border rounded-lg text-sm mt-0.5 ${inputMayusculasClass}`}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-xs text-slate-500">Lat GPS</label>
+                  <input
+                    value={form.latInfra}
+                    onChange={(e) => setForm({ ...form, latInfra: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-lg text-sm mt-0.5"
+                    inputMode="decimal"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-slate-500">Lng GPS</label>
+                  <input
+                    value={form.lngInfra}
+                    onChange={(e) => setForm({ ...form, lngInfra: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-lg text-sm mt-0.5"
+                    inputMode="decimal"
+                  />
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section className="bg-white rounded-xl border p-4 space-y-3">
+            <h2 className="font-semibold">3. Asignación de técnicos</h2>
 
             <div>
               <label className="text-xs text-slate-500">Fecha y hora de intervención</label>
@@ -203,21 +278,49 @@ export default function NuevoTicketInfraestructuraPage() {
               label={`Técnicos asignados (mínimo ${minTecnicos}) *`}
               tecnicos={tecnicos}
               selected={form.tecnicoIds}
-              onChange={(tecnicoIds) => setForm({ ...form, tecnicoIds })}
+              onChange={(tecnicoIds) => {
+                const responsable =
+                  form.tecnicoResponsableId && tecnicoIds.includes(form.tecnicoResponsableId)
+                    ? form.tecnicoResponsableId
+                    : tecnicoIds[0] || "";
+                setForm({ ...form, tecnicoIds, tecnicoResponsableId: responsable });
+              }}
             />
-            {form.tecnicoIds.length > 0 && form.tecnicoIds.length < minTecnicos && (
-              <p className="text-xs text-amber-700">
-                Seleccione al menos {minTecnicos} técnicos para este ticket.
-              </p>
+
+            {form.tecnicoIds.length > 0 && (
+              <div>
+                <label className="text-xs text-slate-500">Técnico responsable *</label>
+                <select
+                  required
+                  value={form.tecnicoResponsableId}
+                  onChange={(e) =>
+                    setForm({ ...form, tecnicoResponsableId: e.target.value })
+                  }
+                  className="w-full px-3 py-2 border rounded-lg text-sm mt-0.5"
+                >
+                  {form.tecnicoIds.map((id) => {
+                    const t = tecnicos.find((x) => x.id === id);
+                    return (
+                      <option key={id} value={id}>
+                        {t?.nombre || id}
+                      </option>
+                    );
+                  })}
+                </select>
+                <p className="text-xs text-slate-500 mt-1">
+                  Solo este técnico podrá finalizar la orden e informe final.
+                </p>
+              </div>
             )}
           </section>
 
           <button
             type="submit"
             disabled={loading || form.tecnicoIds.length < minTecnicos}
-            className="w-full py-3 bg-violet-700 hover:bg-violet-800 text-white font-semibold rounded-xl disabled:opacity-50 transition"
+            className="w-full py-3 bg-violet-700 hover:bg-violet-800 text-white font-semibold rounded-xl disabled:opacity-50 transition inline-flex items-center justify-center gap-2"
           >
-            {loading ? "Creando ticket…" : "Crear ticket de infraestructura"}
+            {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : null}
+            {loading ? "Creando soporte…" : "Crear Nuevo Soporte"}
           </button>
         </form>
       </main>

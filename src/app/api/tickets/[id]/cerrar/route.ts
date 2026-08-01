@@ -1,13 +1,19 @@
 import { NextResponse } from "next/server";
+import type { SiResultado } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getFullSession } from "@/lib/auth";
 import { getOrCreateOrden, validarCierreOrden, enviarWhatsApp } from "@/lib/tickets";
 import { tecnicoAsignadoAlTicket, tecnicoIdsFromTicket } from "@/lib/ticket-tecnicos";
 import { esClienteInfraestructura } from "@/lib/cliente-infraestructura";
-import { esTicketInfraestructura } from "@/lib/ticket-infraestructura";
+import {
+  esTicketInfraestructura,
+  puedeCerrarSoporteInfra,
+  SI_RESULTADOS,
+} from "@/lib/ticket-infraestructura";
 import { esTicketInstalacion } from "@/lib/ticket-instalacion";
 import { asegurarColaboracionOrden } from "@/lib/ticket-reporte";
 import { ordenServicioCerrada } from "@/lib/ticket-cerrado";
+import { registrarSiHistorial } from "@/lib/soporte-infraestructura/historial";
 
 export async function POST(
   request: Request,
@@ -28,6 +34,16 @@ export async function POST(
     return NextResponse.json({ error: "No autorizado" }, { status: 403 });
   }
 
+  if (esTicketInfraestructura(ticket.tipo) && !puedeCerrarSoporteInfra(ticket, session.tecnicoId)) {
+    return NextResponse.json(
+      {
+        error:
+          "Solo el Técnico Responsable puede finalizar esta orden de Soporte de Infraestructura",
+      },
+      { status: 403 }
+    );
+  }
+
   const permiso = await asegurarColaboracionOrden(id, session.tecnicoId);
   if (!permiso.ok) {
     return NextResponse.json(
@@ -42,24 +58,83 @@ export async function POST(
     return NextResponse.json({ ok: true, yaCerrado: true });
   }
 
-  const validacion = validarCierreOrden(orden, {
+  let body: {
+    diagnosticoInfra?: string;
+    trabajoRealizadoInfra?: string;
+    resultadoInfra?: string;
+    observacionesInfra?: string;
+  } = {};
+  try {
+    body = await request.json();
+  } catch {
+    body = {};
+  }
+
+  if (esTicketInfraestructura(ticket.tipo)) {
+    const diagnostico = String(body.diagnosticoInfra || ticket.diagnosticoInfra || "").trim();
+    const trabajo = String(
+      body.trabajoRealizadoInfra || ticket.trabajoRealizadoInfra || ""
+    ).trim();
+    const resultado = (body.resultadoInfra || ticket.resultadoInfra) as SiResultado | null;
+    const observaciones = body.observacionesInfra ?? ticket.observacionesInfra;
+
+    if (diagnostico.length < 10) {
+      return NextResponse.json(
+        { error: "Ingrese el diagnóstico (mín. 10 caracteres)" },
+        { status: 400 }
+      );
+    }
+    if (trabajo.length < 10) {
+      return NextResponse.json(
+        { error: "Ingrese el trabajo realizado (mín. 10 caracteres)" },
+        { status: 400 }
+      );
+    }
+    if (!resultado || !SI_RESULTADOS.includes(resultado)) {
+      return NextResponse.json({ error: "Seleccione el resultado del soporte" }, { status: 400 });
+    }
+
+    await prisma.ticket.update({
+      where: { id },
+      data: {
+        diagnosticoInfra: diagnostico,
+        trabajoRealizadoInfra: trabajo,
+        resultadoInfra: resultado,
+        observacionesInfra: observaciones ? String(observaciones).trim() : null,
+      },
+    });
+
+    // Asegura resumen en orden para validarCierreOrden
+    if (!orden.resumenTrabajo || orden.resumenTrabajo.trim().length < 10) {
+      await prisma.ordenServicio.update({
+        where: { id: orden.id },
+        data: { resumenTrabajo: trabajo },
+      });
+    }
+  }
+
+  const ordenFresh = await getOrCreateOrden(id);
+  const validacion = validarCierreOrden(ordenFresh, {
     esInfraestructura: esTicketInfraestructura(ticket.tipo),
     esInstalacion: esTicketInstalacion(ticket.tipo),
   });
 
   if (!validacion.valido) {
-    return NextResponse.json({ error: "Validación fallida", errores: validacion.errores }, { status: 400 });
+    return NextResponse.json(
+      { error: "Validación fallida", errores: validacion.errores },
+      { status: 400 }
+    );
   }
 
   const now = new Date();
 
   await prisma.$transaction([
     prisma.ordenServicio.update({
-      where: { id: orden.id },
+      where: { id: ordenFresh.id },
       data: {
         finalizadoEn: now,
-        reportadoPorTecnicoId: orden.reportadoPorTecnicoId ?? session.tecnicoId,
-        reportadoEn: orden.reportadoEn ?? now,
+        reportadoPorTecnicoId: ordenFresh.reportadoPorTecnicoId ?? session.tecnicoId,
+        reportadoEn: ordenFresh.reportadoEn ?? now,
       },
     }),
     prisma.ticket.update({
@@ -75,7 +150,7 @@ export async function POST(
   if (!esClienteInfraestructura(ticket.cliente.cedula)) {
     await enviarWhatsApp(ticket.codigo, ticket.cliente.telefono);
     await prisma.ordenServicio.update({
-      where: { id: orden.id },
+      where: { id: ordenFresh.id },
       data: { whatsappEnviado: true },
     });
   }
@@ -88,6 +163,16 @@ export async function POST(
       metadata: JSON.stringify({ tecnicoId: session.tecnicoId }),
     },
   });
+
+  if (esTicketInfraestructura(ticket.tipo)) {
+    await registrarSiHistorial(prisma, {
+      ticketId: id,
+      usuarioId: session.id,
+      usuarioNombre: session.nombre,
+      accion: "ORDEN_FINALIZADA",
+      detalle: `Cerrada por técnico responsable`,
+    });
+  }
 
   return NextResponse.json({ ok: true, codigo: ticket.codigo });
 }

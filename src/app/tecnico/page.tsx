@@ -12,7 +12,6 @@ import {
   RefreshCw,
   CheckCircle2,
   X,
-  Network,
 } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
 import { DeployVersionBanner } from "@/components/DeployVersionBanner";
@@ -191,14 +190,6 @@ export default function TecnicoDashboard() {
           </div>
         )}
 
-        <Link
-          href="/infraestructura"
-          className="flex items-center justify-center gap-2 py-3 bg-cyan-700 hover:bg-cyan-800 text-white font-semibold rounded-xl transition"
-        >
-          <Network className="w-5 h-5" />
-          Infraestructura de Red
-        </Link>
-
         <section className="bg-white rounded-xl border p-4 space-y-3">
           <div className="flex items-center gap-2 text-sm text-slate-600">
             <Calendar className="w-4 h-4" />
@@ -256,25 +247,35 @@ export default function TecnicoDashboard() {
         )}
 
         <section>
-          <h2 className="font-semibold mb-1">Mis órdenes de trabajo</h2>
-          <p className="text-sm text-slate-500 mb-3">
-            Órdenes sin horario fijo. Las programadas están arriba en Agenda. Semáforo:
-            amarillo leído · azul en proceso · verde terminado.
+          <h2 className="font-semibold mb-1">Mis Soportes de Infraestructura</h2>
+          <p className="text-xs text-slate-500 mb-3">
+            Órdenes INF-* asignadas · trabajo sobre la red (no clientes)
           </p>
-          {ordenesPendientes.length === 0 && (
-            <div className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-3 mb-3">
-              {agenda.length > 0 ? (
-                <p>No hay órdenes sin programar. Revise la Agenda de arriba.</p>
-              ) : (
-                <p>
-                  No hay órdenes activas en su perfil. El supervisor debe pulsar{" "}
-                  <strong>Actualizar y enviar a apps</strong> en Destinar tickets, y usted
-                  debe ingresar con su usuario (ej. kevin@infinity.ec), no con la cuenta demo.
-                </p>
-              )}
-            </div>
-          )}
-          <TecnicoOrdenesPendientes ordenes={ordenesPendientes} />
+          <TecnicoOrdenesPendientes
+            ordenes={ordenesPendientes.filter((o) => o.tipo === "INFRAESTRUCTURA")}
+          />
+        </section>
+
+        <section>
+          <h2 className="font-semibold mb-1">Mis soportes a clientes</h2>
+          <p className="text-sm text-slate-500 mb-3">
+            Tickets ST-* y demás. Semáforo: amarillo leído · azul en proceso · verde terminado.
+          </p>
+          {ordenesPendientes.filter((o) => o.tipo !== "INFRAESTRUCTURA").length === 0 &&
+            ordenesPendientes.filter((o) => o.tipo === "INFRAESTRUCTURA").length === 0 && (
+              <div className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-3 mb-3">
+                {agenda.length > 0 ? (
+                  <p>No hay órdenes sin programar. Revise la Agenda de arriba.</p>
+                ) : (
+                  <p>
+                    No hay órdenes activas en su perfil. El supervisor debe destinarle tickets.
+                  </p>
+                )}
+              </div>
+            )}
+          <TecnicoOrdenesPendientes
+            ordenes={ordenesPendientes.filter((o) => o.tipo !== "INFRAESTRUCTURA")}
+          />
         </section>
       </main>
       <div className="max-w-6xl mx-auto px-4 pb-4">

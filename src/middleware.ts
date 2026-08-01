@@ -137,7 +137,7 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith("/infraestructura") || pathname.startsWith("/api/infraestructura");
   if (esInfraRed && !ROLES_INFRAESTRUCTURA_RED.includes(session.rol)) {
     if (pathname.startsWith("/api/")) {
-      return NextResponse.json({ error: "Sin acceso a Infraestructura de Red" }, { status: 403 });
+      return NextResponse.json({ error: "Sin acceso a Soporte de Infraestructura" }, { status: 403 });
     }
     return NextResponse.redirect(new URL(dashboardPath(session.rol), request.url));
   }

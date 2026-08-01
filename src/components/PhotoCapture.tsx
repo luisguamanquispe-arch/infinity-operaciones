@@ -1,21 +1,28 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Camera, Check, AlertCircle } from "lucide-react";
+import { Camera, Check, AlertCircle, Trash2, RefreshCw } from "lucide-react";
 import { FOTO_LABELS } from "@/lib/utils";
 import { compressImageFile, fetchWithRetry } from "@/lib/compress-image";
 
 interface PhotoCaptureProps {
   ticketId: string;
   tipo: string;
-  existing?: { url: string; imagenSrc?: string } | null;
+  existing?: { id?: string; url: string; imagenSrc?: string } | null;
   onUploaded: () => void;
   readOnly?: boolean;
 }
 
-export function PhotoCapture({ ticketId, tipo, existing, onUploaded, readOnly = false }: PhotoCaptureProps) {
+export function PhotoCapture({
+  ticketId,
+  tipo,
+  existing,
+  onUploaded,
+  readOnly = false,
+}: PhotoCaptureProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState("");
 
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -71,9 +78,37 @@ export function PhotoCapture({ ticketId, tipo, existing, onUploaded, readOnly = 
     }
   }
 
+  async function eliminar() {
+    if (!existing?.id) {
+      setError("No se puede eliminar: falta el id de la foto. Actualice la pantalla.");
+      return;
+    }
+    if (!confirm("¿Eliminar esta foto? Podrá capturar otra.")) return;
+
+    setDeleting(true);
+    setError("");
+    try {
+      const res = await fetch(`/api/tickets/${ticketId}/fotos/${existing.id}`, {
+        method: "DELETE",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.error || `No se pudo eliminar (${res.status})`);
+        return;
+      }
+      onUploaded();
+    } catch {
+      setError("Error de conexión al eliminar la foto.");
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  const busy = loading || deleting;
+
   return (
     <div className="p-3 bg-slate-50 rounded-lg border space-y-2">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
           {existing ? (
             <Check className="w-4 h-4 text-emerald-600 shrink-0" />
@@ -83,36 +118,63 @@ export function PhotoCapture({ ticketId, tipo, existing, onUploaded, readOnly = 
           <span className="text-sm truncate">{FOTO_LABELS[tipo] || tipo}</span>
         </div>
 
-        {existing ? (
-          <a
-            href={existing.imagenSrc || existing.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-xs text-infinity-600 font-medium shrink-0 ml-2"
-          >
-            Ver foto
-          </a>
-        ) : readOnly ? (
-          <span className="text-xs text-slate-400 shrink-0 ml-2">Pendiente</span>
+        {!existing && readOnly ? (
+          <span className="text-xs text-slate-400 shrink-0">Pendiente</span>
         ) : (
-          <>
-            <input
-              ref={inputRef}
-              type="file"
-              accept="image/*"
-              capture="environment"
-              className="hidden"
-              onChange={handleFile}
-            />
-            <button
-              type="button"
-              onClick={() => inputRef.current?.click()}
-              disabled={loading}
-              className="text-xs px-3 py-1.5 bg-infinity-600 text-white rounded-lg disabled:opacity-50 shrink-0 ml-2"
-            >
-              {loading ? "Subiendo…" : "Capturar"}
-            </button>
-          </>
+          <div className="flex items-center gap-1.5 shrink-0">
+            {existing && (
+              <a
+                href={existing.imagenSrc || existing.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-infinity-600 font-medium px-1.5 py-1"
+              >
+                Ver
+              </a>
+            )}
+
+            {!readOnly && (
+              <>
+                <input
+                  ref={inputRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  className="hidden"
+                  onChange={handleFile}
+                />
+                <button
+                  type="button"
+                  onClick={() => inputRef.current?.click()}
+                  disabled={busy}
+                  className="inline-flex items-center gap-1 text-xs px-2.5 py-1.5 bg-infinity-600 text-white rounded-lg disabled:opacity-50"
+                >
+                  {loading ? (
+                    "Subiendo…"
+                  ) : existing ? (
+                    <>
+                      <RefreshCw className="w-3 h-3" />
+                      Cambiar
+                    </>
+                  ) : (
+                    "Capturar"
+                  )}
+                </button>
+                {existing?.id && (
+                  <button
+                    type="button"
+                    onClick={() => void eliminar()}
+                    disabled={busy}
+                    className="inline-flex items-center gap-1 text-xs px-2.5 py-1.5 border border-red-200 text-red-700 bg-white rounded-lg disabled:opacity-50"
+                    title="Eliminar foto"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                    {deleting ? "…" : "Eliminar"}
+                  </button>
+                )}
+              </>
+            )}
+          </div>
         )}
       </div>
 

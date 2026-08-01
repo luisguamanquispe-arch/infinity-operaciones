@@ -50,7 +50,7 @@ export function formatDateShort(date: Date | string): string {
 export const TIPO_LABELS: Record<string, string> = {
   INSTALACION: "Instalación",
   SOPORTE: "Soporte",
-  INFRAESTRUCTURA: "Infraestructura",
+  INFRAESTRUCTURA: "Soporte de Infraestructura",
   MIGRACION: "Migración",
   RECONEXION: "Reconexión",
   RETIRO: "Retiro de equipo",

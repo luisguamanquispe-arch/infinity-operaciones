@@ -31,10 +31,12 @@ function construirMensaje(ticket: TicketAsignado, nombreTecnico: string): string
   const esInfra = ticket.tipo === "INFRAESTRUCTURA";
 
   const lineas = [
-    `🔔 LGB Operaciones — Nuevo ticket`,
+    `🔔 LGB Operaciones — Nueva orden`,
     ``,
     `Hola ${nombreTecnico},`,
-    `Se le asignó el ticket *${ticket.codigo}* para atender.`,
+    esInfra
+      ? `Se le asignó la orden de *Soporte de Infraestructura* *${ticket.codigo}*.`
+      : `Se le asignó el ticket *${ticket.codigo}* para atender.`,
     ``,
     `📋 Tipo: ${TIPO_LABELS[ticket.tipo] || ticket.tipo}`,
     `⚡ Prioridad: ${PRIORIDAD_LABELS[ticket.prioridad] || ticket.prioridad}`,

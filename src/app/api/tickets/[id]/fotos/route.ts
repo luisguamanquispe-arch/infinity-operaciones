@@ -105,6 +105,15 @@ export async function POST(
       },
     });
 
+    // Reemplazo: deja una sola foto por tipo (evita huérfanas al re-capturar).
+    await prisma.fotografia.deleteMany({
+      where: {
+        ordenId: orden.id,
+        tipo: tipo as TipoFoto,
+        id: { not: foto.id },
+      },
+    });
+
     return NextResponse.json({ foto });
   } catch (err) {
     console.error("[POST fotos]", err);

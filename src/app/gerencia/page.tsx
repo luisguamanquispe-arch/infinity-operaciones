@@ -113,10 +113,10 @@ export default function GerenciaDashboard() {
 
             {data.infraestructura && (
               <section>
-                <h2 className="font-semibold mb-3">Infraestructura de Red</h2>
+                <h2 className="font-semibold mb-3">Soporte de Infraestructura</h2>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   <StatCard
-                    label="Trabajos abiertos"
+                    label="Soportes abiertos"
                     value={data.infraestructura.abiertos}
                     color="blue"
                   />
@@ -136,6 +136,12 @@ export default function GerenciaDashboard() {
                     color="slate"
                   />
                 </div>
+                <p className="text-xs text-slate-500 mt-2">
+                  Indicadores históricos IR. Operación diaria:{" "}
+                  <a href="/supervisor/soporte-infraestructura" className="text-violet-700 underline">
+                    Soporte de Infraestructura
+                  </a>
+                </p>
               </section>
             )}
 
