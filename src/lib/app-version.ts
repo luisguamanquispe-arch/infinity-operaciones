@@ -1,5 +1,5 @@
 /**
- * Builds conocidos como obsoletos (sin import Wispro CSV+Excel / cookie Firefox).
+ * Builds conocidos como obsoletos (sin Soporte Remoto / Help Desk reemplazado).
  */
 const STALE_DEPLOY_PREFIXES = new Set([
   "a99b779",
@@ -17,10 +17,17 @@ const STALE_DEPLOY_PREFIXES = new Set([
   "0766570",
   "715884f",
   "200d4ee",
+  "3dd4ac6",
+  "fcf65bf",
+  "e031d00",
+  "ebbcf7c",
+  "693de18",
+  "7dd249c",
+  "c05bdf8",
 ]);
 
-/** Último commit con logo Infinity visible en supervisor/gerencia. */
-export const LATEST_GIT_SHA_PREFIX = "3dd4ac6";
+/** Último commit: Help Desk → Soporte Remoto bajo /help-desk. */
+export const LATEST_GIT_SHA_PREFIX = "8f993a7";
 
 /** @deprecated Usar gitShaIsStale — mantenido para compatibilidad con badges. */
 export const EXPECTED_GIT_SHA_PREFIX = LATEST_GIT_SHA_PREFIX;
@@ -34,7 +41,8 @@ export function gitShaPrefix(sha: string | null | undefined): string {
 export function gitShaIsStale(sha: string | null | undefined): boolean {
   const prefix = gitShaPrefix(sha);
   if (!prefix) return true;
-  return STALE_DEPLOY_PREFIXES.has(prefix);
+  if (STALE_DEPLOY_PREFIXES.has(prefix)) return true;
+  return prefix !== LATEST_GIT_SHA_PREFIX;
 }
 
 /** true = servidor con funciones actuales (no muestra banner de error). */
