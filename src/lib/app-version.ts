@@ -1,5 +1,6 @@
 /**
- * Builds conocidos como obsoletos (sin Soporte Remoto / Help Desk reemplazado).
+ * Builds conocidos como obsoletos (sin Soporte Remoto / módulos recientes).
+ * Solo estos SHA muestran el banner amarillo.
  */
 const STALE_DEPLOY_PREFIXES = new Set([
   "a99b779",
@@ -26,8 +27,8 @@ const STALE_DEPLOY_PREFIXES = new Set([
   "c05bdf8",
 ]);
 
-/** Último commit: Help Desk → Soporte Remoto bajo /help-desk. */
-export const LATEST_GIT_SHA_PREFIX = "8f993a7";
+/** Referencia informativa (último commit documentado como producción deseada). */
+export const LATEST_GIT_SHA_PREFIX = "c1c9a77";
 
 /** @deprecated Usar gitShaIsStale — mantenido para compatibilidad con badges. */
 export const EXPECTED_GIT_SHA_PREFIX = LATEST_GIT_SHA_PREFIX;
@@ -37,12 +38,14 @@ export function gitShaPrefix(sha: string | null | undefined): string {
   return sha.slice(0, 7);
 }
 
-/** true = servidor demasiado viejo o sin hash de build. */
+/**
+ * true = servidor demasiado viejo (lista explícita).
+ * No marca stale solo por no coincidir con LATEST (evita falsos avisos en SHA más nuevos).
+ */
 export function gitShaIsStale(sha: string | null | undefined): boolean {
   const prefix = gitShaPrefix(sha);
   if (!prefix) return true;
-  if (STALE_DEPLOY_PREFIXES.has(prefix)) return true;
-  return prefix !== LATEST_GIT_SHA_PREFIX;
+  return STALE_DEPLOY_PREFIXES.has(prefix);
 }
 
 /** true = servidor con funciones actuales (no muestra banner de error). */
