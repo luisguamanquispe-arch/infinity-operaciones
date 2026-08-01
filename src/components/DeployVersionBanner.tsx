@@ -109,6 +109,12 @@ export function GerenciaQuickNav({ totalTecnicos }: { totalTecnicos?: number }) 
         Reportes
       </Link>
       <Link
+        href="/infraestructura"
+        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-cyan-700 text-cyan-800 text-sm font-medium hover:bg-cyan-50"
+      >
+        Infraestructura de Red
+      </Link>
+      <Link
         href="/help-desk"
         className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-teal-600 text-teal-700 text-sm font-medium hover:bg-teal-50"
       >
@@ -128,6 +134,12 @@ export function GerenciaQuickNav({ totalTecnicos }: { totalTecnicos?: number }) 
 export function SupervisorQuickNav() {
   return (
     <div className="flex flex-wrap gap-2">
+      <Link
+        href="/infraestructura"
+        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cyan-700 hover:bg-cyan-800 text-white text-sm font-medium"
+      >
+        Infraestructura de Red
+      </Link>
       <Link
         href="/supervisor/tickets/nuevo-infraestructura"
         className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-violet-700 hover:bg-violet-800 text-white text-sm font-medium"

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo } from "react";
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import {
   Calendar,
   User,
@@ -11,6 +12,7 @@ import {
   RefreshCw,
   CheckCircle2,
   X,
+  Network,
 } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
 import { DeployVersionBanner } from "@/components/DeployVersionBanner";
@@ -188,6 +190,14 @@ export default function TecnicoDashboard() {
             </button>
           </div>
         )}
+
+        <Link
+          href="/infraestructura"
+          className="flex items-center justify-center gap-2 py-3 bg-cyan-700 hover:bg-cyan-800 text-white font-semibold rounded-xl transition"
+        >
+          <Network className="w-5 h-5" />
+          Infraestructura de Red
+        </Link>
 
         <section className="bg-white rounded-xl border p-4 space-y-3">
           <div className="flex items-center gap-2 text-sm text-slate-600">

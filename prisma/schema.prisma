@@ -101,6 +101,8 @@ model Usuario {
   novedadesResueltas     NovedadTicket[]    @relation("NovedadResueltaPor")
   refreshTokensCliente   AppClienteRefreshToken[]
   deviceTokensCliente    AppClienteDeviceToken[]
+  irReportesSupervisados IrReporte[] @relation("IrSupervisor")
+  irReportesCreados      IrReporte[] @relation("IrCreadoPor")
 }
 
 model Tecnico {
@@ -118,6 +120,7 @@ model Tecnico {
   ubicaciones  UbicacionGps[]
   ordenesReportadas OrdenServicio[] @relation("OrdenReportadaPor")
   novedadesReportadas NovedadTicket[]
+  irReportes   IrReporte[]
 }
 
 model Cliente {
@@ -613,4 +616,110 @@ model HdSesionAgente {
   conectado  Boolean  @default(false)
   ultimoPing DateTime @default(now())
   usuario    Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+}
+
+// ─── Infraestructura de Red (módulo independiente; no altera tickets INFRA) ───
+
+enum IrEstadoReporte {
+  PENDIENTE
+  EN_PROCESO
+  FINALIZADO
+}
+
+enum IrTipoTrabajo {
+  CORTE_FIBRA
+  EMPALME
+  CAMBIO_NAP
+  CAMBIO_CTO
+  CAMBIO_SPLITTER
+  CAMBIO_POSTE
+  CAMBIO_CABLE
+  MANTENIMIENTO_PREVENTIVO
+  MANTENIMIENTO_CORRECTIVO
+  AMPLIACION_RED
+  OTRO
+}
+
+enum IrTipoFoto {
+  ANTES
+  DURANTE
+  DESPUES
+}
+
+enum IrTipoFirma {
+  TECNICO
+  SUPERVISOR
+}
+
+model IrReporte {
+  id                  String          @id @default(cuid())
+  codigo              String          @unique
+  fecha               DateTime        @default(now())
+  horaInicio          DateTime?
+  horaFin             DateTime?
+  tecnicoId           String
+  supervisorUsuarioId String?
+  estado              IrEstadoReporte @default(PENDIENTE)
+  prioridad           Prioridad       @default(MEDIA)
+  tipoTrabajo         IrTipoTrabajo
+  tipoTrabajoOtro     String?
+  provincia           String
+  canton              String
+  parroquia           String
+  sector              String
+  direccion           String
+  lat                 Float?
+  lng                 Float?
+  descripcion         String          @db.Text
+  observaciones       String?         @db.Text
+  creadoPorId         String
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+  tecnico             Tecnico         @relation(fields: [tecnicoId], references: [id])
+  supervisor          Usuario?        @relation("IrSupervisor", fields: [supervisorUsuarioId], references: [id])
+  creadoPor           Usuario         @relation("IrCreadoPor", fields: [creadoPorId], references: [id])
+  materiales          IrMaterial[]
+  fotografias         IrFoto[]
+  firmas              IrFirma[]
+
+  @@index([estado, fecha])
+  @@index([tecnicoId])
+  @@index([sector])
+}
+
+model IrMaterial {
+  id        String    @id @default(cuid())
+  reporteId String
+  material  String
+  cantidad  Float
+  unidad    String    @default("unidad")
+  reporte   IrReporte @relation(fields: [reporteId], references: [id], onDelete: Cascade)
+
+  @@index([reporteId])
+}
+
+model IrFoto {
+  id         String    @id @default(cuid())
+  reporteId  String
+  tipo       IrTipoFoto
+  url        String
+  imagenData String?   @db.Text
+  tomadaEn   DateTime  @default(now())
+  reporte    IrReporte @relation(fields: [reporteId], references: [id], onDelete: Cascade)
+
+  @@index([reporteId, tipo])
+}
+
+model IrFirma {
+  id          String      @id @default(cuid())
+  reporteId   String
+  tipo        IrTipoFirma
+  nombre      String
+  imagenUrl   String
+  imagenData  String?     @db.Text
+  firmadoEn   DateTime    @default(now())
+  reporte     IrReporte   @relation(fields: [reporteId], references: [id], onDelete: Cascade)
+
+  @@unique([reporteId, tipo])
+  @@index([reporteId])
 }

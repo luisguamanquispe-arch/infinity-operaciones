@@ -16,6 +16,7 @@ const publicPaths = [
 ];
 
 const ROLES_HELP_DESK = ["ADMIN", "SUPERVISOR", "HELP_DESK"];
+const ROLES_INFRAESTRUCTURA_RED = ["ADMIN", "SUPERVISOR", "TECNICO"];
 
 function dashboardPath(rol: string): string {
   switch (rol) {
@@ -128,6 +129,15 @@ export async function middleware(request: NextRequest) {
     if (!permitido) {
       return NextResponse.redirect(new URL("/help-desk", request.url));
     }
+  }
+
+  const esInfraRed =
+    pathname.startsWith("/infraestructura") || pathname.startsWith("/api/infraestructura");
+  if (esInfraRed && !ROLES_INFRAESTRUCTURA_RED.includes(session.rol)) {
+    if (pathname.startsWith("/api/")) {
+      return NextResponse.json({ error: "Sin acceso a Infraestructura de Red" }, { status: 403 });
+    }
+    return NextResponse.redirect(new URL(dashboardPath(session.rol), request.url));
   }
 
   if (pathname.startsWith("/supervisor") && !["SUPERVISOR", "ADMIN"].includes(session.rol)) {

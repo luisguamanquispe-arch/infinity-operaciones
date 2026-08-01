@@ -189,6 +189,13 @@ export default function SupervisorDashboard() {
             Nuevo ticket de soporte
           </Link>
           <Link
+            href="/infraestructura"
+            className="flex items-center justify-center gap-2 py-3 bg-cyan-700 hover:bg-cyan-800 text-white font-semibold rounded-xl transition"
+          >
+            <Plus className="w-5 h-5" />
+            Infraestructura de Red
+          </Link>
+          <Link
             href="/supervisor/tickets/nuevo-infraestructura"
             className="flex items-center justify-center gap-2 py-3 bg-violet-700 hover:bg-violet-800 text-white font-semibold rounded-xl transition"
           >
