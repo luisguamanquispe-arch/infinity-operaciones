@@ -196,7 +196,7 @@ export default function SupervisorDashboard() {
             Infraestructura de Red
           </Link>
           <Link
-            href="/soporte-remoto"
+            href="/help-desk"
             className="flex items-center justify-center gap-2 py-3 bg-teal-700 hover:bg-teal-800 text-white font-semibold rounded-xl transition"
           >
             <Plus className="w-5 h-5" />

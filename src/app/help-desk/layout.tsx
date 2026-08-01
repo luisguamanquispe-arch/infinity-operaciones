@@ -1,10 +1,5 @@
-import { HelpDeskShell } from "@/components/help-desk/HelpDeskShell";
+import type { ReactNode } from "react";
 
-export const metadata = {
-  title: "Infinity Remote Help Desk",
-  description: "Centro de soporte remoto N1 para ISP",
-};
-
-export default function HelpDeskLayout({ children }: { children: React.ReactNode }) {
-  return <HelpDeskShell>{children}</HelpDeskShell>;
+export default function HelpDeskLayout({ children }: { children: ReactNode }) {
+  return <>{children}</>;
 }

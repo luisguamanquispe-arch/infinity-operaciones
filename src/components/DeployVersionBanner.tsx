@@ -115,16 +115,10 @@ export function GerenciaQuickNav({ totalTecnicos }: { totalTecnicos?: number }) 
         Infraestructura de Red
       </Link>
       <Link
-        href="/soporte-remoto"
+        href="/help-desk"
         className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-teal-700 text-teal-800 text-sm font-medium hover:bg-teal-50"
       >
         Soporte Remoto
-      </Link>
-      <Link
-        href="/help-desk"
-        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-teal-600 text-teal-700 text-sm font-medium hover:bg-teal-50"
-      >
-        Help Desk remoto
       </Link>
       <Link
         href="/supervisor/clientes"
@@ -147,7 +141,7 @@ export function SupervisorQuickNav() {
         Infraestructura de Red
       </Link>
       <Link
-        href="/soporte-remoto"
+        href="/help-desk"
         className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-teal-700 hover:bg-teal-800 text-white text-sm font-medium"
       >
         Soporte Remoto
@@ -187,12 +181,6 @@ export function SupervisorQuickNav() {
         className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border-2 border-amber-500 bg-amber-50 text-amber-900 text-sm font-semibold hover:bg-amber-100"
       >
         Novedades soporte
-      </Link>
-      <Link
-        href="/help-desk"
-        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-teal-600 text-teal-700 text-sm font-medium hover:bg-teal-50"
-      >
-        Help Desk remoto
       </Link>
     </div>
   );

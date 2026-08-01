@@ -288,6 +288,10 @@ export async function eliminarClientePorId(clienteId: string): Promise<EliminarC
   const ticketIds = cliente.tickets.map((t) => t.id);
 
   if (ticketIds.length > 0) {
+    await prisma.srTicket.updateMany({
+      where: { OR: [{ clienteId }, { ticketPresencialId: { in: ticketIds } }] },
+      data: { clienteId: null, ticketPresencialId: null },
+    });
     await prisma.hdConversacion.updateMany({
       where: {
         OR: [{ clienteId }, { ticketId: { in: ticketIds } }],
@@ -304,6 +308,10 @@ export async function eliminarClientePorId(clienteId: string): Promise<EliminarC
       await eliminarTicketPorId(t.id);
     }
   } else {
+    await prisma.srTicket.updateMany({
+      where: { clienteId },
+      data: { clienteId: null },
+    });
     await prisma.hdConversacion.updateMany({
       where: { clienteId },
       data: { clienteId: null },

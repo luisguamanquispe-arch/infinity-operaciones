@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { formatDateTime } from "@/lib/utils";
 import {
   SR_ESTADO_LABELS,
+  SR_PRIORIDAD_LABELS,
   SR_RESULTADO_LABELS,
   SR_TIPO_SOPORTE_LABELS,
   formatTiempoMinutos,
@@ -28,6 +29,7 @@ export async function generarPdfSrTicket(ticketId: string): Promise<{
     where: { id: ticketId },
     include: {
       operador: { select: { nombre: true } },
+      ticketPresencial: { select: { codigo: true, estado: true } },
     },
   });
 
@@ -68,12 +70,16 @@ export async function generarPdfSrTicket(ticketId: string): Promise<{
   doc.text(`Fecha: ${formatDateTime(ticket.fecha)}`);
   if (ticket.horaInicio) doc.text(`Hora inicio: ${formatDateTime(ticket.horaInicio)}`);
   if (ticket.horaFin) doc.text(`Hora fin: ${formatDateTime(ticket.horaFin)}`);
-  doc.text(`Tiempo empleado: ${formatTiempoMinutos(ticket.tiempoMinutos)}`);
+  doc.text(`Tiempo de atención: ${formatTiempoMinutos(ticket.tiempoMinutos)}`);
   doc.text(`Operador: ${ticket.operador.nombre}`);
   doc.text(`Estado: ${SR_ESTADO_LABELS[ticket.estado]}`);
-  doc.text(`Tipo de soporte: ${tipoLabel}`);
+  doc.text(`Prioridad: ${SR_PRIORIDAD_LABELS[ticket.prioridad]}`);
+  doc.text(`Motivo: ${tipoLabel}`);
   if (ticket.resultado) {
     doc.text(`Resultado: ${SR_RESULTADO_LABELS[ticket.resultado]}`);
+  }
+  if (ticket.ticketPresencial) {
+    doc.text(`Orden presencial: ${ticket.ticketPresencial.codigo}`);
   }
   doc.moveDown(0.5);
 
@@ -84,12 +90,12 @@ export async function generarPdfSrTicket(ticketId: string): Promise<{
   doc.text(`Teléfono: ${ticket.telefono}`);
   doc.moveDown(0.5);
 
-  doc.fontSize(12).text("Descripción del problema", { underline: true });
+  doc.fontSize(12).text("Problema reportado", { underline: true });
   doc.fontSize(10).text(ticket.descripcionProblema || "—", { align: "justify" });
   doc.moveDown(0.5);
 
-  doc.fontSize(12).text("Solución aplicada", { underline: true });
-  doc.fontSize(10).text(ticket.solucionAplicada || "—", { align: "justify" });
+  doc.fontSize(12).text("Acciones realizadas", { underline: true });
+  doc.fontSize(10).text(ticket.accionesRealizadas || "—", { align: "justify" });
   doc.moveDown(0.5);
 
   if (ticket.observaciones) {

@@ -17,7 +17,6 @@ const publicPaths = [
 
 const ROLES_HELP_DESK = ["ADMIN", "SUPERVISOR", "HELP_DESK"];
 const ROLES_INFRAESTRUCTURA_RED = ["ADMIN", "SUPERVISOR", "TECNICO"];
-const ROLES_SOPORTE_REMOTO = ["ADMIN", "SUPERVISOR", "HELP_DESK"];
 
 function dashboardPath(rol: string): string {
   switch (rol) {
@@ -117,17 +116,16 @@ export async function middleware(request: NextRequest) {
 
   if (esHelpDesk && !ROLES_HELP_DESK.includes(session.rol)) {
     if (pathname.startsWith("/api/")) {
-      return NextResponse.json({ error: "Sin acceso al Help Desk" }, { status: 403 });
+      return NextResponse.json({ error: "Sin acceso a Soporte Remoto" }, { status: 403 });
     }
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
   if (session.rol === "HELP_DESK") {
-    const esSoporteRemoto =
-      pathname.startsWith("/soporte-remoto") || pathname.startsWith("/api/soporte-remoto");
+    const esRedirectLegacy = pathname.startsWith("/soporte-remoto");
     const permitido =
       esHelpDesk ||
-      esSoporteRemoto ||
+      esRedirectLegacy ||
       pathname.startsWith("/api/auth/") ||
       pathname.startsWith("/api/health");
     if (!permitido) {
@@ -140,15 +138,6 @@ export async function middleware(request: NextRequest) {
   if (esInfraRed && !ROLES_INFRAESTRUCTURA_RED.includes(session.rol)) {
     if (pathname.startsWith("/api/")) {
       return NextResponse.json({ error: "Sin acceso a Infraestructura de Red" }, { status: 403 });
-    }
-    return NextResponse.redirect(new URL(dashboardPath(session.rol), request.url));
-  }
-
-  const esSoporteRemoto =
-    pathname.startsWith("/soporte-remoto") || pathname.startsWith("/api/soporte-remoto");
-  if (esSoporteRemoto && !ROLES_SOPORTE_REMOTO.includes(session.rol)) {
-    if (pathname.startsWith("/api/")) {
-      return NextResponse.json({ error: "Sin acceso a Soporte Remoto" }, { status: 403 });
     }
     return NextResponse.redirect(new URL(dashboardPath(session.rol), request.url));
   }

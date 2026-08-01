@@ -247,6 +247,7 @@ model Ticket {
   conversacionHelpDesk HdConversacion?
   escalamientoHelpDesk HdEscalamiento?
   novedades            NovedadTicket[]
+  srTicketOrigen       SrTicket?              @relation("SrTicketPresencial")
 }
 
 model TicketTecnico {
@@ -727,37 +728,40 @@ model IrFirma {
   @@index([reporteId])
 }
 
-// ─── Soporte Remoto (oficina; independiente del soporte presencial) ───
+// ─── Soporte Remoto (oficina; reemplaza UI Help Desk conversacional) ───
 
 enum SrEstado {
   PENDIENTE
   EN_PROCESO
   FINALIZADO
+  ESCALADO
 }
 
 enum SrTipoSoporte {
+  SIN_INTERNET
+  INTERNET_LENTO
   CAMBIO_PASSWORD_WIFI
   CAMBIO_SSID
   REINICIO_ROUTER
   REINICIO_ONU
   REINICIO_PUERTO_OLT
-  ACTUALIZACION_DATOS_CLIENTE
-  CAMBIO_PLAN
-  ACTIVACION_SERVICIO
-  REACTIVACION_PAGO
-  SUSPENSION_SERVICIO
-  VERIFICACION_SENAL
-  VERIFICACION_POTENCIA
-  CONFIGURACION_WIFI
   CONFIGURACION_ROUTER
   CONFIGURACION_ONU
   CAMBIO_CANAL_WIFI
-  ASISTENCIA_SMART_TV
+  ACTUALIZACION_DATOS_CLIENTE
+  REACTIVACION_PAGO
+  SUSPENSION_SERVICIO
+  CAMBIO_PLAN
   CONFIGURACION_IPTV
   CONFIGURACION_STREAMING
+  VERIFICACION_POTENCIA
+  VERIFICACION_SENAL
   ASESORIA_TELEFONICA
   CONSULTA_FACTURACION
   CONSULTA_PAGOS
+  ACTIVACION_SERVICIO
+  CONFIGURACION_WIFI
+  ASISTENCIA_SMART_TV
   OTRO
 }
 
@@ -774,6 +778,7 @@ enum SrTipoAdjunto {
   CAPTURA
   FOTO_CLIENTE
   PDF
+  DOCUMENTO
   OTRO
 }
 
@@ -790,16 +795,20 @@ model SrTicket {
   clienteCodigo       String
   telefono            String
   estado              SrEstado       @default(PENDIENTE)
+  prioridad           Prioridad      @default(MEDIA)
   tipoSoporte         SrTipoSoporte
   tipoSoporteOtro     String?
   descripcionProblema String         @db.Text
-  solucionAplicada    String?        @db.Text
+  accionesRealizadas  String?        @db.Text
   resultado           SrResultado?
   observaciones       String?        @db.Text
+  ticketPresencialId  String?        @unique
+  codigoOrigenHd      String?
   createdAt           DateTime       @default(now())
   updatedAt           DateTime       @updatedAt
   operador            Usuario        @relation("SrOperador", fields: [operadorId], references: [id])
   cliente             Cliente?       @relation(fields: [clienteId], references: [id], onDelete: SetNull)
+  ticketPresencial    Ticket?        @relation("SrTicketPresencial", fields: [ticketPresencialId], references: [id], onDelete: SetNull)
   adjuntos            SrAdjunto[]
   historial           SrHistorial[]
 
