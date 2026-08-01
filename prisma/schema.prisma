@@ -103,6 +103,8 @@ model Usuario {
   deviceTokensCliente    AppClienteDeviceToken[]
   irReportesSupervisados IrReporte[] @relation("IrSupervisor")
   irReportesCreados      IrReporte[] @relation("IrCreadoPor")
+  srTicketsOperados      SrTicket[]  @relation("SrOperador")
+  srHistoriales          SrHistorial[]
 }
 
 model Tecnico {
@@ -147,6 +149,7 @@ model Cliente {
   historial HistorialCliente[]
   cuentaApp AppClienteCuenta?
   speedTests AppClienteSpeedTest[]
+  srTickets SrTicket[]
 }
 
 /// Cuenta de la app INFINITY Connect vinculada a un Cliente CRM.
@@ -722,4 +725,115 @@ model IrFirma {
 
   @@unique([reporteId, tipo])
   @@index([reporteId])
+}
+
+// ─── Soporte Remoto (oficina; independiente del soporte presencial) ───
+
+enum SrEstado {
+  PENDIENTE
+  EN_PROCESO
+  FINALIZADO
+}
+
+enum SrTipoSoporte {
+  CAMBIO_PASSWORD_WIFI
+  CAMBIO_SSID
+  REINICIO_ROUTER
+  REINICIO_ONU
+  REINICIO_PUERTO_OLT
+  ACTUALIZACION_DATOS_CLIENTE
+  CAMBIO_PLAN
+  ACTIVACION_SERVICIO
+  REACTIVACION_PAGO
+  SUSPENSION_SERVICIO
+  VERIFICACION_SENAL
+  VERIFICACION_POTENCIA
+  CONFIGURACION_WIFI
+  CONFIGURACION_ROUTER
+  CONFIGURACION_ONU
+  CAMBIO_CANAL_WIFI
+  ASISTENCIA_SMART_TV
+  CONFIGURACION_IPTV
+  CONFIGURACION_STREAMING
+  ASESORIA_TELEFONICA
+  CONSULTA_FACTURACION
+  CONSULTA_PAGOS
+  OTRO
+}
+
+enum SrResultado {
+  SOLUCIONADO
+  SOLUCIONADO_PARCIAL
+  ESCALADO_SOPORTE_TECNICO
+  REQUIERE_VISITA
+  PENDIENTE_SEGUIMIENTO
+  SIN_SOLUCION
+}
+
+enum SrTipoAdjunto {
+  CAPTURA
+  FOTO_CLIENTE
+  PDF
+  OTRO
+}
+
+model SrTicket {
+  id                  String         @id @default(cuid())
+  codigo              String         @unique
+  fecha               DateTime       @default(now())
+  horaInicio          DateTime?
+  horaFin             DateTime?
+  tiempoMinutos       Int?
+  operadorId          String
+  clienteId           String?
+  clienteNombre       String
+  clienteCodigo       String
+  telefono            String
+  estado              SrEstado       @default(PENDIENTE)
+  tipoSoporte         SrTipoSoporte
+  tipoSoporteOtro     String?
+  descripcionProblema String         @db.Text
+  solucionAplicada    String?        @db.Text
+  resultado           SrResultado?
+  observaciones       String?        @db.Text
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+  operador            Usuario        @relation("SrOperador", fields: [operadorId], references: [id])
+  cliente             Cliente?       @relation(fields: [clienteId], references: [id], onDelete: SetNull)
+  adjuntos            SrAdjunto[]
+  historial           SrHistorial[]
+
+  @@index([estado, fecha])
+  @@index([operadorId])
+  @@index([clienteCodigo])
+  @@index([tipoSoporte])
+}
+
+model SrAdjunto {
+  id            String       @id @default(cuid())
+  ticketId      String
+  tipo          SrTipoAdjunto
+  nombreArchivo String
+  mimeType      String
+  url           String
+  dataBase64    String?      @db.Text
+  createdAt     DateTime     @default(now())
+  ticket        SrTicket     @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId])
+}
+
+model SrHistorial {
+  id            String   @id @default(cuid())
+  ticketId      String
+  fecha         DateTime @default(now())
+  usuarioId     String
+  usuarioNombre String
+  tiempoMinutos Int?
+  estado        SrEstado
+  nota          String?
+  ticket        SrTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  usuario       Usuario  @relation(fields: [usuarioId], references: [id])
+
+  @@index([ticketId, fecha])
 }

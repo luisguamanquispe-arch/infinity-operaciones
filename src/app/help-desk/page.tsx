@@ -76,13 +76,22 @@ export default function HelpDeskDashboard() {
             Métricas en tiempo real — resolución N1 sin visitas
           </p>
         </div>
-        <Link
-          href="/help-desk/cola"
-          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-medium text-sm"
-        >
-          <MessageSquare className="w-4 h-4" />
-          Ir a cola de atención
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href="/soporte-remoto"
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-teal-700 text-teal-800 font-medium text-sm hover:bg-teal-50"
+          >
+            <Ticket className="w-4 h-4" />
+            Registro Soporte Remoto
+          </Link>
+          <Link
+            href="/help-desk/cola"
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-medium text-sm"
+          >
+            <MessageSquare className="w-4 h-4" />
+            Ir a cola de atención
+          </Link>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
