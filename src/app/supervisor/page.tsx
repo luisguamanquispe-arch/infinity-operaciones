@@ -213,21 +213,16 @@ export default function SupervisorDashboard() {
 
         {data.soporteInfra && (
           <section>
-            <div className="flex items-center justify-between mb-2">
-              <h2 className="font-semibold text-sm">Soporte de Infraestructura</h2>
-              <Link
-                href="/supervisor/soporte-infraestructura"
-                className="text-xs text-violet-700 hover:underline"
-              >
-                Ver soportes / Nuevo Soporte
-              </Link>
-            </div>
+            <h2 className="font-semibold text-sm mb-2">Soporte de Infraestructura</h2>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               <StatCard label="Pendientes" value={data.soporteInfra.pendientes} color="slate" />
               <StatCard label="Asignadas" value={data.soporteInfra.asignadas} color="blue" />
               <StatCard label="En proceso" value={data.soporteInfra.enProceso} color="yellow" />
               <StatCard label="Finalizadas" value={data.soporteInfra.finalizadas} color="green" />
             </div>
+            <p className="text-xs text-slate-500 mt-2">
+              Abrir módulo desde la barra superior → Infraestructura
+            </p>
           </section>
         )}
 

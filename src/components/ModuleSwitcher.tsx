@@ -8,7 +8,7 @@ import type { Rol } from "@prisma/client";
 import {
   hubActivo,
   hubsParaRol,
-  navItemsPara,
+  navItemsSinRepetir,
   puedeUsarModuleSwitcher,
 } from "@/lib/modulos-acceso";
 
@@ -28,7 +28,7 @@ export function ModuleSwitcher({ rol, showAcciones = true }: Props) {
   const hubs = hubsParaRol(rol);
   const acciones =
     showAcciones && (rol === "ADMIN" || rol === "SUPERVISOR")
-      ? navItemsPara(rol, "acciones")
+      ? navItemsSinRepetir(rol, "acciones")
       : [];
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);

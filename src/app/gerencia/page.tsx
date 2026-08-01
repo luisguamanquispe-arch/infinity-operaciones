@@ -136,10 +136,7 @@ export default function GerenciaDashboard() {
                   />
                 </div>
                 <p className="text-xs text-slate-500 mt-2">
-                  Indicadores históricos IR. Operación diaria:{" "}
-                  <a href="/supervisor/soporte-infraestructura" className="text-violet-700 underline">
-                    Soporte de Infraestructura
-                  </a>
+                  Indicadores históricos. Módulo operativo: barra superior → Infraestructura.
                 </p>
               </section>
             )}

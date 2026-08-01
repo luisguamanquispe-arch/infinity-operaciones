@@ -12,7 +12,7 @@ import {
 import type { Rol } from "@prisma/client";
 import {
   agruparNavItems,
-  navItemsPara,
+  navItemsSinRepetir,
   type NavContext,
   type NavItemResolved,
   type NavTone,
@@ -108,15 +108,15 @@ function ModuleLinkList({
   );
 }
 
-/** Menú gerencial: solo herramientas de administración (hubs van en ModuleSwitcher). */
+/** Menú gerencial: solo admin (hubs solo en la barra superior). */
 export function GerenciaQuickNav({ totalTecnicos }: { totalTecnicos?: number }) {
-  const items = navItemsPara("ADMIN", "gerencia", { totalTecnicos });
+  const items = navItemsSinRepetir("ADMIN", "gerencia", { totalTecnicos });
   const groups = agruparNavItems(items);
 
   return (
     <div className="space-y-3" aria-label="Menú gerencial">
       <p className="text-xs text-slate-500">
-        Use la barra superior para cambiar de módulo (Operaciones, Infra, Remoto, CRM, Reportes).
+        Módulos (Operaciones, Infra, Remoto, CRM, Reportes): barra superior — sin duplicar aquí.
       </p>
       {groups.map((g) => (
         <div key={g.group}>
@@ -134,13 +134,13 @@ export function GerenciaQuickNav({ totalTecnicos }: { totalTecnicos?: number }) 
   );
 }
 
-/** Accesos del layout supervisor (legacy; preferir ModuleSwitcher en AppHeader). */
+/** Acciones de campo (no hubs). */
 export function SupervisorQuickNav({
   rol = "SUPERVISOR",
 }: {
   rol?: Extract<Rol, "ADMIN" | "SUPERVISOR">;
 }) {
-  const items = navItemsPara(rol, "acciones");
+  const items = navItemsSinRepetir(rol, "acciones");
   return (
     <ModuleLinkList
       items={items}
@@ -151,27 +151,31 @@ export function SupervisorQuickNav({
   );
 }
 
-/** CTAs grandes del home supervisor — misma fuente que QuickNav. */
+/** CTAs del home: solo acciones; hubs viven en ModuleSwitcher. */
 export function SupervisorHomeTiles({
   rol = "SUPERVISOR",
 }: {
   rol?: Extract<Rol, "ADMIN" | "SUPERVISOR">;
 }) {
-  const items = navItemsPara(rol, "home-tiles");
+  const items = navItemsSinRepetir(rol, "home-tiles");
+  if (items.length === 0) return null;
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-      {items.map((item) => (
-        <Link
-          key={item.id}
-          href={item.href}
-          className={`flex items-center justify-center gap-2 py-3 font-semibold rounded-xl transition ${TONE_TILE[item.tone]} ${
-            item.id === "clientes" ? "sm:col-span-2 lg:col-span-2" : ""
-          }`}
-        >
-          <HomeIcon name={item.homeIcon} />
-          {item.labelResolved}
-        </Link>
-      ))}
+    <div className="space-y-2">
+      <p className="text-xs text-slate-500">
+        Acciones rápidas · módulos en la barra superior
+      </p>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        {items.map((item) => (
+          <Link
+            key={item.id}
+            href={item.href}
+            className={`flex items-center justify-center gap-2 py-3 font-semibold rounded-xl transition ${TONE_TILE[item.tone]}`}
+          >
+            <HomeIcon name={item.homeIcon} />
+            {item.labelResolved}
+          </Link>
+        ))}
+      </div>
     </div>
   );
 }
@@ -207,5 +211,5 @@ export function navForContext(
   context: NavContext,
   opts?: { totalTecnicos?: number }
 ) {
-  return navItemsPara(rol, context, opts);
+  return navItemsSinRepetir(rol, context, opts);
 }

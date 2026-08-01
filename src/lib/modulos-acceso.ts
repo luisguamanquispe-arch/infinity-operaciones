@@ -152,7 +152,7 @@ export const MODULOS: ModuloDef[] = [
     contexts: ["gerencia"],
     order: 50,
   },
-  // —— Campo / acciones rápidas (no hubs: esos van en ModuleSwitcher)
+  // —— Acciones de campo (NO hubs: Infra/Remoto/CRM/Reportes solo en ModuleSwitcher)
   {
     id: "ticket_soporte",
     href: "/supervisor/tickets/nuevo",
@@ -160,30 +160,8 @@ export const MODULOS: ModuloDef[] = [
     group: "campo",
     tone: "primary",
     roles: ["ADMIN", "SUPERVISOR"],
-    contexts: ["supervisor", "home-tiles", "acciones"],
+    contexts: ["home-tiles", "acciones"],
     order: 100,
-    homeIcon: "plus",
-  },
-  {
-    id: "soporte_infra",
-    href: "/supervisor/soporte-infraestructura",
-    label: "Soporte de Infraestructura",
-    group: "campo",
-    tone: "violet",
-    roles: ["ADMIN", "SUPERVISOR"],
-    contexts: ["home-tiles"],
-    order: 110,
-    homeIcon: "plus",
-  },
-  {
-    id: "soporte_remoto",
-    href: "/help-desk",
-    label: "Soporte Remoto",
-    group: "oficina",
-    tone: "teal",
-    roles: ["ADMIN", "SUPERVISOR", "HELP_DESK"],
-    contexts: ["home-tiles"],
-    order: 115,
     homeIcon: "plus",
   },
   {
@@ -193,7 +171,7 @@ export const MODULOS: ModuloDef[] = [
     group: "campo",
     tone: "emerald",
     roles: ["ADMIN", "SUPERVISOR"],
-    contexts: ["supervisor", "home-tiles", "acciones"],
+    contexts: ["home-tiles", "acciones"],
     order: 120,
     homeIcon: "users",
   },
@@ -204,7 +182,7 @@ export const MODULOS: ModuloDef[] = [
     group: "campo",
     tone: "outline",
     roles: ["ADMIN", "SUPERVISOR"],
-    contexts: ["supervisor", "home-tiles", "acciones"],
+    contexts: ["home-tiles", "acciones"],
     order: 130,
     homeIcon: "calendar",
   },
@@ -215,40 +193,15 @@ export const MODULOS: ModuloDef[] = [
     group: "campo",
     tone: "amber",
     roles: ["ADMIN", "SUPERVISOR"],
-    contexts: ["supervisor", "home-tiles", "acciones"],
+    contexts: ["home-tiles", "acciones"],
     order: 140,
     homeIcon: "bell",
-  },
-  {
-    id: "reportes",
-    href: "/reportes",
-    label: "Reportes finalizados",
-    group: "sistema",
-    tone: "outline",
-    roles: ["ADMIN", "SUPERVISOR"],
-    contexts: ["home-tiles"],
-    order: 150,
-    homeIcon: "file",
-  },
-
-  // —— CRM (tile home; hub en ModuleSwitcher)
-  {
-    id: "clientes",
-    href: "/supervisor/clientes",
-    label: "Clientes CRM",
-    labelAdmin: "Clientes CRM / Importar Wispro",
-    group: "crm",
-    tone: "sky",
-    roles: ["ADMIN", "SUPERVISOR"],
-    contexts: ["home-tiles"],
-    order: 300,
-    homeIcon: "contact",
   },
 ];
 
 /**
- * Barra de módulos: solo hubs de producto (sin acciones secundarias).
- * El activo se resuelve por el prefijo más específico.
+ * Barra de módulos: acceso único a cada hub de producto.
+ * No deben repetirse en tiles ni en GerenciaQuickNav.
  */
 export const HUBS: HubDef[] = [
   {
@@ -335,6 +288,40 @@ export function puedeUsarModuleSwitcher(
   rol: Rol | string | null | undefined
 ): boolean {
   return rol === "ADMIN" || rol === "SUPERVISOR" || rol === "HELP_DESK";
+}
+
+/** Hrefs de hubs — un solo acceso por módulo de producto. */
+export function hubHrefs(): Set<string> {
+  return new Set(HUBS.map((h) => h.href.replace(/\/$/, "") || "/"));
+}
+
+export function esHrefDeHub(href: string): boolean {
+  const norm = href.replace(/\/$/, "") || "/";
+  return hubHrefs().has(norm);
+}
+
+/**
+ * Ítems de menú sin repetir hubs ni duplicar el mismo href.
+ * Usar en tiles / quick-nav / acciones (la barra sticky es el único acceso a hubs).
+ */
+export function navItemsSinRepetir(
+  rol: Rol | string | null | undefined,
+  context: NavContext,
+  opts?: { totalTecnicos?: number }
+): NavItemResolved[] {
+  const seenHref = new Set<string>();
+  const seenId = new Set<string>();
+  const out: NavItemResolved[] = [];
+  for (const item of navItemsPara(rol, context, opts)) {
+    if (esHrefDeHub(item.href)) continue;
+    if (seenId.has(item.id)) continue;
+    const hrefKey = item.href.replace(/\/$/, "") || "/";
+    if (seenHref.has(hrefKey)) continue;
+    seenId.add(item.id);
+    seenHref.add(hrefKey);
+    out.push(item);
+  }
+  return out;
 }
 
 export function puedeAccederModulo(
