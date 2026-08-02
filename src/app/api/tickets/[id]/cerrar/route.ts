@@ -2,9 +2,8 @@ import { NextResponse } from "next/server";
 import type { SiResultado } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getFullSession } from "@/lib/auth";
-import { getOrCreateOrden, validarCierreOrden, enviarWhatsApp } from "@/lib/tickets";
+import { getOrCreateOrden, validarCierreOrden } from "@/lib/tickets";
 import { tecnicoAsignadoAlTicket, tecnicoIdsFromTicket } from "@/lib/ticket-tecnicos";
-import { esClienteInfraestructura } from "@/lib/cliente-infraestructura";
 import {
   esTicketInfraestructura,
   puedeCerrarSoporteInfra,
@@ -14,6 +13,7 @@ import { esTicketInstalacion } from "@/lib/ticket-instalacion";
 import { asegurarColaboracionOrden } from "@/lib/ticket-reporte";
 import { ordenServicioCerrada } from "@/lib/ticket-cerrado";
 import { registrarSiHistorial } from "@/lib/soporte-infraestructura/historial";
+import { registrarRevisionHistorial } from "@/lib/revision-reporte";
 
 export async function POST(
   request: Request,
@@ -139,7 +139,10 @@ export async function POST(
     }),
     prisma.ticket.update({
       where: { id },
-      data: { estado: "CERRADO" },
+      data: {
+        estado: "FINALIZADO",
+        estadoRevision: "PENDIENTE_REVISION",
+      },
     }),
     prisma.tecnico.updateMany({
       where: { id: { in: tecnicoIdsFromTicket(ticket) } },
@@ -147,21 +150,25 @@ export async function POST(
     }),
   ]);
 
-  if (!esClienteInfraestructura(ticket.cliente.cedula)) {
-    await enviarWhatsApp(ticket.codigo, ticket.cliente.telefono);
-    await prisma.ordenServicio.update({
-      where: { id: ordenFresh.id },
-      data: { whatsappEnviado: true },
-    });
-  }
+  // WhatsApp al cliente solo cuando el supervisor apruebe el reporte.
 
   await prisma.eventoTicket.create({
     data: {
       ticketId: id,
       usuarioId: session.id,
-      accion: "TICKET_CERRADO",
+      accion: "REPORTE_ENVIADO_REVISION",
       metadata: JSON.stringify({ tecnicoId: session.tecnicoId }),
     },
+  });
+
+  await registrarRevisionHistorial(prisma, {
+    ticketId: id,
+    accion: "ENVIADO_REVISION",
+    estadoAnterior: null,
+    estadoNuevo: "PENDIENTE_REVISION",
+    usuarioId: session.id,
+    usuarioNombre: session.nombre,
+    tecnicoId: session.tecnicoId,
   });
 
   if (esTicketInfraestructura(ticket.tipo)) {
@@ -169,10 +176,14 @@ export async function POST(
       ticketId: id,
       usuarioId: session.id,
       usuarioNombre: session.nombre,
-      accion: "ORDEN_FINALIZADA",
-      detalle: `Cerrada por técnico responsable`,
+      accion: "ORDEN_ENVIADA_REVISION",
+      detalle: `Enviada a revisión por técnico responsable`,
     });
   }
 
-  return NextResponse.json({ ok: true, codigo: ticket.codigo });
+  return NextResponse.json({
+    ok: true,
+    codigo: ticket.codigo,
+    estadoRevision: "PENDIENTE_REVISION",
+  });
 }

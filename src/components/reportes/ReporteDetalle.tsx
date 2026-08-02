@@ -34,7 +34,8 @@ import {
 } from "@/lib/utils";
 import { MOTIVO_INFRA_LABELS, esTicketInfraestructura } from "@/lib/ticket-infraestructura";
 import { esTicketInstalacion, CLAUSULAS_POLITICA_INSTALACION } from "@/lib/ticket-instalacion";
-import type { MotivoInfraestructura } from "@prisma/client";
+import { RevisionActions } from "./RevisionActions";
+import type { MotivoInfraestructura, EstadoRevision } from "@prisma/client";
 import type { MaterialReporteDTO } from "@/lib/materiales-reporte";
 
 interface Foto {
@@ -55,6 +56,7 @@ interface ReporteData {
     tipo: string;
     prioridad: string;
     estado: string;
+    estadoRevision?: EstadoRevision | null;
     motivo: string | null;
     descripcion: string | null;
     motivoInfraestructura?: MotivoInfraestructura | null;
@@ -108,6 +110,15 @@ interface ReporteData {
       createdAt: string;
       usuario: { nombre: string } | null;
     }[];
+    revisionesHistorial?: {
+      id: string;
+      accion: string;
+      motivo: string | null;
+      observaciones: string | null;
+      usuarioNombre: string;
+      createdAt: string;
+      estadoNuevo: EstadoRevision;
+    }[];
   };
   duracionSegundos: number;
   materiales?: MaterialReporteDTO[];
@@ -159,18 +170,25 @@ export function ReporteDetalle({ backHref, backLabel }: ReporteDetalleProps) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`/api/reportes/${id}`, { cache: "no-store" })
-      .then(async (r) => {
-        const json = await r.json();
-        if (!r.ok) {
-          setData({ error: json.error || "No se pudo cargar el reporte" } as ReporteData);
-          return;
-        }
-        setData(json);
-      })
-      .catch(() => setData({ error: "Sin conexión al cargar el reporte" } as ReporteData))
-      .finally(() => setLoading(false));
+    void cargar();
   }, [id]);
+
+  async function cargar() {
+    setLoading(true);
+    try {
+      const r = await fetch(`/api/reportes/${id}`, { cache: "no-store" });
+      const json = await r.json();
+      if (!r.ok) {
+        setData({ error: json.error || "No se pudo cargar el reporte" } as ReporteData);
+        return;
+      }
+      setData(json);
+    } catch {
+      setData({ error: "Sin conexión al cargar el reporte" } as ReporteData);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   function imprimir() {
     window.print();
@@ -255,6 +273,19 @@ export function ReporteDetalle({ backHref, backLabel }: ReporteDetalleProps) {
       </div>
 
       <main className="max-w-4xl mx-auto p-4 sm:p-6 space-y-5 print:p-0 print:space-y-4">
+        <RevisionActions
+          ticketId={ticket.id}
+          estadoRevision={ticket.estadoRevision}
+          historial={(ticket.revisionesHistorial || []).map((h) => ({
+            ...h,
+            createdAt:
+              typeof h.createdAt === "string"
+                ? h.createdAt
+                : new Date(h.createdAt).toISOString(),
+          }))}
+          onUpdated={() => void cargar()}
+        />
+
         {/* Encabezado del reporte */}
         <div className="bg-white rounded-xl border shadow-sm overflow-hidden print:shadow-none print:border-0">
           <div className="h-1.5 bg-gradient-to-r from-infinity-600 via-infinity-500 to-emerald-500" />

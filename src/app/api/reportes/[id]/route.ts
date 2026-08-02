@@ -65,6 +65,9 @@ export async function GET(
         include: { usuario: true },
         orderBy: { createdAt: "asc" },
       },
+      revisionesHistorial: {
+        orderBy: { createdAt: "asc" },
+      },
     },
   });
 
@@ -72,9 +75,13 @@ export async function GET(
     return NextResponse.json({ error: "Reporte no encontrado" }, { status: 404 });
   }
 
-  if (!["CERRADO", "FINALIZADO"].includes(ticket.estado)) {
+  // Incluye cola de revisión (FINALIZADO) y aprobados (CERRADO); también DEVUELTO (FINALIZADO)
+  if (
+    !["CERRADO", "FINALIZADO"].includes(ticket.estado) &&
+    ticket.estadoRevision !== "DEVUELTO_CORRECCION"
+  ) {
     return NextResponse.json(
-      { error: "Solo disponible para órdenes finalizadas o cerradas" },
+      { error: "Solo disponible para órdenes finalizadas, en revisión o cerradas" },
       { status: 400 }
     );
   }

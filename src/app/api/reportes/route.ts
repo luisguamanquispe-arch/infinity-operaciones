@@ -21,6 +21,7 @@ export async function GET(request: Request) {
   const tecnicoId = searchParams.get("tecnicoId");
   const tipo = searchParams.get("tipo");
   const sector = searchParams.get("sector");
+  const revision = searchParams.get("revision"); // pendiente | corregido | aprobados | cola | all
   const q = searchParams.get("q")?.trim();
   const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10) || 1);
   const limit = Math.min(
@@ -29,7 +30,24 @@ export async function GET(request: Request) {
   );
   const skip = (page - 1) * limit;
 
-  const and: Record<string, unknown>[] = [{ estado: { in: ["CERRADO", "FINALIZADO"] } }];
+  const and: Record<string, unknown>[] = [
+    { estado: { in: ["CERRADO", "FINALIZADO"] } },
+  ];
+
+  if (revision === "cola") {
+    and.push({
+      estadoRevision: { in: ["PENDIENTE_REVISION", "CORREGIDO"] },
+    });
+  } else if (revision === "pendiente") {
+    and.push({ estadoRevision: "PENDIENTE_REVISION" });
+  } else if (revision === "corregido") {
+    and.push({ estadoRevision: "CORREGIDO" });
+  } else if (revision === "aprobados") {
+    and.push({
+      OR: [{ estadoRevision: "APROBADO" }, { estadoRevision: null, estado: "CERRADO" }],
+    });
+  }
+  // revision=all o vacío: todos FINALIZADO/CERRADO (incluye cola y aprobados)
 
   if (desde || hasta) {
     const updatedAt: Record<string, Date> = {};
@@ -119,6 +137,7 @@ export async function GET(request: Request) {
     tipo: t.tipo,
     prioridad: t.prioridad,
     estado: t.estado,
+    estadoRevision: t.estadoRevision,
     motivo: t.motivo,
     createdAt: t.createdAt,
     cerradoEn: t.orden?.finalizadoEn || t.updatedAt,

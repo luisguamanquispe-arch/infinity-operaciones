@@ -20,13 +20,16 @@ import {
   ESTADO_LABELS,
   formatDateShort,
 } from "@/lib/utils";
+import { ESTADO_REVISION_LABELS } from "@/lib/revision-reporte";
 import { fetchJson } from "@/lib/fetch-json-client";
+import type { EstadoRevision } from "@prisma/client";
 
 interface ReporteItem {
   id: string;
   codigo: string;
   tipo: string;
   estado: string;
+  estadoRevision?: string | null;
   motivo: string | null;
   cerradoEn: string;
   cliente: { nombre: string; cedula: string; sector: string };
@@ -84,6 +87,7 @@ export function ReportesList({
     tipo: "",
     sector: "",
     q: "",
+    revision: "cola",
   });
 
   const cargar = useCallback(async () => {
@@ -148,7 +152,21 @@ export function ReportesList({
             <Filter className="w-4 h-4" />
             Filtros
           </h2>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
+            <div>
+              <label className="text-xs text-slate-500">Revisión</label>
+              <select
+                value={filtros.revision}
+                onChange={(e) => handleFilterChange("revision", e.target.value)}
+                className="w-full px-2 py-1.5 border rounded-lg text-sm mt-0.5"
+              >
+                <option value="cola">Cola (pendiente / corregido)</option>
+                <option value="pendiente">Pendiente de revisión</option>
+                <option value="corregido">Corregidos</option>
+                <option value="aprobados">Aprobados</option>
+                <option value="all">Todos</option>
+              </select>
+            </div>
             <div>
               <label className="text-xs text-slate-500">Desde</label>
               <input
@@ -275,6 +293,23 @@ export function ReportesList({
                         <td className="p-3">
                           <span className="font-semibold text-infinity-600">{item.codigo}</span>
                           <p className="text-xs text-slate-400">{ESTADO_LABELS[item.estado]}</p>
+                          {item.estadoRevision && (
+                            <p
+                              className={`text-[11px] font-medium mt-0.5 ${
+                                item.estadoRevision === "CORREGIDO"
+                                  ? "text-sky-700"
+                                  : item.estadoRevision === "PENDIENTE_REVISION"
+                                    ? "text-amber-700"
+                                    : item.estadoRevision === "APROBADO"
+                                      ? "text-emerald-700"
+                                      : "text-slate-500"
+                              }`}
+                            >
+                              {ESTADO_REVISION_LABELS[
+                                item.estadoRevision as EstadoRevision
+                              ] || item.estadoRevision}
+                            </p>
+                          )}
                         </td>
                         <td className="p-3">
                           <p className="font-medium">{item.cliente.nombre}</p>

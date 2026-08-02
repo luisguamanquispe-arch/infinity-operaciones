@@ -78,6 +78,14 @@ enum EstadoTicket {
   CANCELADO
 }
 
+/// Revisión de calidad del reporte (ST e INF) tras envío del técnico.
+enum EstadoRevision {
+  PENDIENTE_REVISION
+  DEVUELTO_CORRECCION
+  CORREGIDO
+  APROBADO
+}
+
 enum TipoConexionInstalacion {
   IP
   PPPOE
@@ -131,6 +139,7 @@ model Usuario {
   srTicketsOperados      SrTicket[]  @relation("SrOperador")
   srHistoriales          SrHistorial[]
   siHistoriales          SiHistorial[]
+  revisionesHistorial    RevisionHistorial[]
 }
 
 model Tecnico {
@@ -278,6 +287,8 @@ model Ticket {
   trabajoRealizadoInfra String?               @db.Text
   resultadoInfra       SiResultado?
   observacionesInfra   String?                @db.Text
+  /// Flujo QA: null = legado (sin revisión); tras envío = PENDIENTE_REVISION…
+  estadoRevision       EstadoRevision?
   slaHoras             Int                    @default(8)
   slaVenceEn           DateTime?
   programadoEn         DateTime?
@@ -294,9 +305,30 @@ model Ticket {
   srTicketOrigen       SrTicket?              @relation("SrTicketPresencial")
   siHistorial          SiHistorial[]
   siComentarios        SiComentario[]
+  revisionesHistorial  RevisionHistorial[]
 
   @@index([tipo, estado])
   @@index([siTipoTrabajo])
+  @@index([estadoRevision])
+}
+
+/// Auditoría de devoluciones / correcciones / aprobaciones (no eliminable desde UI).
+model RevisionHistorial {
+  id              String         @id @default(cuid())
+  ticketId        String
+  accion          String
+  estadoAnterior  EstadoRevision?
+  estadoNuevo     EstadoRevision
+  motivo          String?        @db.Text
+  observaciones   String?        @db.Text
+  usuarioId       String?
+  usuarioNombre   String
+  tecnicoId       String?
+  createdAt       DateTime       @default(now())
+  ticket          Ticket         @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  usuario         Usuario?       @relation(fields: [usuarioId], references: [id])
+
+  @@index([ticketId, createdAt])
 }
 
 model SiHistorial {

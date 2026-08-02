@@ -146,7 +146,7 @@ export async function GET(
 
   // F4/E5: no mutar estado en GET; el cliente ve estado efectivo si la orden ya cerró.
   const estadoEfectivo = estadoTicketEfectivo(
-    { estado: ticketData.estado },
+    { estado: ticketData.estado, estadoRevision: ticketData.estadoRevision },
     ordenFinal
   );
 
@@ -194,8 +194,12 @@ export async function GET(
       ...ticketRespuesta,
       tecnicoIds: tecnicoIdsFromTicket(ticketData),
       ordenCerrada: !!ordenFinal.finalizadoEn,
+      estadoRevision: ticketData.estadoRevision,
       editable: ticketPermiteEdicion(
-        { estado: estadoEfectivo },
+        {
+          estado: ticketData.estado,
+          estadoRevision: ticketData.estadoRevision,
+        },
         ordenFinal
       ),
     },

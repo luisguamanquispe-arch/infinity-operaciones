@@ -92,6 +92,7 @@ interface OrdenData {
     estado: string;
     ordenCerrada?: boolean;
     editable?: boolean;
+    estadoRevision?: string | null;
     motivo: string | null;
     descripcion: string | null;
     motivoInfraestructura: MotivoInfraestructura | null;
@@ -507,7 +508,37 @@ export default function OrdenPage() {
     }, 600);
   }
 
+  async function enviarCorreccion() {
+    setCerrando(true);
+    setError("");
+    const body =
+      data && esTicketInfraestructura(data.ticket.tipo)
+        ? {
+            diagnosticoInfra,
+            trabajoRealizadoInfra,
+            resultadoInfra: resultadoInfra || null,
+            observacionesInfra: observacionesInfra || null,
+          }
+        : { resumenTrabajo, descripcion: data?.ticket.descripcion };
+    const res = await fetch(`/api/tickets/${id}/revision/enviar-correccion`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const result = await res.json();
+    if (!res.ok) {
+      setError(result.errores?.join(", ") || result.error);
+      setCerrando(false);
+      return;
+    }
+    setCerrando(false);
+    router.push(`/tecnico?cerrado=${encodeURIComponent(data?.ticket.codigo || id)}`);
+  }
+
   async function cerrarTicket() {
+    if (data?.ticket.estadoRevision === "DEVUELTO_CORRECCION") {
+      return enviarCorreccion();
+    }
     setCerrando(true);
     setError("");
     if (data && esTicketInfraestructura(data.ticket.tipo)) {
@@ -528,8 +559,6 @@ export default function OrdenPage() {
         return;
       }
       setCerrando(false);
-      // Genera el reporte PDF solo al finalizar
-      window.open(`/api/soporte-infraestructura/ordenes/${id}/pdf`, "_blank");
       router.push(`/tecnico?cerrado=${encodeURIComponent(data.ticket.codigo || id)}`);
       return;
     }
@@ -629,9 +658,12 @@ export default function OrdenPage() {
 
   const { ticket, orden, reporte } = data;
   const fotoMap = Object.fromEntries(orden.fotografias.map((f) => [f.tipo, f]));
-  const cerrado = ticket.estado === "CERRADO" || !!ticket.ordenCerrada;
+  const porCorregir = ticket.estadoRevision === "DEVUELTO_CORRECCION";
+  const cerrado =
+    !porCorregir && (ticket.estado === "CERRADO" || !!ticket.ordenCerrada);
   const puedeEditar =
-    ticket.editable !== false && reporte?.puedeEditar !== false && !cerrado;
+    porCorregir ||
+    (ticket.editable !== false && reporte?.puedeEditar !== false && !cerrado);
   const esInfra = esTicketInfraestructura(ticket.tipo);
   const esInstalacion = esTicketInstalacion(ticket.tipo);
   const fotosAntes = esInfra
@@ -696,6 +728,15 @@ export default function OrdenPage() {
       </header>
 
       <main className="max-w-3xl mx-auto p-4 space-y-4">
+        {porCorregir && (
+          <section className="rounded-xl border border-amber-300 bg-amber-50 text-amber-950 p-4">
+            <p className="font-semibold">Reporte devuelto para corrección</p>
+            <p className="text-sm mt-1">
+              Puede corregir descripción, observaciones, materiales y fotografías.
+              Luego pulse <strong>Enviar Corrección</strong>.
+            </p>
+          </section>
+        )}
         {abrirError && (
           <section
             className="rounded-xl border border-red-200 bg-red-50 text-red-900 p-4"
@@ -1275,10 +1316,14 @@ export default function OrdenPage() {
                   className="w-full py-3 bg-emerald-600 text-white rounded-xl font-semibold hover:bg-emerald-700 disabled:opacity-50"
                 >
                   {cerrando
-                    ? "Finalizando…"
-                    : esInfra
-                      ? "Finalizar soporte"
-                      : "✅ Cerrar ticket"}
+                    ? porCorregir
+                      ? "Enviando corrección…"
+                      : "Finalizando…"
+                    : porCorregir
+                      ? "Enviar Corrección"
+                      : esInfra
+                        ? "Enviar a revisión"
+                        : "Enviar a revisión"}
                 </button>
               )}
             </section>

@@ -12,6 +12,7 @@ import {
   RefreshCw,
   CheckCircle2,
   X,
+  AlertTriangle,
 } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
 import { DeployVersionBanner } from "@/components/DeployVersionBanner";
@@ -65,6 +66,16 @@ interface AgendaTicket {
   };
 }
 
+interface PorCorregirItem {
+  id: string;
+  codigo: string;
+  clienteOSector: string;
+  fecha: string;
+  motivo: string;
+  supervisor: string;
+  fechaDevolucion: string;
+}
+
 export default function TecnicoDashboard() {
   const [bannerCerrado, setBannerCerrado] = useState<string | null>(null);
   const [resumen, setResumen] = useState<Resumen | null>(null);
@@ -72,6 +83,7 @@ export default function TecnicoDashboard() {
   const [agenda, setAgenda] = useState<AgendaTicket[]>([]);
   const [proximaOrden, setProximaOrden] = useState<AgendaTicket | null>(null);
   const [activosMapa, setActivosMapa] = useState<AgendaTicket[]>([]);
+  const [porCorregir, setPorCorregir] = useState<PorCorregirItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [showMap, setShowMap] = useState(false);
@@ -105,6 +117,16 @@ export default function TecnicoDashboard() {
       setAgenda(data.agenda ?? []);
       setProximaOrden(data.proximaOrden ?? null);
       setActivosMapa(data.activosMapa ?? []);
+
+      const corr = await fetchWithRetry(
+        `/api/tecnico/reportes-por-corregir`,
+        { method: "GET", cache: "no-store", credentials: "include" },
+        2
+      );
+      if (corr.ok) {
+        const cj = await corr.json().catch(() => ({}));
+        setPorCorregir(cj.items || []);
+      }
     } catch {
       setError("Sin conexión. Verifique internet e intente de nuevo.");
     } finally {
@@ -156,10 +178,11 @@ export default function TecnicoDashboard() {
             <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-emerald-900">
-                Ticket {bannerCerrado} cerrado — reporte finalizado
+                Ticket {bannerCerrado} enviado a revisión
               </p>
               <p className="text-xs text-emerald-800/80 mt-1">
-                El supervisor puede verlo en Reportes finalizados.
+                El supervisor revisará el reporte. Si hay errores, aparecerá en
+                «Reportes por Corregir».
               </p>
             </div>
             <button
@@ -243,6 +266,41 @@ export default function TecnicoDashboard() {
           <section>
             <h2 className="font-semibold mb-3">Mapa de trabajos</h2>
             <WorkMap tecnicoLocation={resumen?.ubicacion} clientes={clientesMapa} />
+          </section>
+        )}
+
+        {porCorregir.length > 0 && (
+          <section>
+            <h2 className="font-semibold mb-1 flex items-center gap-2 text-amber-900">
+              <AlertTriangle className="w-5 h-5" />
+              Reportes por Corregir
+            </h2>
+            <p className="text-xs text-slate-500 mb-3">
+              El supervisor devolvió estos reportes. Corrija y pulse «Enviar Corrección».
+            </p>
+            <div className="bg-amber-50 border border-amber-200 rounded-xl overflow-hidden divide-y divide-amber-100">
+              {porCorregir.map((r) => (
+                <Link
+                  key={r.id}
+                  href={`/tecnico/orden/${r.id}`}
+                  className="block p-4 hover:bg-amber-100/60 transition"
+                >
+                  <div className="flex flex-wrap justify-between gap-2">
+                    <span className="font-semibold text-amber-950">{r.codigo}</span>
+                    <span className="text-xs text-amber-800">
+                      {formatDate(r.fechaDevolucion)}
+                    </span>
+                  </div>
+                  <p className="text-sm text-slate-800 mt-1">{r.clienteOSector}</p>
+                  <p className="text-xs text-amber-900 mt-1">
+                    <strong>Motivo:</strong> {r.motivo}
+                  </p>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Supervisor: {r.supervisor}
+                  </p>
+                </Link>
+              ))}
+            </div>
           </section>
         )}
 
