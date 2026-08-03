@@ -9,6 +9,7 @@ import { StatCard } from "@/components/StatCard";
 import { TicketSemaforo } from "@/components/TicketSemaforo";
 import { GitShaBadge } from "@/components/GitShaBadge";
 import { SupervisorHomeTiles } from "@/components/ModuleQuickNav";
+import { SystemDateTimeBar } from "@/components/SystemDateTimeBar";
 import { ESTADO_TECNICO_LABELS, PRIORIDAD_LABELS } from "@/lib/utils";
 import { fetchJson } from "@/lib/fetch-json-client";
 
@@ -191,6 +192,8 @@ export default function SupervisorDashboard() {
       <AppHeader title="Panel Supervisor" subtitle="Tickets activos · GPS en vivo · reportes" />
 
       <main className="max-w-6xl mx-auto p-4 space-y-6">
+        <SystemDateTimeBar variant="card" />
+
         <SupervisorHomeTiles />
 
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
