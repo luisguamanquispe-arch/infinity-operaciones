@@ -5,7 +5,7 @@ import {
   MOTIVOS_DEVOLUCION,
   puedeRevisarReportes,
   registrarRevisionHistorial,
-  reporteEnColaRevision,
+  reportePuedeDevolverse,
 } from "@/lib/revision-reporte";
 import { notificarTecnicoDevolucion } from "@/lib/notificaciones-revision";
 import { esTicketInfraestructura } from "@/lib/ticket-infraestructura";
@@ -45,9 +45,14 @@ export async function POST(
     return NextResponse.json({ error: "Ticket no encontrado" }, { status: 404 });
   }
 
-  if (!reporteEnColaRevision(ticket.estadoRevision)) {
+  if (!reportePuedeDevolverse(ticket.estadoRevision, ticket.estado)) {
     return NextResponse.json(
-      { error: "Solo se pueden devolver reportes pendientes de revisión o corregidos" },
+      {
+        error:
+          ticket.estadoRevision === "DEVUELTO_CORRECCION"
+            ? "Este reporte ya está devuelto para corrección"
+            : "Este reporte no se puede devolver en su estado actual",
+      },
       { status: 409 }
     );
   }

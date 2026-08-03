@@ -5,7 +5,8 @@ import { Loader2, RotateCcw, CheckCircle2 } from "lucide-react";
 import {
   ESTADO_REVISION_LABELS,
   MOTIVOS_DEVOLUCION,
-  reporteEnColaRevision,
+  reportePuedeAprobarse,
+  reportePuedeDevolverse,
 } from "@/lib/revision-reporte";
 import type { EstadoRevision } from "@prisma/client";
 
@@ -21,6 +22,7 @@ type HistorialItem = {
 
 type Props = {
   ticketId: string;
+  estadoTicket: string;
   estadoRevision: EstadoRevision | null | undefined;
   historial?: HistorialItem[];
   onUpdated?: () => void;
@@ -28,6 +30,7 @@ type Props = {
 
 export function RevisionActions({
   ticketId,
+  estadoTicket,
   estadoRevision,
   historial = [],
   onUpdated,
@@ -40,10 +43,13 @@ export function RevisionActions({
   const [error, setError] = useState("");
   const [okMsg, setOkMsg] = useState("");
 
-  const enCola = reporteEnColaRevision(estadoRevision);
+  const puedeDevolver = reportePuedeDevolverse(estadoRevision, estadoTicket);
+  const puedeAprobar = reportePuedeAprobarse(estadoRevision);
   const label = estadoRevision
     ? ESTADO_REVISION_LABELS[estadoRevision]
-    : "Sin flujo de revisión (legado)";
+    : estadoTicket === "CERRADO" || estadoTicket === "FINALIZADO"
+      ? "Cerrado (sin revisión formal) — puede devolverlo"
+      : "Sin flujo de revisión";
 
   async function devolver() {
     setError("");
@@ -93,22 +99,24 @@ export function RevisionActions({
   }
 
   return (
-    <section className="bg-white rounded-xl border p-4 space-y-3 print:hidden">
+    <section className="bg-amber-50 border-2 border-amber-300 rounded-xl p-4 space-y-3 print:hidden">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h3 className="font-semibold text-sm">Revisión de calidad</h3>
-          <p className="text-xs text-slate-500 mt-0.5">Estado: {label}</p>
+          <h3 className="font-semibold text-sm text-amber-950">Revisión de calidad</h3>
+          <p className="text-xs text-amber-900/80 mt-0.5">Estado: {label}</p>
         </div>
-        {enCola && (
-          <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2">
+          {puedeDevolver && (
             <button
               type="button"
               onClick={() => setOpen(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium"
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium shadow-sm"
             >
               <RotateCcw className="w-4 h-4" />
               Devolver para Corrección
             </button>
+          )}
+          {puedeAprobar && (
             <button
               type="button"
               onClick={() => void aprobar()}
@@ -122,9 +130,16 @@ export function RevisionActions({
               )}
               Aprobar
             </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
+
+      {!puedeDevolver && estadoRevision === "DEVUELTO_CORRECCION" && (
+        <p className="text-sm text-amber-900">
+          Ya está en manos del técnico para corrección. Cuando reenvíe, podrá
+          aprobarlo o volver a devolverlo.
+        </p>
+      )}
 
       {error && (
         <p className="text-sm text-red-700 bg-red-50 rounded-lg px-3 py-2">{error}</p>
@@ -136,7 +151,7 @@ export function RevisionActions({
       )}
 
       {historial.length > 0 && (
-        <ul className="text-xs text-slate-600 space-y-1.5 border-t pt-2">
+        <ul className="text-xs text-slate-600 space-y-1.5 border-t border-amber-200 pt-2">
           {historial.map((h) => (
             <li key={h.id}>
               <span className="font-medium">{h.usuarioNombre}</span>
@@ -177,6 +192,7 @@ export function RevisionActions({
                 onChange={(e) => setMotivoOtro(e.target.value)}
                 placeholder="Describa el motivo…"
                 className="w-full border rounded-lg px-3 py-2 text-sm"
+                required
               />
             )}
             <div>

@@ -34,6 +34,34 @@ export function reporteEnColaRevision(
   );
 }
 
+/**
+ * Supervisor puede devolver:
+ * - Pendiente de revisión / Corregido (flujo nuevo)
+ * - Aprobado (reabrir calidad)
+ * - Legado sin estadoRevision si el ticket ya está FINALIZADO o CERRADO
+ */
+export function reportePuedeDevolverse(
+  estadoRevision: EstadoRevision | null | undefined,
+  estadoTicket?: string | null
+): boolean {
+  if (estadoRevision === "DEVUELTO_CORRECCION") return false;
+  if (reporteEnColaRevision(estadoRevision)) return true;
+  if (estadoRevision === "APROBADO") return true;
+  if (
+    (estadoRevision == null || estadoRevision === undefined) &&
+    (estadoTicket === "CERRADO" || estadoTicket === "FINALIZADO")
+  ) {
+    return true;
+  }
+  return false;
+}
+
+export function reportePuedeAprobarse(
+  estadoRevision: EstadoRevision | null | undefined
+): boolean {
+  return reporteEnColaRevision(estadoRevision);
+}
+
 export function reporteDevuelto(
   estadoRevision: EstadoRevision | null | undefined
 ): boolean {

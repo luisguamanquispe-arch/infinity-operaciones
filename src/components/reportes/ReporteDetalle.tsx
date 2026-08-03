@@ -275,6 +275,7 @@ export function ReporteDetalle({ backHref, backLabel }: ReporteDetalleProps) {
       <main className="max-w-4xl mx-auto p-4 sm:p-6 space-y-5 print:p-0 print:space-y-4">
         <RevisionActions
           ticketId={ticket.id}
+          estadoTicket={ticket.estado}
           estadoRevision={ticket.estadoRevision}
           historial={(ticket.revisionesHistorial || []).map((h) => ({
             ...h,

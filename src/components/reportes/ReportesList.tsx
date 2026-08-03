@@ -87,7 +87,7 @@ export function ReportesList({
     tipo: "",
     sector: "",
     q: "",
-    revision: "cola",
+    revision: "all",
   });
 
   const cargar = useCallback(async () => {
@@ -160,11 +160,11 @@ export function ReportesList({
                 onChange={(e) => handleFilterChange("revision", e.target.value)}
                 className="w-full px-2 py-1.5 border rounded-lg text-sm mt-0.5"
               >
+                <option value="all">Todos</option>
                 <option value="cola">Cola (pendiente / corregido)</option>
                 <option value="pendiente">Pendiente de revisión</option>
                 <option value="corregido">Corregidos</option>
                 <option value="aprobados">Aprobados</option>
-                <option value="all">Todos</option>
               </select>
             </div>
             <div>
