@@ -22,6 +22,7 @@ import { leerGpsActual } from "@/lib/gps-client";
 import { useTecnicoGpsTracking } from "@/hooks/useTecnicoGpsTracking";
 import { TicketSemaforo } from "@/components/TicketSemaforo";
 import {
+  agruparInventarioCliente,
   etiquetasDetalleMaterial,
   materialEsCableOFibra,
   materialEsEquipoActivo,
@@ -770,6 +771,8 @@ export default function OrdenPage() {
       !inventarioEquipos.some((e) => e.id === inv.id) &&
       !inventarioCables.some((c) => c.id === inv.id)
   );
+  /** Soporte Completo / Instalacion: Router, ONU, Bridge, Fibra, Patch, Rosetas, Repetidores, Otros */
+  const inventarioGruposCliente = !esInfra ? agruparInventarioCliente(data.inventario) : [];
 
   return (
     <div className="min-h-dvh bg-slate-50 pb-8">
@@ -1071,20 +1074,30 @@ export default function OrdenPage() {
 
             {!esExpress && (
             <>
-            {/* Fotos antes */}
             <section className="bg-white rounded-xl border p-4 space-y-2">
-              <h3 className="font-semibold">Evidencia — Antes</h3>
-              {fotosAntes.map((t) => (
-                <PhotoCapture
-                  key={t}
-                  ticketId={id}
-                  tipo={t}
-                  existing={fotoMap[t]}
-                  onUploaded={refrescar}
-                />
-              ))}
+              <h3 className="font-semibold">
+                {esInfra ? "Evidencia — Antes" : "Evidencia fotográfica (4 obligatorias)"}
+              </h3>
+              {!esInfra && (
+                <p className="text-xs text-slate-500">
+                  1. Caja NAP · 2. Equipos instalados · 3. Cliente satisfecho · 4. Prueba de
+                  velocidad
+                </p>
+              )}
+              {(esInfra ? fotosAntes : [...fotosAntes, ...fotosDurante, ...fotosFinal]).map(
+                (t) => (
+                  <PhotoCapture
+                    key={t}
+                    ticketId={id}
+                    tipo={t}
+                    existing={fotoMap[t]}
+                    onUploaded={refrescar}
+                  />
+                )
+              )}
             </section>
 
+            {esInfra && (
             <section className="bg-white rounded-xl border p-4 space-y-2">
               <h3 className="font-semibold">Evidencia — Durante</h3>
               {fotosDurante.map((t) => (
@@ -1097,6 +1110,7 @@ export default function OrdenPage() {
                 />
               ))}
             </section>
+            )}
 
             {!esInfra && (
             <section className="bg-white rounded-xl border p-4 space-y-3">
@@ -1140,10 +1154,11 @@ export default function OrdenPage() {
                 Material utilizado{esExpress ? " (opcional)" : ""}
               </h3>
               <p className="text-xs text-slate-500">
-                Soporte e instalaciones: ONU, router, bridge y RB requieren serie, modelo y marca.
-                Cable drop y fibras: lote/bobina, modelo y marca. Patch cord: tipo APC/UPC.
-                Cable drop / fibra droop: incluye {FIBRA_DROP_LIMITE_M} m; el excedente se marca en
-                rojo.
+                {esInfra
+                  ? "Registre materiales usados. Equipos y fibras requieren serie/lote, modelo y marca."
+                  : esExpress
+                    ? "Opcional. Router, ONU, bridge y repetidor: marca, modelo y serie."
+                    : `Materiales: Router, ONU y Bridge (marca, modelo y serie); Fibra; Patch cord; Rosetas; Repetidores (marca, modelo y serie); Otros. Cable drop / fibra droop incluye ${FIBRA_DROP_LIMITE_M} m; el excedente se marca en rojo.`}
               </p>
               {materiales.map((m, i) => {
                 const nombreMat = nombreMaterial(m.inventarioId);
@@ -1175,33 +1190,47 @@ export default function OrdenPage() {
                         className="flex-1 px-3 py-2 border rounded-lg text-sm"
                       >
                         <option value="">Seleccionar material</option>
-                        {inventarioEquipos.length > 0 && (
-                          <optgroup label="Equipos (ONU / router / bridge)">
-                            {inventarioEquipos.map((inv) => (
-                              <option key={inv.id} value={inv.id}>
-                                {inv.nombre} (stock: {inv.stock} {inv.unidad})
-                              </option>
-                            ))}
-                          </optgroup>
-                        )}
-                        {inventarioCables.length > 0 && (
-                          <optgroup label="Cable y fibra">
-                            {inventarioCables.map((inv) => (
-                              <option key={inv.id} value={inv.id}>
-                                {inv.nombre} (stock: {inv.stock} {inv.unidad})
-                              </option>
-                            ))}
-                          </optgroup>
-                        )}
-                        {inventarioOtros.length > 0 && (
-                          <optgroup label="Otros materiales">
-                            {inventarioOtros.map((inv) => (
-                              <option key={inv.id} value={inv.id}>
-                                {inv.nombre} (stock: {inv.stock} {inv.unidad})
-                              </option>
-                            ))}
-                          </optgroup>
-                        )}
+                        {!esInfra
+                          ? inventarioGruposCliente.map((g) => (
+                              <optgroup key={g.grupo} label={g.label}>
+                                {g.items.map((inv) => (
+                                  <option key={inv.id} value={inv.id}>
+                                    {inv.nombre} (stock: {inv.stock} {inv.unidad})
+                                  </option>
+                                ))}
+                              </optgroup>
+                            ))
+                          : (
+                            <>
+                              {inventarioEquipos.length > 0 && (
+                                <optgroup label="Equipos (ONU / router / bridge)">
+                                  {inventarioEquipos.map((inv) => (
+                                    <option key={inv.id} value={inv.id}>
+                                      {inv.nombre} (stock: {inv.stock} {inv.unidad})
+                                    </option>
+                                  ))}
+                                </optgroup>
+                              )}
+                              {inventarioCables.length > 0 && (
+                                <optgroup label="Cable y fibra">
+                                  {inventarioCables.map((inv) => (
+                                    <option key={inv.id} value={inv.id}>
+                                      {inv.nombre} (stock: {inv.stock} {inv.unidad})
+                                    </option>
+                                  ))}
+                                </optgroup>
+                              )}
+                              {inventarioOtros.length > 0 && (
+                                <optgroup label="Otros materiales">
+                                  {inventarioOtros.map((inv) => (
+                                    <option key={inv.id} value={inv.id}>
+                                      {inv.nombre} (stock: {inv.stock} {inv.unidad})
+                                    </option>
+                                  ))}
+                                </optgroup>
+                              )}
+                            </>
+                          )}
                       </select>
                       <input
                         type="number"
@@ -1368,6 +1397,7 @@ export default function OrdenPage() {
               </>
             ) : (
             <>
+            {esInfra && (
             <section className="bg-white rounded-xl border p-4 space-y-2">
               <h3 className="font-semibold">Evidencia — Después</h3>
               {fotosFinal.map((t) => (
@@ -1380,6 +1410,7 @@ export default function OrdenPage() {
                 />
               ))}
             </section>
+            )}
 
             {!esInfra && (
             <SignatureCapture

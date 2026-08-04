@@ -82,13 +82,13 @@ export const ESTADO_TECNICO_LABELS: Record<string, string> = {
 export const FOTO_LABELS: Record<string, string> = {
   FACHADA: "Foto fachada",
   POSTE: "Foto poste",
-  NAP: "Foto NAP",
+  NAP: "1. Caja NAP",
   TRABAJO: "Foto trabajo realizado",
   EMPALME: "Empalmes",
   CAJA_TERMINAL: "Caja terminal",
-  ONU: "Foto ONU instalada",
-  SPEEDTEST: "Speedtest",
-  CLIENTE_CONFORME: "Foto cliente conforme",
+  ONU: "2. Equipos instalados",
+  SPEEDTEST: "4. Prueba de velocidad",
+  CLIENTE_CONFORME: "3. Cliente satisfecho",
 };
 
 export const FOTOS_OBLIGATORIAS = FOTOS_OBLIGATORIAS_DEFAULT;

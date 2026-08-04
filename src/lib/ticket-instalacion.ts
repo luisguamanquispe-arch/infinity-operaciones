@@ -17,18 +17,16 @@ export function esTicketInstalacion(tipo: string): boolean {
   return tipo === "INSTALACION";
 }
 
-/** Fotos para tickets de instalación (sin poste ni empalme). */
-export const FOTOS_ANTES_INSTALACION: TipoFoto[] = ["FACHADA", "NAP"];
-export const FOTOS_DURANTE_INSTALACION: TipoFoto[] = ["TRABAJO", "CAJA_TERMINAL"];
-export const FOTOS_FINAL_INSTALACION: TipoFoto[] = ["ONU", "SPEEDTEST", "CLIENTE_CONFORME"];
+/** Fotos para instalación nueva (mismas 4 que Soporte Completo). */
+export const FOTOS_ANTES_INSTALACION: TipoFoto[] = ["NAP"];
+export const FOTOS_DURANTE_INSTALACION: TipoFoto[] = ["ONU"];
+export const FOTOS_FINAL_INSTALACION: TipoFoto[] = ["CLIENTE_CONFORME", "SPEEDTEST"];
 
 export const FOTOS_OBLIGATORIAS_INSTALACION: TipoFoto[] = [
-  "FACHADA",
   "NAP",
-  "TRABAJO",
   "ONU",
-  "SPEEDTEST",
   "CLIENTE_CONFORME",
+  "SPEEDTEST",
 ];
 
 export const CLAUSULAS_POLITICA_INSTALACION = [

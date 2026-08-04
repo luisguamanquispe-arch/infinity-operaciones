@@ -104,7 +104,7 @@ export function etiquetasDetalleMaterial(nombre: string): {
       serie: "Serie / SN *",
       modelo: "Modelo *",
       marca: "Marca *",
-      ayuda: "ONU, router, bridge, etc.: serie, modelo y marca obligatorios.",
+      ayuda: "Router, ONU, bridge y repetidor: serie, modelo y marca obligatorios.",
     };
   }
   return {
@@ -113,6 +113,77 @@ export function etiquetasDetalleMaterial(nombre: string): {
     marca: "Marca *",
     ayuda: "Indique serie, modelo y marca del material.",
   };
+}
+
+/** Grupos de materiales en Soporte Completo e Instalación (app técnico). */
+export type GrupoMaterialCliente =
+  | "ROUTER"
+  | "ONU"
+  | "BRIDGE"
+  | "FIBRA"
+  | "PATCH_CORD"
+  | "ROSETA"
+  | "REPETIDOR"
+  | "OTROS";
+
+export const GRUPO_MATERIAL_CLIENTE_LABELS: Record<GrupoMaterialCliente, string> = {
+  ROUTER: "Router (marca, modelo, serie)",
+  ONU: "ONU (marca, modelo, serie)",
+  BRIDGE: "Bridge (marca, modelo, serie)",
+  FIBRA: "Fibra",
+  PATCH_CORD: "Patch cord",
+  ROSETA: "Rosetas",
+  REPETIDOR: "Repetidores (marca, modelo, serie)",
+  OTROS: "Otros",
+};
+
+export const ORDEN_GRUPOS_MATERIAL_CLIENTE: GrupoMaterialCliente[] = [
+  "ROUTER",
+  "ONU",
+  "BRIDGE",
+  "FIBRA",
+  "PATCH_CORD",
+  "ROSETA",
+  "REPETIDOR",
+  "OTROS",
+];
+
+export function clasificarMaterialCliente(nombre: string): GrupoMaterialCliente {
+  const n = nombreNorm(nombre);
+  if (n.includes("onu")) return "ONU";
+  if (n.includes("bridge")) return "BRIDGE";
+  if (n.includes("repetidor")) return "REPETIDOR";
+  if (
+    n.includes("router") ||
+    n.includes("route") ||
+    n.includes("mikrotik") ||
+    n === "rb mikrotik" ||
+    n.startsWith("rb ")
+  ) {
+    return "ROUTER";
+  }
+  if (n.includes("patch") && !n.includes("pigtail")) return "PATCH_CORD";
+  if (n.includes("roseta")) return "ROSETA";
+  if (materialEsCableOFibra(nombre)) return "FIBRA";
+  return "OTROS";
+}
+
+export function agruparInventarioCliente<T extends { id: string; nombre: string }>(
+  items: T[]
+): { grupo: GrupoMaterialCliente; label: string; items: T[] }[] {
+  const buckets = new Map<GrupoMaterialCliente, T[]>();
+  for (const g of ORDEN_GRUPOS_MATERIAL_CLIENTE) buckets.set(g, []);
+  for (const item of items) {
+    const g = clasificarMaterialCliente(item.nombre);
+    buckets.get(g)!.push(item);
+  }
+  return ORDEN_GRUPOS_MATERIAL_CLIENTE.filter((g) => (buckets.get(g)?.length ?? 0) > 0).map(
+    (grupo) => ({
+      grupo,
+      label: GRUPO_MATERIAL_CLIENTE_LABELS[grupo],
+      items: buckets.get(grupo)!,
+    })
+  );
 }
 
 export interface MaterialDetalleInput {

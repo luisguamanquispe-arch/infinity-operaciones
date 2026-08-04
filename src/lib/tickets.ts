@@ -7,6 +7,7 @@ import {
   validarDatosInstalacion,
   type DatosInstalacionInput,
 } from "./ticket-instalacion";
+import { FOTO_LABELS } from "./utils";
 import { enviarWhatsAppTicketCerrado } from "./whatsapp";
 export async function getOrCreateOrden(ticketId: string) {
   const fotoLite = {
@@ -146,7 +147,7 @@ export function validarCierreOrden(
     const fotosReq = esInstalacion ? FOTOS_OBLIGATORIAS_INSTALACION : FOTOS_OBLIGATORIAS_DEFAULT;
     for (const tipo of fotosReq) {
       if (!orden.fotografias.some((f) => f.tipo === tipo)) {
-        errores.push(`Falta foto: ${tipo}`);
+        errores.push(`Falta foto: ${FOTO_LABELS[tipo] || tipo}`);
       }
     }
 
