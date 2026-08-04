@@ -96,13 +96,27 @@ export function validarCierreOrden(
     claveRedWifi?: string | null;
     resumenTrabajo?: string | null;
   },
-  options?: { esInfraestructura?: boolean; esInstalacion?: boolean }
+  options?: {
+    esInfraestructura?: boolean;
+    esInstalacion?: boolean;
+    esExpress?: boolean;
+  }
 ): { valido: boolean; errores: string[] } {
   const errores: string[] = [];
   const esInfra = options?.esInfraestructura ?? false;
   const esInstalacion = options?.esInstalacion ?? false;
+  const esExpress = options?.esExpress ?? false;
 
   if (!orden.cronometro?.fin) errores.push("El cronómetro debe estar finalizado");
+
+  if (esExpress) {
+    const resumen = orden.resumenTrabajo?.trim() ?? "";
+    if (resumen.length < 10) {
+      errores.push("Indique el trabajo realizado (mínimo 10 caracteres)");
+    }
+    // Fotos, firma, mediciones y checklist avanzado son opcionales en Express.
+    return { valido: errores.length === 0, errores };
+  }
 
   if (esInfra) {
     for (const tipo of FOTOS_OBLIGATORIAS_INFRA) {

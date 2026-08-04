@@ -15,6 +15,7 @@ import {
 import { NovedadSoportePanel } from "@/components/tecnico/NovedadSoportePanel";
 import { EnviarReporteSoporte } from "@/components/tecnico/EnviarReporteSoporte";
 import { JustificacionTecnicaModal } from "@/components/tecnico/JustificacionTecnicaModal";
+import { ExpressOrdenPanel } from "@/components/tecnico/ExpressOrdenPanel";
 import { TIPO_LABELS, formatDateTime, formatDuration } from "@/lib/utils";
 import { fetchWithRetry } from "@/lib/compress-image";
 import { leerGpsActual } from "@/lib/gps-client";
@@ -37,6 +38,7 @@ import type {
   TipoConexionInstalacion,
   TipoInventario,
   TipoPatchCord,
+  TrabajoExpress,
 } from "@prisma/client";
 import {
   esTicketInfraestructura,
@@ -64,6 +66,11 @@ import {
   esFibraDropCliente,
   FIBRA_DROP_LIMITE_M,
 } from "@/lib/fibra-excedente";
+import {
+  esSoporteExpress,
+  FOTOS_EXPRESS,
+  trabajoExpressTexto,
+} from "@/lib/soporte-express";
 
 interface MaterialForm {
   inventarioId: string;
@@ -85,6 +92,24 @@ function materialVacio(): MaterialForm {
   };
 }
 
+const OBS_EXPRESS_MARKER = "\n\nObservaciones:";
+
+function splitResumenExpress(full: string): { trabajo: string; obs: string } {
+  const idx = full.indexOf(OBS_EXPRESS_MARKER);
+  if (idx === -1) return { trabajo: full, obs: "" };
+  return {
+    trabajo: full.slice(0, idx).trim(),
+    obs: full.slice(idx + OBS_EXPRESS_MARKER.length).trim(),
+  };
+}
+
+function buildResumenExpress(trabajo: string, obs: string): string {
+  const t = trabajo.trim();
+  const o = obs.trim();
+  if (!o) return t;
+  return `${t}${OBS_EXPRESS_MARKER} ${o}`;
+}
+
 interface OrdenData {
   ticket: {
     id: string;
@@ -96,6 +121,9 @@ interface OrdenData {
     estadoRevision?: string | null;
     motivo: string | null;
     descripcion: string | null;
+    modalidadSoporte?: string | null;
+    trabajoExpress?: TrabajoExpress | null;
+    trabajoExpressOtro?: string | null;
     motivoInfraestructura: MotivoInfraestructura | null;
     siTipoTrabajo?: SiTipoTrabajo | null;
     siTipoTrabajoOtro?: string | null;
@@ -242,6 +270,7 @@ export default function OrdenPage() {
     firmaOk: false,
   });
   const [resumenTrabajo, setResumenTrabajo] = useState("");
+  const [observacionesExpress, setObservacionesExpress] = useState("");
   const resumenTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [diagnosticoInfra, setDiagnosticoInfra] = useState("");
   const [trabajoRealizadoInfra, setTrabajoRealizadoInfra] = useState("");
@@ -271,7 +300,14 @@ export default function OrdenPage() {
       clienteConforme: d.orden.clienteConforme ?? false,
       firmaOk: d.orden.firmaOk ?? false,
     });
-    setResumenTrabajo(d.orden.resumenTrabajo ?? "");
+    if (esSoporteExpress(d.ticket)) {
+      const parts = splitResumenExpress(d.orden.resumenTrabajo ?? "");
+      setResumenTrabajo(parts.trabajo);
+      setObservacionesExpress(parts.obs);
+    } else {
+      setResumenTrabajo(d.orden.resumenTrabajo ?? "");
+      setObservacionesExpress("");
+    }
     setDiagnosticoInfra(d.ticket.diagnosticoInfra ?? "");
     setTrabajoRealizadoInfra(d.ticket.trabajoRealizadoInfra ?? "");
     setResultadoInfra(d.ticket.resultadoInfra ?? "");
@@ -503,12 +539,37 @@ export default function OrdenPage() {
     setResumenTrabajo(value);
     if (resumenTimer.current) clearTimeout(resumenTimer.current);
     resumenTimer.current = setTimeout(() => {
+      const payload =
+        data && esSoporteExpress(data.ticket)
+          ? buildResumenExpress(value, observacionesExpress)
+          : value;
       void fetch(`/api/tickets/${id}/medicion`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ resumenTrabajo: value }),
+        body: JSON.stringify({ resumenTrabajo: payload }),
       });
     }, 600);
+  }
+
+  function onChangeObservacionesExpress(value: string) {
+    setObservacionesExpress(value);
+    if (resumenTimer.current) clearTimeout(resumenTimer.current);
+    resumenTimer.current = setTimeout(() => {
+      void fetch(`/api/tickets/${id}/medicion`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          resumenTrabajo: buildResumenExpress(resumenTrabajo, value),
+        }),
+      });
+    }, 600);
+  }
+
+  function resumenParaCierre(): string {
+    if (data && esSoporteExpress(data.ticket)) {
+      return buildResumenExpress(resumenTrabajo, observacionesExpress);
+    }
+    return resumenTrabajo;
   }
 
   async function enviarCorreccion() {
@@ -522,7 +583,7 @@ export default function OrdenPage() {
             resultadoInfra: resultadoInfra || null,
             observacionesInfra: observacionesInfra || null,
           }
-        : { resumenTrabajo, descripcion: data?.ticket.descripcion };
+        : { resumenTrabajo: resumenParaCierre(), descripcion: data?.ticket.descripcion };
     const res = await fetch(`/api/tickets/${id}/revision/enviar-correccion`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -568,7 +629,7 @@ export default function OrdenPage() {
     await fetch(`/api/tickets/${id}/medicion`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ resumenTrabajo }),
+      body: JSON.stringify({ resumenTrabajo: resumenParaCierre() }),
     });
     const res = await fetch(`/api/tickets/${id}/cerrar`, { method: "POST" });
     const result = await res.json();
@@ -669,6 +730,7 @@ export default function OrdenPage() {
     (ticket.editable !== false && reporte?.puedeEditar !== false && !cerrado);
   const esInfra = esTicketInfraestructura(ticket.tipo);
   const esInstalacion = esTicketInstalacion(ticket.tipo);
+  const esExpress = esSoporteExpress(ticket);
   const fotosAntes = esInfra
     ? FOTOS_ANTES_INFRA
     : esInstalacion
@@ -680,6 +742,9 @@ export default function OrdenPage() {
       ? FOTOS_DURANTE_INSTALACION
       : FOTOS_DURANTE;
   const fotosFinal = esInfra ? FOTOS_FINAL_INFRA : FOTOS_FINAL;
+  const fotosReadonly = esExpress
+    ? FOTOS_EXPRESS
+    : [...fotosAntes, ...fotosDurante, ...fotosFinal];
   const checklistItems = esInfra
     ? [
         { key: "servicioOk" as const, label: "Infraestructura restablecida" },
@@ -717,6 +782,11 @@ export default function OrdenPage() {
             <h1 className="font-bold">{ticket.codigo}</h1>
             <p className="text-infinity-200 text-sm">
               {TIPO_LABELS[ticket.tipo]}
+              {esExpress && (
+                <span className="ml-2 inline-block px-2 py-0.5 rounded bg-amber-500/30 text-amber-100 text-xs font-semibold">
+                  Express
+                </span>
+              )}
               {esInstalacion && (
                 <span className="ml-2 inline-block px-2 py-0.5 rounded bg-sky-500/30 text-sky-100 text-xs font-semibold">
                   Nueva instalación
@@ -904,6 +974,12 @@ export default function OrdenPage() {
           <h3 className="font-semibold">Información técnica</h3>
           <p className="text-sm"><span className="text-slate-500">Motivo:</span> {ticket.motivo}</p>
           <p className="text-sm"><span className="text-slate-500">Descripción:</span> {ticket.descripcion}</p>
+          {esExpress && ticket.trabajoExpress && (
+            <p className="text-sm">
+              <span className="text-slate-500">Trabajo Express:</span>{" "}
+              {trabajoExpressTexto(ticket.trabajoExpress, ticket.trabajoExpressOtro)}
+            </p>
+          )}
         </section>
 
         {esInfra && puedeEditar && (
@@ -973,6 +1049,28 @@ export default function OrdenPage() {
 
             {puedeEditar ? (
               <>
+            {esExpress && (
+              <ExpressOrdenPanel
+                mode="header"
+                ticketId={id}
+                trabajoExpress={ticket.trabajoExpress}
+                trabajoExpressOtro={ticket.trabajoExpressOtro}
+                resumenTrabajo={resumenTrabajo}
+                observaciones={observacionesExpress}
+                onResumenChange={onChangeResumen}
+                onObservacionesChange={onChangeObservacionesExpress}
+                fotoMap={fotoMap}
+                onFotoUploaded={refrescar}
+                firma={orden.firma}
+                clienteNombre={ticket.cliente.nombre}
+                clienteCedula={ticket.cliente.cedula}
+                onFirmaSaved={refrescarTrasFirma}
+                cerrado={false}
+              />
+            )}
+
+            {!esExpress && (
+            <>
             {/* Fotos antes */}
             <section className="bg-white rounded-xl border p-4 space-y-2">
               <h3 className="font-semibold">Evidencia — Antes</h3>
@@ -1033,10 +1131,14 @@ export default function OrdenPage() {
               </button>
             </section>
             )}
+            </>
+            )}
 
             {/* Materiales */}
             <section className="bg-white rounded-xl border p-4 space-y-3">
-              <h3 className="font-semibold">Material utilizado</h3>
+              <h3 className="font-semibold">
+                Material utilizado{esExpress ? " (opcional)" : ""}
+              </h3>
               <p className="text-xs text-slate-500">
                 Soporte e instalaciones: ONU, router, bridge y RB requieren serie, modelo y marca.
                 Cable drop y fibras: lote/bobina, modelo y marca. Patch cord: tipo APC/UPC.
@@ -1208,7 +1310,64 @@ export default function OrdenPage() {
               </button>
             </section>
 
-            {/* Fotos final */}
+            {/* Fotos final / evidencia express / firma / cierre */}
+            {esExpress ? (
+              <>
+                <ExpressOrdenPanel
+                  mode="evidence"
+                  ticketId={id}
+                  trabajoExpress={ticket.trabajoExpress}
+                  trabajoExpressOtro={ticket.trabajoExpressOtro}
+                  resumenTrabajo={resumenTrabajo}
+                  observaciones={observacionesExpress}
+                  onResumenChange={onChangeResumen}
+                  onObservacionesChange={onChangeObservacionesExpress}
+                  fotoMap={fotoMap}
+                  onFotoUploaded={refrescar}
+                  firma={orden.firma}
+                  clienteNombre={ticket.cliente.nombre}
+                  clienteCedula={ticket.cliente.cedula}
+                  onFirmaSaved={refrescarTrasFirma}
+                  cerrado={false}
+                />
+                <section className="bg-white rounded-xl border p-4 space-y-3">
+                  <h3 className="font-semibold">Finalizar soporte Express</h3>
+                  <p className="text-xs text-slate-500">
+                    Detenga el cronómetro y complete el trabajo realizado antes de enviar.
+                  </p>
+                  {error && (
+                    <div className="bg-red-50 text-red-700 text-sm p-3 rounded-lg">{error}</div>
+                  )}
+                  <div className="space-y-2">
+                    <button
+                      type="button"
+                      onClick={cerrarTicket}
+                      disabled={cerrando}
+                      className="w-full py-3 bg-emerald-600 text-white rounded-xl font-semibold hover:bg-emerald-700 disabled:opacity-50"
+                    >
+                      {cerrando
+                        ? porCorregir
+                          ? "Enviando corrección…"
+                          : "Finalizando…"
+                        : porCorregir
+                          ? "Enviar Corrección"
+                          : "Enviar a revisión"}
+                    </button>
+                    {!porCorregir && data.esResponsable && (
+                      <button
+                        type="button"
+                        onClick={() => setShowJustificacion(true)}
+                        disabled={cerrando}
+                        className="w-full py-3 bg-amber-600 text-white rounded-xl font-semibold hover:bg-amber-700 disabled:opacity-50"
+                      >
+                        Cerrar con Justificación Técnica
+                      </button>
+                    )}
+                  </div>
+                </section>
+              </>
+            ) : (
+            <>
             <section className="bg-white rounded-xl border p-4 space-y-2">
               <h3 className="font-semibold">Evidencia — Después</h3>
               {fotosFinal.map((t) => (
@@ -1342,12 +1501,14 @@ export default function OrdenPage() {
                 </div>
               )}
             </section>
+            </>
+            )}
               </>
             ) : (
               <>
                 <section className="bg-white rounded-xl border p-4 space-y-2">
                   <h3 className="font-semibold">Evidencia registrada</h3>
-                  {[...fotosAntes, ...fotosDurante, ...fotosFinal].map((t) => (
+                  {fotosReadonly.map((t) => (
                     <PhotoCapture
                       key={t}
                       ticketId={id}
@@ -1357,6 +1518,13 @@ export default function OrdenPage() {
                       readOnly
                     />
                   ))}
+                  {esExpress && (orden.resumenTrabajo || resumenTrabajo) && (
+                    <div className="mt-3 pt-3 border-t text-sm whitespace-pre-wrap">
+                      <p className="font-medium text-slate-600 mb-1">Trabajo realizado</p>
+                      {orden.resumenTrabajo ||
+                        buildResumenExpress(resumenTrabajo, observacionesExpress)}
+                    </div>
+                  )}
                   {esInfra && (
                     <a
                       href={`/api/soporte-infraestructura/ordenes/${id}/pdf`}
@@ -1369,7 +1537,7 @@ export default function OrdenPage() {
                   )}
                 </section>
 
-                {orden.medicion && !esInfra && (
+                {orden.medicion && !esInfra && !esExpress && (
                   <section className="bg-white rounded-xl border p-4 space-y-2">
                     <h3 className="font-semibold">Medición registrada</h3>
                     <div className="grid grid-cols-2 gap-2 text-sm">

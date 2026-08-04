@@ -1,0 +1,27 @@
+-- Soporte Express: modalidad y catálogo de trabajos rápidos
+CREATE TYPE "ModalidadSoporte" AS ENUM ('COMPLETO', 'EXPRESS');
+
+CREATE TYPE "TrabajoExpress" AS ENUM (
+  'INSTALACION_REPETIDOR_WIFI',
+  'CAMBIO_PATCH_CORD',
+  'CAMBIO_ROSETA',
+  'CAMBIO_CONECTOR_RJ45',
+  'CAMBIO_FUENTE_PODER',
+  'CAMBIO_CLAVE_WIFI',
+  'CAMBIO_NOMBRE_WIFI',
+  'REINICIO_ROUTER',
+  'REINICIO_ONU',
+  'CONFIGURACION_WIFI',
+  'CONFIGURACION_IPTV',
+  'CONFIGURACION_SMART_TV',
+  'ACTUALIZACION_DATOS',
+  'ENTREGA_EQUIPO',
+  'RETIRO_EQUIPO',
+  'OTRO'
+);
+
+ALTER TABLE "Ticket" ADD COLUMN IF NOT EXISTS "modalidadSoporte" "ModalidadSoporte" NOT NULL DEFAULT 'COMPLETO';
+ALTER TABLE "Ticket" ADD COLUMN IF NOT EXISTS "trabajoExpress" "TrabajoExpress";
+ALTER TABLE "Ticket" ADD COLUMN IF NOT EXISTS "trabajoExpressOtro" TEXT;
+
+CREATE INDEX IF NOT EXISTS "Ticket_modalidadSoporte_idx" ON "Ticket"("modalidadSoporte");

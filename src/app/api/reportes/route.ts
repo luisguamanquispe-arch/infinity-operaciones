@@ -135,6 +135,7 @@ export async function GET(request: Request) {
     id: t.id,
     codigo: t.codigo,
     tipo: t.tipo,
+    modalidadSoporte: t.modalidadSoporte,
     prioridad: t.prioridad,
     estado: t.estado,
     estadoRevision: t.estadoRevision,

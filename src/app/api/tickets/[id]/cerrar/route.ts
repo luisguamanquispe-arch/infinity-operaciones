@@ -10,6 +10,7 @@ import {
   SI_RESULTADOS,
 } from "@/lib/ticket-infraestructura";
 import { esTicketInstalacion } from "@/lib/ticket-instalacion";
+import { esSoporteExpress } from "@/lib/soporte-express";
 import { asegurarColaboracionOrden } from "@/lib/ticket-reporte";
 import { ordenServicioCerrada } from "@/lib/ticket-cerrado";
 import { registrarSiHistorial } from "@/lib/soporte-infraestructura/historial";
@@ -117,6 +118,7 @@ export async function POST(
   const validacion = validarCierreOrden(ordenFresh, {
     esInfraestructura: esTicketInfraestructura(ticket.tipo),
     esInstalacion: esTicketInstalacion(ticket.tipo),
+    esExpress: esSoporteExpress(ticket),
   });
 
   if (!validacion.valido) {

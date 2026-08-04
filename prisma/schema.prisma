@@ -32,6 +32,32 @@ enum TipoTrabajo {
   CORTE
 }
 
+/// Modalidad de orden de soporte a cliente (completo vs express).
+enum ModalidadSoporte {
+  COMPLETO
+  EXPRESS
+}
+
+/// Catálogo de trabajos rápidos (Soporte Express).
+enum TrabajoExpress {
+  INSTALACION_REPETIDOR_WIFI
+  CAMBIO_PATCH_CORD
+  CAMBIO_ROSETA
+  CAMBIO_CONECTOR_RJ45
+  CAMBIO_FUENTE_PODER
+  CAMBIO_CLAVE_WIFI
+  CAMBIO_NOMBRE_WIFI
+  REINICIO_ROUTER
+  REINICIO_ONU
+  CONFIGURACION_WIFI
+  CONFIGURACION_IPTV
+  CONFIGURACION_SMART_TV
+  ACTUALIZACION_DATOS
+  ENTREGA_EQUIPO
+  RETIRO_EQUIPO
+  OTRO
+}
+
 enum MotivoInfraestructura {
   CORTE_ELECTRICO
   CORTE_FIBRA
@@ -281,6 +307,10 @@ model Ticket {
   clienteId            String
   tecnicoId            String?
   tipo                 TipoTrabajo
+  /// COMPLETO = formulario técnico completo; EXPRESS = formulario simplificado
+  modalidadSoporte     ModalidadSoporte       @default(COMPLETO)
+  trabajoExpress       TrabajoExpress?
+  trabajoExpressOtro   String?
   prioridad            Prioridad              @default(MEDIA)
   estado               EstadoTicket           @default(PENDIENTE)
   motivo               String?
@@ -329,6 +359,7 @@ model Ticket {
   @@index([tipo, estado])
   @@index([siTipoTrabajo])
   @@index([estadoRevision])
+  @@index([modalidadSoporte])
 }
 
 /// Cierre con justificación técnica (trabajo no ejecutado); requiere aprobación del supervisor.

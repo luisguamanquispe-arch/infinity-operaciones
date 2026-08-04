@@ -3,6 +3,11 @@ import { prisma } from "@/lib/prisma";
 import { TIPO_LABELS, ESTADO_LABELS, formatDateTime, formatDuration } from "@/lib/utils";
 import { calcularDuracionCronometro } from "@/lib/tickets";
 import { TEXTO_ACEPTACION_SOPORTE, LABEL_CHECKBOX_ACEPTACION } from "@/lib/aceptacion-soporte";
+import {
+  esSoporteExpress,
+  MODALIDAD_SOPORTE_LABELS,
+  trabajoExpressTexto,
+} from "@/lib/soporte-express";
 
 function bufferFromPdf(doc: PDFKit.PDFDocument): Promise<Buffer> {
   return new Promise((resolve, reject) => {
@@ -77,6 +82,11 @@ export async function generarPdfReporteSoporte(ticketId: string): Promise<{
   doc.moveDown(0.4);
   doc.fontSize(10);
   doc.text(`Tipo: ${TIPO_LABELS[ticket.tipo] ?? ticket.tipo}`);
+  if (esSoporteExpress(ticket)) {
+    doc.text(`Modalidad: ${MODALIDAD_SOPORTE_LABELS.EXPRESS}`);
+    const te = trabajoExpressTexto(ticket.trabajoExpress, ticket.trabajoExpressOtro);
+    if (te) doc.text(`Trabajo Express: ${te}`);
+  }
   doc.text(`Estado: ${ESTADO_LABELS[ticket.estado] ?? ticket.estado}`);
   doc.text(`Prioridad: ${ticket.prioridad}`);
   doc.text(`Motivo: ${ticket.motivo || "—"}`);

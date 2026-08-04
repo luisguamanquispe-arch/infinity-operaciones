@@ -9,6 +9,12 @@ import { TIPO_LABELS } from "@/lib/utils";
 import { TecnicoMultiSelect } from "@/components/TecnicoMultiSelect";
 import { ClientePicker, type ClienteResumen } from "@/components/ClientePicker";
 import { inputMayusculasClass } from "@/lib/mayusculas";
+import {
+  MODALIDAD_SOPORTE_LABELS,
+  TRABAJO_EXPRESS_LABELS,
+  TRABAJOS_EXPRESS,
+} from "@/lib/soporte-express";
+import type { ModalidadSoporte, TrabajoExpress } from "@prisma/client";
 
 interface Tecnico {
   id: string;
@@ -33,7 +39,13 @@ export default function NuevoTicketPage() {
     descripcion: "",
     tecnicoIds: [] as string[],
     programadoEn: "",
+    modalidadSoporte: "COMPLETO" as ModalidadSoporte,
+    trabajoExpress: "" as TrabajoExpress | "",
+    trabajoExpressOtro: "",
   });
+
+  const esSoporte = ticket.tipo === "SOPORTE";
+  const esExpress = esSoporte && ticket.modalidadSoporte === "EXPRESS";
 
   useEffect(() => {
     fetch("/api/tecnicos")
@@ -47,6 +59,18 @@ export default function NuevoTicketPage() {
       setError("Debe seleccionar un cliente del CRM antes de crear el ticket");
       return;
     }
+    if (esExpress && !ticket.trabajoExpress) {
+      setError("Seleccione el trabajo Express a realizar");
+      return;
+    }
+    if (
+      esExpress &&
+      ticket.trabajoExpress === "OTRO" &&
+      ticket.trabajoExpressOtro.trim().length < 3
+    ) {
+      setError("Indique el detalle del trabajo (Otro)");
+      return;
+    }
     setLoading(true);
     setError("");
     setExito("");
@@ -56,9 +80,20 @@ export default function NuevoTicketPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         clienteId: cliente.id,
-        ...ticket,
+        tipo: ticket.tipo,
+        prioridad: ticket.prioridad,
+        motivo: ticket.motivo,
+        descripcion: ticket.descripcion,
         tecnicoIds: ticket.tecnicoIds,
         programadoEn: ticket.programadoEn || null,
+        modalidadSoporte: esSoporte ? ticket.modalidadSoporte : "COMPLETO",
+        ...(esExpress
+          ? {
+              trabajoExpress: ticket.trabajoExpress,
+              trabajoExpressOtro:
+                ticket.trabajoExpress === "OTRO" ? ticket.trabajoExpressOtro : null,
+            }
+          : {}),
       }),
     });
 
@@ -118,7 +153,15 @@ export default function NuevoTicketPage() {
                 <label className="text-xs text-slate-500">Tipo de trabajo *</label>
                 <select
                   value={ticket.tipo}
-                  onChange={(e) => setTicket({ ...ticket, tipo: e.target.value })}
+                  onChange={(e) => {
+                    const tipo = e.target.value;
+                    setTicket({
+                      ...ticket,
+                      tipo,
+                      modalidadSoporte:
+                        tipo === "SOPORTE" ? ticket.modalidadSoporte : "COMPLETO",
+                    });
+                  }}
                   className="w-full px-3 py-2 border rounded-lg text-sm mt-0.5"
                   required
                 >
@@ -143,6 +186,83 @@ export default function NuevoTicketPage() {
                 </select>
               </div>
             </div>
+
+            {esSoporte && (
+              <div className="space-y-2">
+                <label className="text-xs text-slate-500">Modalidad de soporte *</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {(["COMPLETO", "EXPRESS"] as ModalidadSoporte[]).map((m) => (
+                    <button
+                      key={m}
+                      type="button"
+                      onClick={() =>
+                        setTicket({
+                          ...ticket,
+                          modalidadSoporte: m,
+                          trabajoExpress: m === "EXPRESS" ? ticket.trabajoExpress : "",
+                          trabajoExpressOtro: m === "EXPRESS" ? ticket.trabajoExpressOtro : "",
+                        })
+                      }
+                      className={`px-3 py-2.5 rounded-lg border text-sm font-medium transition ${
+                        ticket.modalidadSoporte === m
+                          ? m === "EXPRESS"
+                            ? "border-amber-500 bg-amber-50 text-amber-900"
+                            : "border-infinity-600 bg-infinity-50 text-infinity-800"
+                          : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
+                      }`}
+                    >
+                      {MODALIDAD_SOPORTE_LABELS[m]}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-xs text-slate-500">
+                  {esExpress
+                    ? "El técnico verá un formulario simplificado para trabajos rápidos."
+                    : "El técnico completará el formulario técnico completo (diagnóstico, potencias, evidencias)."}
+                </p>
+              </div>
+            )}
+
+            {esExpress && (
+              <div className="space-y-2">
+                <div>
+                  <label className="text-xs text-slate-500">Trabajo Express *</label>
+                  <select
+                    value={ticket.trabajoExpress}
+                    onChange={(e) =>
+                      setTicket({
+                        ...ticket,
+                        trabajoExpress: e.target.value as TrabajoExpress | "",
+                      })
+                    }
+                    className="w-full px-3 py-2 border rounded-lg text-sm mt-0.5"
+                    required
+                  >
+                    <option value="">Seleccionar trabajo…</option>
+                    {TRABAJOS_EXPRESS.map((t) => (
+                      <option key={t} value={t}>
+                        {TRABAJO_EXPRESS_LABELS[t]}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                {ticket.trabajoExpress === "OTRO" && (
+                  <div>
+                    <label className="text-xs text-slate-500">Detalle del trabajo *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="Describa el trabajo Express"
+                      value={ticket.trabajoExpressOtro}
+                      onChange={(e) =>
+                        setTicket({ ...ticket, trabajoExpressOtro: e.target.value })
+                      }
+                      className={`w-full px-3 py-2 border rounded-lg text-sm mt-0.5 ${inputMayusculasClass}`}
+                    />
+                  </div>
+                )}
+              </div>
+            )}
 
             <div>
               <label className="text-xs text-slate-500">Motivo *</label>

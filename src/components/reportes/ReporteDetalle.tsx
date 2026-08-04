@@ -34,12 +34,22 @@ import {
 } from "@/lib/utils";
 import { MOTIVO_INFRA_LABELS, esTicketInfraestructura } from "@/lib/ticket-infraestructura";
 import { esTicketInstalacion, CLAUSULAS_POLITICA_INSTALACION } from "@/lib/ticket-instalacion";
+import {
+  esSoporteExpress,
+  MODALIDAD_SOPORTE_LABELS,
+  trabajoExpressTexto,
+} from "@/lib/soporte-express";
 import { RevisionActions } from "./RevisionActions";
 import {
   motivoJustificacionTexto,
   MOTIVO_JUSTIFICACION_LABELS,
 } from "@/lib/justificacion-tecnica";
-import type { MotivoInfraestructura, EstadoRevision, MotivoJustificacionTecnica } from "@prisma/client";
+import type {
+  MotivoInfraestructura,
+  EstadoRevision,
+  MotivoJustificacionTecnica,
+  TrabajoExpress,
+} from "@prisma/client";
 import type { MaterialReporteDTO } from "@/lib/materiales-reporte";
 
 interface Foto {
@@ -64,6 +74,9 @@ interface ReporteData {
     cierrePorJustificacion?: boolean;
     motivo: string | null;
     descripcion: string | null;
+    modalidadSoporte?: string | null;
+    trabajoExpress?: TrabajoExpress | null;
+    trabajoExpressOtro?: string | null;
     motivoInfraestructura?: MotivoInfraestructura | null;
     nodoAfectado?: string | null;
     zonaInfra?: string | null;
@@ -369,6 +382,11 @@ export function ReporteDetalle({ backHref, backLabel }: ReporteDetalleProps) {
                   <span className="inline-flex items-center rounded-full bg-infinity-100 px-3 py-1 text-xs font-semibold text-infinity-800">
                     {TIPO_LABELS[ticket.tipo]}
                   </span>
+                  {esSoporteExpress(ticket) && (
+                    <span className="inline-flex items-center rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-900">
+                      Soporte Express
+                    </span>
+                  )}
                   <span className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">
                     {PRIORIDAD_LABELS[ticket.prioridad]}
                   </span>
@@ -418,6 +436,18 @@ export function ReporteDetalle({ backHref, backLabel }: ReporteDetalleProps) {
 
           <ReporteSection title="Trabajo realizado" icon={Wrench} accent="default">
             <InfoRow label="Tipo" value={TIPO_LABELS[ticket.tipo]} />
+            {esSoporteExpress(ticket) && (
+              <>
+                <InfoRow label="Modalidad" value={MODALIDAD_SOPORTE_LABELS.EXPRESS} />
+                <InfoRow
+                  label="Trabajo Express"
+                  value={
+                    trabajoExpressTexto(ticket.trabajoExpress, ticket.trabajoExpressOtro) ||
+                    "—"
+                  }
+                />
+              </>
+            )}
             <InfoRow label="Técnicos" value={ticket.tecnicosLabel} />
             <InfoRow label="Motivo" value={ticket.motivo || "—"} />
             {esInfra && ticket.nodoAfectado && (

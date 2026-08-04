@@ -28,6 +28,7 @@ interface ReporteItem {
   id: string;
   codigo: string;
   tipo: string;
+  modalidadSoporte?: string | null;
   estado: string;
   estadoRevision?: string | null;
   motivo: string | null;
@@ -316,7 +317,14 @@ export function ReportesList({
                           <p className="text-xs text-slate-400">{item.cliente.sector}</p>
                         </td>
                         <td className="p-3 hidden sm:table-cell text-xs leading-snug">{item.tecnico}</td>
-                        <td className="p-3 hidden md:table-cell">{TIPO_LABELS[item.tipo]}</td>
+                        <td className="p-3 hidden md:table-cell">
+                          {TIPO_LABELS[item.tipo]}
+                          {item.modalidadSoporte === "EXPRESS" && (
+                            <span className="ml-1 text-xs font-semibold text-amber-700">
+                              Express
+                            </span>
+                          )}
+                        </td>
                         <td className="p-3">
                           <p className="text-xs">{formatDateShort(item.cerradoEn)}</p>
                           {item.duracionMin != null && (

@@ -18,7 +18,15 @@ import {
   siTipoTrabajoTexto,
 } from "@/lib/ticket-infraestructura";
 import { registrarSiHistorial } from "@/lib/soporte-infraestructura/historial";
-import type { MotivoInfraestructura, Prioridad, SiTipoTrabajo, TipoTrabajo } from "@prisma/client";
+import type {
+  ModalidadSoporte,
+  MotivoInfraestructura,
+  Prioridad,
+  SiTipoTrabajo,
+  TipoTrabajo,
+  TrabajoExpress,
+} from "@prisma/client";
+import { TRABAJOS_EXPRESS } from "@/lib/soporte-express";
 
 const TIPOS_VALIDOS: TipoTrabajo[] = [
   "INSTALACION",
@@ -269,6 +277,32 @@ export async function POST(request: Request) {
     );
   }
 
+  const modalidadRaw = (body as { modalidadSoporte?: string }).modalidadSoporte;
+  const modalidadSoporte: ModalidadSoporte =
+    tipo === "SOPORTE" && modalidadRaw === "EXPRESS" ? "EXPRESS" : "COMPLETO";
+
+  let trabajoExpress: TrabajoExpress | null = null;
+  let trabajoExpressOtro: string | null = null;
+  if (modalidadSoporte === "EXPRESS") {
+    const te = (body as { trabajoExpress?: string }).trabajoExpress;
+    if (!te || !(TRABAJOS_EXPRESS as string[]).includes(te)) {
+      return NextResponse.json(
+        { error: "Seleccione el trabajo Express a realizar" },
+        { status: 400 }
+      );
+    }
+    trabajoExpress = te as TrabajoExpress;
+    const otro = String((body as { trabajoExpressOtro?: string }).trabajoExpressOtro ?? "").trim();
+    if (trabajoExpress === "OTRO" && otro.length < 3) {
+      return NextResponse.json(
+        { error: "Indique el detalle del trabajo (Otro)" },
+        { status: 400 }
+      );
+    }
+    trabajoExpressOtro =
+      trabajoExpress === "OTRO" ? enMayusculasGuardar(otro) : null;
+  }
+
   const slaHoras = slaHorasPorPrioridad(prio);
   const slaVenceEn = new Date(Date.now() + slaHoras * 60 * 60 * 1000);
   const codigo = await generarCodigoTicket(tipo);
@@ -283,6 +317,9 @@ export async function POST(request: Request) {
       clienteId: cliente.id,
       tecnicoId: tecnicoIds[0] ?? null,
       tipo,
+      modalidadSoporte,
+      trabajoExpress,
+      trabajoExpressOtro,
       prioridad: prio,
       estado: "PENDIENTE",
       ...datosTicket,
@@ -305,7 +342,14 @@ export async function POST(request: Request) {
       ticketId: ticket.id,
       usuarioId: session.id,
       accion: "TICKET_CREADO",
-      metadata: JSON.stringify({ codigo, tipo, prioridad, tecnicoIds }),
+      metadata: JSON.stringify({
+        codigo,
+        tipo,
+        prioridad,
+        tecnicoIds,
+        modalidadSoporte,
+        trabajoExpress,
+      }),
     },
   });
 
