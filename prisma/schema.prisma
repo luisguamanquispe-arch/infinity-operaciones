@@ -86,6 +86,20 @@ enum EstadoRevision {
   APROBADO
 }
 
+/// Motivos de cierre por justificación técnica (trabajo no ejecutado / factores externos).
+enum MotivoJustificacionTecnica {
+  CLIENTE_AUSENTE
+  CLIENTE_NO_PERMITE_INGRESO
+  DIRECCION_INCORRECTA
+  SIN_ACCESO_INFRAESTRUCTURA
+  FALTA_MATERIALES
+  DANO_MAYOR_NO_PROGRAMADO
+  RIESGO_TECNICO
+  CONDICIONES_CLIMATICAS
+  ESPERANDO_AUTORIZACION
+  OTRO
+}
+
 enum TipoConexionInstalacion {
   IP
   PPPOE
@@ -140,6 +154,7 @@ model Usuario {
   srHistoriales          SrHistorial[]
   siHistoriales          SiHistorial[]
   revisionesHistorial    RevisionHistorial[]
+  justificacionesRevisadas JustificacionTecnica[]
 }
 
 model Tecnico {
@@ -160,6 +175,7 @@ model Tecnico {
   irReportes   IrReporte[]
   irParticipaciones IrParticipante[]
   siComentarios SiComentario[]
+  justificacionesTecnicas JustificacionTecnica[]
 }
 
 model Cliente {
@@ -289,6 +305,8 @@ model Ticket {
   observacionesInfra   String?                @db.Text
   /// Flujo QA: null = legado (sin revisión); tras envío = PENDIENTE_REVISION…
   estadoRevision       EstadoRevision?
+  /// true si el envío a revisión fue por justificación técnica (sin checklist completo)
+  cierrePorJustificacion Boolean             @default(false)
   slaHoras             Int                    @default(8)
   slaVenceEn           DateTime?
   programadoEn         DateTime?
@@ -306,10 +324,32 @@ model Ticket {
   siHistorial          SiHistorial[]
   siComentarios        SiComentario[]
   revisionesHistorial  RevisionHistorial[]
+  justificacionesTecnicas JustificacionTecnica[]
 
   @@index([tipo, estado])
   @@index([siTipoTrabajo])
   @@index([estadoRevision])
+}
+
+/// Cierre con justificación técnica (trabajo no ejecutado); requiere aprobación del supervisor.
+model JustificacionTecnica {
+  id               String                     @id @default(cuid())
+  ticketId         String
+  tecnicoId        String
+  motivo           MotivoJustificacionTecnica
+  motivoOtro       String?
+  justificacion    String                     @db.Text
+  observaciones    String?                    @db.Text
+  fotoUrl          String?
+  createdAt        DateTime                   @default(now())
+  revisadoPorId    String?
+  revisadoEn       DateTime?
+  decision         String?
+  ticket           Ticket                     @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  tecnico          Tecnico                    @relation(fields: [tecnicoId], references: [id])
+  revisadoPor      Usuario?                   @relation(fields: [revisadoPorId], references: [id])
+
+  @@index([ticketId, createdAt])
 }
 
 /// Auditoría de devoluciones / correcciones / aprobaciones (no eliminable desde UI).

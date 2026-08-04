@@ -35,7 +35,11 @@ import {
 import { MOTIVO_INFRA_LABELS, esTicketInfraestructura } from "@/lib/ticket-infraestructura";
 import { esTicketInstalacion, CLAUSULAS_POLITICA_INSTALACION } from "@/lib/ticket-instalacion";
 import { RevisionActions } from "./RevisionActions";
-import type { MotivoInfraestructura, EstadoRevision } from "@prisma/client";
+import {
+  motivoJustificacionTexto,
+  MOTIVO_JUSTIFICACION_LABELS,
+} from "@/lib/justificacion-tecnica";
+import type { MotivoInfraestructura, EstadoRevision, MotivoJustificacionTecnica } from "@prisma/client";
 import type { MaterialReporteDTO } from "@/lib/materiales-reporte";
 
 interface Foto {
@@ -57,6 +61,7 @@ interface ReporteData {
     prioridad: string;
     estado: string;
     estadoRevision?: EstadoRevision | null;
+    cierrePorJustificacion?: boolean;
     motivo: string | null;
     descripcion: string | null;
     motivoInfraestructura?: MotivoInfraestructura | null;
@@ -118,6 +123,19 @@ interface ReporteData {
       usuarioNombre: string;
       createdAt: string;
       estadoNuevo: EstadoRevision;
+    }[];
+    justificacionesTecnicas?: {
+      id: string;
+      motivo: MotivoJustificacionTecnica;
+      motivoOtro: string | null;
+      justificacion: string;
+      observaciones: string | null;
+      fotoUrl: string | null;
+      createdAt: string;
+      decision: string | null;
+      revisadoEn: string | null;
+      tecnico: { usuario: { nombre: string } };
+      revisadoPor: { nombre: string } | null;
     }[];
   };
   duracionSegundos: number;
@@ -277,6 +295,7 @@ export function ReporteDetalle({ backHref, backLabel }: ReporteDetalleProps) {
           ticketId={ticket.id}
           estadoTicket={ticket.estado}
           estadoRevision={ticket.estadoRevision}
+          cierrePorJustificacion={!!ticket.cierrePorJustificacion}
           historial={(ticket.revisionesHistorial || []).map((h) => ({
             ...h,
             createdAt:
@@ -286,6 +305,50 @@ export function ReporteDetalle({ backHref, backLabel }: ReporteDetalleProps) {
           }))}
           onUpdated={() => void cargar()}
         />
+
+        {(ticket.justificacionesTecnicas?.length ?? 0) > 0 && (
+          <section className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-3 print:border print:bg-white">
+            <h3 className="font-semibold text-amber-950">Justificación técnica</h3>
+            {ticket.justificacionesTecnicas!.map((j) => (
+              <div key={j.id} className="text-sm space-y-1 border-t border-amber-100 pt-2 first:border-0 first:pt-0">
+                <p>
+                  <span className="text-slate-500">Motivo: </span>
+                  <strong>
+                    {motivoJustificacionTexto(j.motivo, j.motivoOtro) ||
+                      MOTIVO_JUSTIFICACION_LABELS[j.motivo]}
+                  </strong>
+                </p>
+                <p>
+                  <span className="text-slate-500">Justificación: </span>
+                  {j.justificacion}
+                </p>
+                {j.observaciones && (
+                  <p>
+                    <span className="text-slate-500">Observaciones: </span>
+                    {j.observaciones}
+                  </p>
+                )}
+                <p className="text-xs text-slate-500">
+                  Técnico: {j.tecnico.usuario.nombre} ·{" "}
+                  {new Date(j.createdAt).toLocaleString("es-EC")}
+                  {j.revisadoPor && j.revisadoEn
+                    ? ` · Revisó: ${j.revisadoPor.nombre} (${new Date(j.revisadoEn).toLocaleString("es-EC")})${j.decision ? ` · ${j.decision}` : ""}`
+                    : ""}
+                </p>
+                {j.fotoUrl && (
+                  <a
+                    href={j.fotoUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-infinity-700 underline"
+                  >
+                    Ver fotografía adjunta
+                  </a>
+                )}
+              </div>
+            ))}
+          </section>
+        )}
 
         {/* Encabezado del reporte */}
         <div className="bg-white rounded-xl border shadow-sm overflow-hidden print:shadow-none print:border-0">

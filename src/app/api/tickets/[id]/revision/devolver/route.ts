@@ -80,6 +80,20 @@ export async function POST(
       usuarioId: session.id,
       usuarioNombre: session.nombre,
     });
+    const ultJust = await tx.justificacionTecnica.findFirst({
+      where: { ticketId: id, revisadoEn: null },
+      orderBy: { createdAt: "desc" },
+    });
+    if (ultJust) {
+      await tx.justificacionTecnica.update({
+        where: { id: ultJust.id },
+        data: {
+          revisadoPorId: session.id,
+          revisadoEn: new Date(),
+          decision: "DEVUELTA",
+        },
+      });
+    }
   });
 
   if (esTicketInfraestructura(ticket.tipo)) {

@@ -68,6 +68,13 @@ export async function GET(
       revisionesHistorial: {
         orderBy: { createdAt: "asc" },
       },
+      justificacionesTecnicas: {
+        orderBy: { createdAt: "desc" },
+        include: {
+          tecnico: { include: { usuario: { select: { nombre: true } } } },
+          revisadoPor: { select: { nombre: true } },
+        },
+      },
     },
   });
 

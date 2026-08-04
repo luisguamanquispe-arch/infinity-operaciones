@@ -14,6 +14,7 @@ import {
 } from "@/components/tecnico/InstalacionOrdenSection";
 import { NovedadSoportePanel } from "@/components/tecnico/NovedadSoportePanel";
 import { EnviarReporteSoporte } from "@/components/tecnico/EnviarReporteSoporte";
+import { JustificacionTecnicaModal } from "@/components/tecnico/JustificacionTecnicaModal";
 import { TIPO_LABELS, formatDateTime, formatDuration } from "@/lib/utils";
 import { fetchWithRetry } from "@/lib/compress-image";
 import { leerGpsActual } from "@/lib/gps-client";
@@ -195,6 +196,7 @@ interface OrdenData {
     createdAt?: string;
   } | null;
   esResponsableInfra?: boolean;
+  esResponsable?: boolean;
 }
 
 const FOTOS_ANTES = FOTOS_ANTES_DEFAULT;
@@ -250,6 +252,7 @@ export default function OrdenPage() {
   >([]);
   const [nuevoComentario, setNuevoComentario] = useState("");
   const [enviandoComentario, setEnviandoComentario] = useState(false);
+  const [showJustificacion, setShowJustificacion] = useState(false);
 
   const aplicarDatosFormulario = useCallback((d: OrdenData) => {
     if (d.orden.medicion) {
@@ -1310,21 +1313,33 @@ export default function OrdenPage() {
                   Solo el Técnico Responsable puede finalizar esta orden.
                 </p>
               ) : (
-                <button
-                  onClick={cerrarTicket}
-                  disabled={cerrando}
-                  className="w-full py-3 bg-emerald-600 text-white rounded-xl font-semibold hover:bg-emerald-700 disabled:opacity-50"
-                >
-                  {cerrando
-                    ? porCorregir
-                      ? "Enviando corrección…"
-                      : "Finalizando…"
-                    : porCorregir
-                      ? "Enviar Corrección"
-                      : esInfra
-                        ? "Enviar a revisión"
+                <div className="space-y-2">
+                  <button
+                    type="button"
+                    onClick={cerrarTicket}
+                    disabled={cerrando}
+                    className="w-full py-3 bg-emerald-600 text-white rounded-xl font-semibold hover:bg-emerald-700 disabled:opacity-50"
+                  >
+                    {cerrando
+                      ? porCorregir
+                        ? "Enviando corrección…"
+                        : "Finalizando…"
+                      : porCorregir
+                        ? "Enviar Corrección"
                         : "Enviar a revisión"}
-                </button>
+                  </button>
+                  {!porCorregir &&
+                    (data.esResponsable || data.esResponsableInfra) && (
+                      <button
+                        type="button"
+                        onClick={() => setShowJustificacion(true)}
+                        disabled={cerrando}
+                        className="w-full py-3 bg-amber-600 text-white rounded-xl font-semibold hover:bg-amber-700 disabled:opacity-50"
+                      >
+                        Cerrar con Justificación Técnica
+                      </button>
+                    )}
+                </div>
               )}
             </section>
               </>
@@ -1437,6 +1452,16 @@ export default function OrdenPage() {
           </>
         )}
       </main>
+
+      <JustificacionTecnicaModal
+        ticketId={id}
+        open={showJustificacion}
+        onClose={() => setShowJustificacion(false)}
+        onSuccess={(codigo) => {
+          setShowJustificacion(false);
+          router.push(`/tecnico?cerrado=${encodeURIComponent(codigo)}`);
+        }}
+      />
     </div>
   );
 }

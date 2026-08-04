@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { Loader2, RotateCcw, CheckCircle2 } from "lucide-react";
 import {
   ESTADO_REVISION_LABELS,
@@ -24,6 +25,7 @@ type Props = {
   ticketId: string;
   estadoTicket: string;
   estadoRevision: EstadoRevision | null | undefined;
+  cierrePorJustificacion?: boolean;
   historial?: HistorialItem[];
   onUpdated?: () => void;
 };
@@ -32,6 +34,7 @@ export function RevisionActions({
   ticketId,
   estadoTicket,
   estadoRevision,
+  cierrePorJustificacion,
   historial = [],
   onUpdated,
 }: Props) {
@@ -104,6 +107,11 @@ export function RevisionActions({
         <div>
           <h3 className="font-semibold text-sm text-amber-950">Revisión de calidad</h3>
           <p className="text-xs text-amber-900/80 mt-0.5">Estado: {label}</p>
+          {cierrePorJustificacion && (
+            <p className="text-xs font-semibold text-amber-800 mt-1">
+              Cierre por justificación técnica (trabajo no ejecutado)
+            </p>
+          )}
         </div>
         <div className="flex flex-wrap gap-2">
           {puedeDevolver && (
@@ -113,7 +121,9 @@ export function RevisionActions({
               className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium shadow-sm"
             >
               <RotateCcw className="w-4 h-4" />
-              Devolver para Corrección
+              {cierrePorJustificacion
+                ? "Solicitar corrección"
+                : "Devolver para Corrección"}
             </button>
           )}
           {puedeAprobar && (
@@ -128,9 +138,15 @@ export function RevisionActions({
               ) : (
                 <CheckCircle2 className="w-4 h-4" />
               )}
-              Aprobar
+              {cierrePorJustificacion ? "Aprobar justificación" : "Aprobar"}
             </button>
           )}
+          <Link
+            href={`/supervisor/tickets/${ticketId}/editar`}
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-300 bg-white text-slate-800 text-sm font-medium hover:bg-slate-50"
+          >
+            Reasignar / Programar visita
+          </Link>
         </div>
       </div>
 

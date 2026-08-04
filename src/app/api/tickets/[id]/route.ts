@@ -211,6 +211,8 @@ export async function GET(
       ticketData.tipo === "INFRAESTRUCTURA" &&
       !!session.tecnicoId &&
       session.tecnicoId === ticketData.tecnicoId,
+    esResponsable:
+      !!session.tecnicoId && session.tecnicoId === ticketData.tecnicoId,
     novedadPendiente: novedadPendiente
       ? {
           id: novedadPendiente.id,

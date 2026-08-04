@@ -57,19 +57,39 @@ export async function POST(
     });
     await registrarRevisionHistorial(tx, {
       ticketId: id,
-      accion: "APROBADO",
+      accion: ticket.cierrePorJustificacion
+        ? "JUSTIFICACION_APROBADA"
+        : "APROBADO",
       estadoAnterior: anterior,
       estadoNuevo: "APROBADO",
       usuarioId: session.id,
       usuarioNombre: session.nombre,
     });
+    if (ticket.cierrePorJustificacion) {
+      const ult = await tx.justificacionTecnica.findFirst({
+        where: { ticketId: id, revisadoEn: null },
+        orderBy: { createdAt: "desc" },
+      });
+      if (ult) {
+        await tx.justificacionTecnica.update({
+          where: { id: ult.id },
+          data: {
+            revisadoPorId: session.id,
+            revisadoEn: new Date(),
+            decision: "APROBADA",
+          },
+        });
+      }
+    }
   });
 
   await prisma.eventoTicket.create({
     data: {
       ticketId: id,
       usuarioId: session.id,
-      accion: "REPORTE_APROBADO",
+      accion: ticket.cierrePorJustificacion
+        ? "JUSTIFICACION_APROBADA"
+        : "REPORTE_APROBADO",
       metadata: JSON.stringify({}),
     },
   });
@@ -79,14 +99,20 @@ export async function POST(
       ticketId: id,
       usuarioId: session.id,
       usuarioNombre: session.nombre,
-      accion: "REPORTE_APROBADO",
-      detalle: "Supervisor aprobó el reporte",
+      accion: ticket.cierrePorJustificacion
+        ? "JUSTIFICACION_APROBADA"
+        : "REPORTE_APROBADO",
+      detalle: ticket.cierrePorJustificacion
+        ? "Supervisor aprobó la justificación técnica"
+        : "Supervisor aprobó el reporte",
     });
   }
 
+  // No WhatsApp al cliente si el trabajo no se ejecutó (justificación técnica).
   if (
     ticket.orden &&
     !ticket.orden.whatsappEnviado &&
+    !ticket.cierrePorJustificacion &&
     !esClienteInfraestructura(ticket.cliente.cedula)
   ) {
     await enviarWhatsApp(ticket.codigo, ticket.cliente.telefono);
