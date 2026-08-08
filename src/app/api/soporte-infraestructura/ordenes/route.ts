@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getFullSession } from "@/lib/auth";
 import { ticketIncludeTecnicos, nombresTecnicosTicket } from "@/lib/ticket-tecnicos";
 import { SI_ESTADO_LABELS, SI_TIPO_TRABAJO_LABELS } from "@/lib/ticket-infraestructura";
+import { whereTicketNoAtendido } from "@/lib/ticket-antiguedad";
 
 export async function GET(request: Request) {
   const session = await getFullSession();
@@ -20,32 +21,38 @@ export async function GET(request: Request) {
   const take = Math.min(100, Math.max(1, parseInt(searchParams.get("take") || "50", 10)));
 
   const where: Prisma.TicketWhereInput = {
-    tipo: "INFRAESTRUCTURA",
-    ...(estado ? { estado: estado as Prisma.EnumEstadoTicketFilter["equals"] } : {}),
-    ...(tecnicoId
-      ? {
-          OR: [{ tecnicoId }, { tecnicos: { some: { tecnicoId } } }],
-        }
-      : {}),
-    ...(sector
-      ? {
-          OR: [
-            { sectorInfra: { contains: sector, mode: "insensitive" } },
-            { zonaInfra: { contains: sector, mode: "insensitive" } },
-          ],
-        }
-      : {}),
-    ...(siTipoTrabajo ? { siTipoTrabajo: siTipoTrabajo as never } : {}),
-    ...(q
-      ? {
-          OR: [
-            { codigo: { contains: q, mode: "insensitive" } },
-            { sectorInfra: { contains: q, mode: "insensitive" } },
-            { direccionInfra: { contains: q, mode: "insensitive" } },
-            { nodoAfectado: { contains: q, mode: "insensitive" } },
-          ],
-        }
-      : {}),
+    AND: [
+      {
+        tipo: "INFRAESTRUCTURA",
+        ...(estado ? { estado: estado as Prisma.EnumEstadoTicketFilter["equals"] } : {}),
+        ...(tecnicoId
+          ? {
+              OR: [{ tecnicoId }, { tecnicos: { some: { tecnicoId } } }],
+            }
+          : {}),
+        ...(sector
+          ? {
+              OR: [
+                { sectorInfra: { contains: sector, mode: "insensitive" } },
+                { zonaInfra: { contains: sector, mode: "insensitive" } },
+              ],
+            }
+          : {}),
+        ...(siTipoTrabajo ? { siTipoTrabajo: siTipoTrabajo as never } : {}),
+        ...(q
+          ? {
+              OR: [
+                { codigo: { contains: q, mode: "insensitive" } },
+                { sectorInfra: { contains: q, mode: "insensitive" } },
+                { direccionInfra: { contains: q, mode: "insensitive" } },
+                { nodoAfectado: { contains: q, mode: "insensitive" } },
+              ],
+            }
+          : {}),
+      },
+      // Sin atención ≥4 días: solo en /supervisor/no-atendidos
+      { NOT: whereTicketNoAtendido() },
+    ],
   };
 
   const tickets = await prisma.ticket.findMany({

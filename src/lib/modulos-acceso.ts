@@ -26,6 +26,7 @@ export type ModuloId =
   | "asignaciones"
   | "calendario"
   | "novedades"
+  | "no_atendidos"
   | "clientes"
   | "reportes"
   | "tecnicos"
@@ -195,6 +196,17 @@ export const MODULOS: ModuloDef[] = [
     roles: ["ADMIN", "SUPERVISOR"],
     contexts: ["home-tiles", "acciones"],
     order: 140,
+    homeIcon: "bell",
+  },
+  {
+    id: "no_atendidos",
+    href: "/supervisor/no-atendidos",
+    label: "No atendidos (+4d)",
+    group: "campo",
+    tone: "amber",
+    roles: ["ADMIN", "SUPERVISOR"],
+    contexts: ["home-tiles", "acciones"],
+    order: 145,
     homeIcon: "bell",
   },
 ];

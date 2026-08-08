@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getFullSession } from "@/lib/auth";
 import { calcularDuracionCronometro } from "@/lib/tickets";
 import { diaKey } from "@/lib/calendario";
-import { whereTicketOperativamenteAbierto } from "@/lib/ticket-cerrado";
+import { whereTicketActivoEnLista } from "@/lib/ticket-antiguedad";
 
 export const runtime = "nodejs";
 
@@ -48,7 +48,7 @@ export async function GET() {
       },
     }),
     prisma.ticket.findMany({
-      where: whereTicketOperativamenteAbierto({
+      where: whereTicketActivoEnLista({
         OR: [{ tecnicoId }, { tecnicos: { some: { tecnicoId } } }],
       }),
       include: {

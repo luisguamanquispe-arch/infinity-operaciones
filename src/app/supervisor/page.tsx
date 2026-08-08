@@ -7,11 +7,13 @@ import Link from "next/link";
 import { AppHeader } from "@/components/AppHeader";
 import { StatCard } from "@/components/StatCard";
 import { TicketSemaforo } from "@/components/TicketSemaforo";
+import { SemaforoTiempo } from "@/components/SemaforoTiempo";
 import { GitShaBadge } from "@/components/GitShaBadge";
 import { SupervisorHomeTiles } from "@/components/ModuleQuickNav";
 import { SystemDateTimeBar } from "@/components/SystemDateTimeBar";
 import { ESTADO_TECNICO_LABELS, PRIORIDAD_LABELS } from "@/lib/utils";
 import { fetchJson } from "@/lib/fetch-json-client";
+import { faseSemaforoTiempo, diasDesdeReferencia } from "@/lib/ticket-antiguedad";
 
 const MapInner = dynamic(() => import("@/components/MapInner"), {
   ssr: false,
@@ -23,6 +25,7 @@ interface DashboardData {
     abiertos: number;
     cerrados: number;
     vencidos: number;
+    noAtendidos?: number;
     tiempoPromedioMin: number;
     primeraVisitaPct: number;
   };
@@ -48,6 +51,8 @@ interface DashboardData {
     codigo: string;
     prioridad: string;
     estado: string;
+    createdAt?: string;
+    programadoEn?: string | null;
     cliente: { nombre: string; sector: string };
     tecnicosLabel: string;
     novedadPendiente?: boolean;
@@ -196,10 +201,18 @@ export default function SupervisorDashboard() {
 
         <SupervisorHomeTiles />
 
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
           <StatCard label="Abiertos" value={data.kpis.abiertos} color="blue" />
           <StatCard label="Cerrados hoy" value={data.kpis.cerrados} color="green" />
-          <StatCard label="Vencidos" value={data.kpis.vencidos} color="red" />
+          <StatCard label="Vencidos SLA" value={data.kpis.vencidos} color="red" />
+          <Link href="/supervisor/no-atendidos" className="block">
+            <StatCard
+              label="No atendidos +4d"
+              value={data.kpis.noAtendidos ?? 0}
+              color="red"
+              icon={AlertTriangle}
+            />
+          </Link>
           <StatCard
             label="Tiempo prom."
             value={`${data.kpis.tiempoPromedioMin}m`}
@@ -316,8 +329,12 @@ export default function SupervisorDashboard() {
             )}
           </h2>
           <p className="text-xs text-slate-500 mb-3">
-            Semáforo: amarillo leído · azul en proceso · verde terminado. Si no aparecen en la
-            app del técnico, abra{" "}
+            Semáforo de estado: amarillo leído · azul en proceso · verde terminado. Semáforo de
+            tiempo: verde 0–2d · amarillo 2–4d. Tras 4 días sin atención pasan a{" "}
+            <Link href="/supervisor/no-atendidos" className="text-red-700 font-medium underline">
+              No atendidos
+            </Link>
+            . Si no aparecen en la app del técnico, abra{" "}
             <Link href="/supervisor/asignaciones" className="text-infinity-600 font-medium underline">
               Destinar tickets → Actualizar y enviar a apps
             </Link>
@@ -331,12 +348,20 @@ export default function SupervisorDashboard() {
                   <th className="text-left p-3">Cliente</th>
                   <th className="text-left p-3 hidden sm:table-cell">Técnicos</th>
                   <th className="text-left p-3">Prioridad</th>
-                  <th className="text-left p-3">Semáforo</th>
+                  <th className="text-left p-3">Estado</th>
+                  <th className="text-left p-3">Tiempo</th>
                   <th className="text-left p-3"></th>
                 </tr>
               </thead>
               <tbody>
-                {data.tickets.map((t) => (
+                {data.tickets.map((t) => {
+                  const ref = {
+                    createdAt: t.createdAt || new Date().toISOString(),
+                    programadoEn: t.programadoEn,
+                  };
+                  const faseT = faseSemaforoTiempo(ref);
+                  const diasT = diasDesdeReferencia(ref);
+                  return (
                   <tr
                     key={t.id}
                     className={`border-t ${t.novedadPendiente ? "bg-amber-50/80" : ""}`}
@@ -365,6 +390,9 @@ export default function SupervisorDashboard() {
                       <TicketSemaforo estado={t.estado} />
                     </td>
                     <td className="p-3">
+                      <SemaforoTiempo fase={faseT} dias={diasT} />
+                    </td>
+                    <td className="p-3">
                       <div className="flex flex-wrap items-center gap-2">
                         {t.novedadPendiente && (
                           <Link
@@ -383,7 +411,8 @@ export default function SupervisorDashboard() {
                       </div>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>

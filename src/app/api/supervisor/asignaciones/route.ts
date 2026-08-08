@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getFullSession } from "@/lib/auth";
 import { ESTADOS_ACTIVOS_TICKET } from "@/lib/ticket-gerencia";
+import { whereTicketActivoEnLista } from "@/lib/ticket-antiguedad";
 import {
   asignarTecnicosTicket,
   nombresTecnicosTicket,
@@ -26,7 +27,7 @@ export async function GET() {
 
   const [tickets, tecnicos] = await Promise.all([
     prisma.ticket.findMany({
-      where: { estado: { in: [...ESTADOS_ACTIVOS_TICKET] } },
+      where: whereTicketActivoEnLista(),
       include: ticketIncludeTecnicos,
       orderBy: [{ prioridad: "asc" }, { programadoEn: "asc" }, { createdAt: "asc" }],
       take: 200,

@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
 import { notificarTecnicoAsignacion } from "@/lib/notificaciones-tecnico";
+import { whereTicketActivoEnLista } from "@/lib/ticket-antiguedad";
 
 export const ticketIncludeTecnicos = {
   tecnicos: {
@@ -295,7 +296,7 @@ export async function sincronizarAsignacionesActivas(): Promise<{
   sinAsignar: number;
 }> {
   const activos = await prisma.ticket.findMany({
-    where: { estado: { in: ["PENDIENTE", "LEIDO", "EN_PROCESO"] } },
+    where: whereTicketActivoEnLista(),
     select: {
       id: true,
       tecnicoId: true,

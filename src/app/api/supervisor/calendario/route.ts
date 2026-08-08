@@ -17,10 +17,8 @@ import {
   format,
 } from "date-fns";
 import { es } from "date-fns/locale";
-import { ESTADOS_ACTIVOS_TICKET } from "@/lib/ticket-gerencia";
+import { whereTicketActivoEnLista } from "@/lib/ticket-antiguedad";
 import { mensajeErrorPrisma } from "@/lib/prisma-errors";
-
-const ESTADOS_ACTIVOS = ESTADOS_ACTIVOS_TICKET;
 
 function ticketEnTecnico(
   t: { tecnicoId: string | null; tecnicos: { tecnicoId: string }[] },
@@ -89,18 +87,16 @@ export async function GET(request: Request) {
       orderBy: { usuario: { nombre: "asc" } },
     }),
     prisma.ticket.findMany({
-      where: {
-        estado: { in: [...ESTADOS_ACTIVOS] },
+      where: whereTicketActivoEnLista({
         programadoEn: { gte: inicio, lte: fin },
-      },
+      }),
       include: ticketInclude,
       orderBy: { programadoEn: "asc" },
     }),
     prisma.ticket.findMany({
-      where: {
-        estado: { in: [...ESTADOS_ACTIVOS] },
+      where: whereTicketActivoEnLista({
         programadoEn: null,
-      },
+      }),
       include: ticketInclude,
       orderBy: { createdAt: "desc" },
       take: 50,

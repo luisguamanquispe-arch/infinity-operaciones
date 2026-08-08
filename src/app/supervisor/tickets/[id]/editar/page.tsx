@@ -5,10 +5,16 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Loader2, CheckCircle, Search } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
-import { TIPO_LABELS, ESTADO_LABELS, PRIORIDAD_LABELS } from "@/lib/utils";
+import { TIPO_LABELS, ESTADO_LABELS } from "@/lib/utils";
 import { toDatetimeLocalValue } from "@/lib/calendario";
 import { TecnicoMultiSelect } from "@/components/TecnicoMultiSelect";
 import { inputMayusculasClass } from "@/lib/mayusculas";
+import {
+  MODALIDAD_SOPORTE_LABELS,
+  TRABAJO_EXPRESS_LABELS,
+  TRABAJOS_EXPRESS,
+} from "@/lib/soporte-express";
+import type { ModalidadSoporte, TrabajoExpress } from "@prisma/client";
 
 interface Tecnico {
   id: string;
@@ -57,6 +63,9 @@ export default function EditarTicketPage() {
     descripcion: "",
     tecnicoIds: [] as string[],
     programadoEn: "",
+    modalidadSoporte: "COMPLETO" as ModalidadSoporte,
+    trabajoExpress: "" as TrabajoExpress | "",
+    trabajoExpressOtro: "",
   });
 
   useEffect(() => {
@@ -90,6 +99,9 @@ export default function EditarTicketPage() {
             ? [t.tecnicoId]
             : [],
         programadoEn: toDatetimeLocalValue(t.programadoEn),
+        modalidadSoporte: t.modalidadSoporte === "EXPRESS" ? "EXPRESS" : "COMPLETO",
+        trabajoExpress: (t.trabajoExpress as TrabajoExpress | null) || "",
+        trabajoExpressOtro: t.trabajoExpressOtro || "",
       });
       setTecnicos(tecData.tecnicos);
       setLoading(false);
@@ -127,19 +139,45 @@ export default function EditarTicketPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!editable) return;
+
+    const esSoporteSubmit = form.tipo === "SOPORTE";
+    const esExpressSubmit = esSoporteSubmit && form.modalidadSoporte === "EXPRESS";
+    if (esExpressSubmit && !form.trabajoExpress) {
+      setError("Seleccione el trabajo Express a realizar");
+      return;
+    }
+    if (
+      esExpressSubmit &&
+      form.trabajoExpress === "OTRO" &&
+      form.trabajoExpressOtro.trim().length < 3
+    ) {
+      setError("Indique el detalle del trabajo (Otro)");
+      return;
+    }
+
     setGuardando(true);
     setError("");
     setExito("");
 
     const payload: Record<string, unknown> = {
-      ...form,
+      tipo: form.tipo,
+      prioridad: form.prioridad,
+      estado: form.estado,
+      motivo: form.motivo,
+      descripcion: form.descripcion,
       tecnicoIds: form.tecnicoIds,
       programadoEn: form.programadoEn || null,
+      modalidadSoporte: esSoporteSubmit ? form.modalidadSoporte : "COMPLETO",
+      trabajoExpress: esExpressSubmit ? form.trabajoExpress : null,
+      trabajoExpressOtro:
+        esExpressSubmit && form.trabajoExpress === "OTRO"
+          ? form.trabajoExpressOtro
+          : null,
     };
 
-    const tieneClienteEditable = form.tipo !== "INFRAESTRUCTURA";
+    const tieneClienteEditableSubmit = form.tipo !== "INFRAESTRUCTURA";
 
-    if (tieneClienteEditable) {
+    if (tieneClienteEditableSubmit) {
       if (!clienteNombre.trim()) {
         setError("El nombre del cliente es obligatorio");
         setGuardando(false);
@@ -172,6 +210,7 @@ export default function EditarTicketPage() {
   }
 
   const esSoporte = form.tipo === "SOPORTE";
+  const esExpress = esSoporte && form.modalidadSoporte === "EXPRESS";
   const tieneClienteEditable = form.tipo !== "INFRAESTRUCTURA";
 
   if (loading) {
@@ -290,7 +329,17 @@ export default function EditarTicketPage() {
               <label className="text-xs text-slate-500">Tipo de trabajo</label>
               <select
                 value={form.tipo}
-                onChange={(e) => setForm({ ...form, tipo: e.target.value })}
+                onChange={(e) => {
+                  const tipo = e.target.value;
+                  setForm({
+                    ...form,
+                    tipo,
+                    modalidadSoporte:
+                      tipo === "SOPORTE" ? form.modalidadSoporte : "COMPLETO",
+                    trabajoExpress: tipo === "SOPORTE" ? form.trabajoExpress : "",
+                    trabajoExpressOtro: tipo === "SOPORTE" ? form.trabajoExpressOtro : "",
+                  });
+                }}
                 className="w-full px-3 py-2 border rounded-lg text-sm mt-0.5"
               >
                 {TIPOS.map((t) => (
@@ -312,6 +361,83 @@ export default function EditarTicketPage() {
             </div>
           </div>
 
+          {esSoporte && (
+            <div className="space-y-2">
+              <label className="text-xs text-slate-500">Modalidad de soporte *</label>
+              <div className="grid grid-cols-2 gap-2">
+                {(["COMPLETO", "EXPRESS"] as ModalidadSoporte[]).map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() =>
+                      setForm({
+                        ...form,
+                        modalidadSoporte: m,
+                        trabajoExpress: m === "EXPRESS" ? form.trabajoExpress : "",
+                        trabajoExpressOtro: m === "EXPRESS" ? form.trabajoExpressOtro : "",
+                      })
+                    }
+                    className={`px-3 py-2.5 rounded-lg border text-sm font-medium transition ${
+                      form.modalidadSoporte === m
+                        ? m === "EXPRESS"
+                          ? "border-amber-500 bg-amber-50 text-amber-900"
+                          : "border-infinity-600 bg-infinity-50 text-infinity-800"
+                        : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
+                    }`}
+                  >
+                    {MODALIDAD_SOPORTE_LABELS[m]}
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs text-slate-500">
+                {esExpress
+                  ? "Al guardar, el técnico verá el formulario Express simplificado."
+                  : "El técnico completará el formulario técnico completo."}
+              </p>
+            </div>
+          )}
+
+          {esExpress && (
+            <div className="space-y-2">
+              <div>
+                <label className="text-xs text-slate-500">Trabajo Express *</label>
+                <select
+                  value={form.trabajoExpress}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      trabajoExpress: e.target.value as TrabajoExpress | "",
+                    })
+                  }
+                  className="w-full px-3 py-2 border rounded-lg text-sm mt-0.5"
+                  required
+                >
+                  <option value="">Seleccionar trabajo…</option>
+                  {TRABAJOS_EXPRESS.map((t) => (
+                    <option key={t} value={t}>
+                      {TRABAJO_EXPRESS_LABELS[t]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {form.trabajoExpress === "OTRO" && (
+                <div>
+                  <label className="text-xs text-slate-500">Detalle del trabajo *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Describa el trabajo Express"
+                    value={form.trabajoExpressOtro}
+                    onChange={(e) =>
+                      setForm({ ...form, trabajoExpressOtro: e.target.value })
+                    }
+                    className={`w-full px-3 py-2 border rounded-lg text-sm mt-0.5 ${inputMayusculasClass}`}
+                  />
+                </div>
+              )}
+            </div>
+          )}
+
           <div>
             <label className="text-xs text-slate-500">Estado</label>
             <select
@@ -319,8 +445,8 @@ export default function EditarTicketPage() {
               onChange={(e) => setForm({ ...form, estado: e.target.value })}
               className="w-full px-3 py-2 border rounded-lg text-sm mt-0.5"
             >
-              {ESTADOS.map((e) => (
-                <option key={e} value={e}>{ESTADO_LABELS[e]}</option>
+              {ESTADOS.map((est) => (
+                <option key={est} value={est}>{ESTADO_LABELS[est]}</option>
               ))}
             </select>
             <p className="text-xs text-slate-400 mt-1">

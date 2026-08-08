@@ -1,9 +1,8 @@
 import { prisma } from "@/lib/prisma";
-import { whereTicketOperativamenteAbierto } from "@/lib/ticket-cerrado";
+import { whereTicketActivoEnLista } from "@/lib/ticket-antiguedad";
 
 export async function obtenerSiKpis() {
   const base = { tipo: "INFRAESTRUCTURA" as const };
-  const abiertosWhere = whereTicketOperativamenteAbierto(base);
 
   const [
     pendientes,
@@ -15,14 +14,20 @@ export async function obtenerSiKpis() {
     tecnicosEnCampo,
     ordenesCerradas,
   ] = await Promise.all([
-    prisma.ticket.count({ where: { ...base, estado: "PENDIENTE" } }),
-    prisma.ticket.count({ where: { ...base, estado: "LEIDO" } }),
-    prisma.ticket.count({ where: { ...base, estado: "EN_PROCESO" } }),
+    prisma.ticket.count({
+      where: whereTicketActivoEnLista({ ...base, estado: "PENDIENTE" }),
+    }),
+    prisma.ticket.count({
+      where: whereTicketActivoEnLista({ ...base, estado: "LEIDO" }),
+    }),
+    prisma.ticket.count({
+      where: whereTicketActivoEnLista({ ...base, estado: "EN_PROCESO" }),
+    }),
     prisma.ticket.count({
       where: { ...base, estado: { in: ["CERRADO", "FINALIZADO"] } },
     }),
     prisma.ticket.count({
-      where: { ...abiertosWhere, prioridad: "ALTA" },
+      where: whereTicketActivoEnLista({ ...base, prioridad: "ALTA" }),
     }),
     prisma.tecnico.count({ where: { estadoActual: "DISPONIBLE", usuario: { activo: true } } }),
     prisma.tecnico.count({

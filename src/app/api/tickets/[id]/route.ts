@@ -14,7 +14,7 @@ import {
 } from "@/lib/ticket-tecnicos";
 import { fotoImagenSrcRapida } from "@/lib/foto-image";
 import { firmaImagenSrcRapida } from "@/lib/firma-image";
-import { normalizarTextoTicket } from "@/lib/mayusculas";
+import { normalizarTextoTicket, enMayusculasGuardar } from "@/lib/mayusculas";
 import { infoReporteOrden } from "@/lib/ticket-reporte";
 import {
   estadoTicketEfectivo,
@@ -27,6 +27,8 @@ import {
   solicitaCambioClienteEnBody,
 } from "@/lib/ticket-cliente-edit";
 import { novedadPendienteTicket, TIPO_NOVEDAD_LABELS } from "@/lib/novedad-ticket";
+import { TRABAJOS_EXPRESS } from "@/lib/soporte-express";
+import type { ModalidadSoporte, TrabajoExpress } from "@prisma/client";
 
 export async function GET(
   _request: Request,
@@ -322,6 +324,55 @@ export async function PATCH(
   }
   if (body.programadoEn !== undefined) {
     updateData.programadoEn = body.programadoEn ? parseProgramadoEn(body.programadoEn) : null;
+  }
+
+  // Modalidad Soporte Completo / Express (solo aplica a tipo SOPORTE).
+  const tipoFinal =
+    typeof updateData.tipo === "string" ? (updateData.tipo as string) : ticket.tipo;
+  if (body.modalidadSoporte !== undefined || body.trabajoExpress !== undefined || body.trabajoExpressOtro !== undefined) {
+    if (tipoFinal !== "SOPORTE") {
+      updateData.modalidadSoporte = "COMPLETO";
+      updateData.trabajoExpress = null;
+      updateData.trabajoExpressOtro = null;
+    } else {
+      const modalidadRaw = body.modalidadSoporte ?? ticket.modalidadSoporte;
+      const modalidad: ModalidadSoporte =
+        modalidadRaw === "EXPRESS" ? "EXPRESS" : "COMPLETO";
+      updateData.modalidadSoporte = modalidad;
+
+      if (modalidad === "COMPLETO") {
+        updateData.trabajoExpress = null;
+        updateData.trabajoExpressOtro = null;
+      } else {
+        const te =
+          body.trabajoExpress !== undefined
+            ? body.trabajoExpress
+            : ticket.trabajoExpress;
+        if (!te || !(TRABAJOS_EXPRESS as string[]).includes(String(te))) {
+          return NextResponse.json(
+            { error: "Seleccione el trabajo Express a realizar" },
+            { status: 400 }
+          );
+        }
+        updateData.trabajoExpress = te as TrabajoExpress;
+        const otroRaw =
+          body.trabajoExpressOtro !== undefined
+            ? String(body.trabajoExpressOtro ?? "").trim()
+            : ticket.trabajoExpressOtro?.trim() ?? "";
+        if (te === "OTRO" && otroRaw.length < 3) {
+          return NextResponse.json(
+            { error: "Indique el detalle del trabajo (Otro)" },
+            { status: 400 }
+          );
+        }
+        updateData.trabajoExpressOtro =
+          te === "OTRO" ? enMayusculasGuardar(otroRaw) : null;
+      }
+    }
+  } else if (updateData.tipo && updateData.tipo !== "SOPORTE") {
+    updateData.modalidadSoporte = "COMPLETO";
+    updateData.trabajoExpress = null;
+    updateData.trabajoExpressOtro = null;
   }
 
   if (tecnicoIdsInput !== undefined) {

@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getFullSession } from "@/lib/auth";
 
 import { nombresTecnicosTicket, ticketIncludeTecnicos } from "@/lib/ticket-tecnicos";
-import { whereTicketOperativamenteAbierto } from "@/lib/ticket-cerrado";
+import { whereTicketActivoEnLista, whereTicketNoAtendido } from "@/lib/ticket-antiguedad";
 import { TIPO_NOVEDAD_LABELS } from "@/lib/novedad-ticket";
 import { obtenerSiKpis } from "@/lib/soporte-infraestructura/stats";
 
@@ -18,9 +18,10 @@ export async function GET() {
   const now = new Date();
   const hoy = new Date(now);
   hoy.setHours(0, 0, 0, 0);
-  const abiertosWhere = whereTicketOperativamenteAbierto();
+  const abiertosWhere = whereTicketActivoEnLista(undefined, now);
+  const noAtendidosWhere = whereTicketNoAtendido(undefined, now);
 
-  const [abiertos, cerrados, vencidos, tecnicos, ticketsRecientes, soporteInfra] =
+  const [abiertos, cerrados, vencidos, noAtendidos, tecnicos, ticketsRecientes, soporteInfra] =
     await Promise.all([
     prisma.ticket.count({
       where: abiertosWhere,
@@ -29,7 +30,10 @@ export async function GET() {
       where: { estado: "CERRADO", updatedAt: { gte: hoy } },
     }),
     prisma.ticket.count({
-      where: whereTicketOperativamenteAbierto({ slaVenceEn: { lt: now } }),
+      where: whereTicketActivoEnLista({ slaVenceEn: { lt: now } }, now),
+    }),
+    prisma.ticket.count({
+      where: noAtendidosWhere,
     }),
     prisma.tecnico.findMany({
       include: { usuario: true },
@@ -84,6 +88,7 @@ export async function GET() {
       abiertos,
       cerrados,
       vencidos,
+      noAtendidos,
       tiempoPromedioMin: tiempoPromedio,
       primeraVisitaPct: primeraVisita,
     },
@@ -103,6 +108,8 @@ export async function GET() {
         codigo: t.codigo,
         prioridad: t.prioridad,
         estado: t.estado,
+        createdAt: t.createdAt.toISOString(),
+        programadoEn: t.programadoEn?.toISOString() ?? null,
         cliente: t.cliente,
         tecnicosLabel: nombresTecnicosTicket(t),
         novedadPendiente: Boolean(tipoNovedad),
