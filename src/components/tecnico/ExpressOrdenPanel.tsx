@@ -5,6 +5,7 @@ import { SignatureCapture } from "@/components/SignatureCapture";
 import { EnviarReporteSoporte } from "@/components/tecnico/EnviarReporteSoporte";
 import {
   FOTOS_EXPRESS,
+  FOTO_LABELS_EXPRESS,
   trabajoExpressTexto,
 } from "@/lib/soporte-express";
 import type { TrabajoExpress } from "@prisma/client";
@@ -78,8 +79,9 @@ export function ExpressOrdenPanel({
           <section className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-1">
             <p className="font-semibold text-amber-950">Soporte Express</p>
             <p className="text-sm text-amber-900/80">
-              Formulario simplificado. Solo complete lo esencial; fotos, materiales y firma son
-              opcionales.
+              Formulario simplificado. Debe adjuntar 2 fotos obligatorias (serie de equipos y
+              cliente satisfecho). En materiales puede registrar marca, modelo y serie de los
+              equipos entregados. La firma es opcional.
             </p>
             {trabajoLabel && (
               <p className="text-sm mt-2">
@@ -119,13 +121,16 @@ export function ExpressOrdenPanel({
       {showEvidence && (
         <>
           <section className="bg-white rounded-xl border p-4 space-y-2">
-            <h3 className="font-semibold">Fotografías (opcional, máx. 2)</h3>
-            <p className="text-xs text-slate-500">Puede adjuntar 1 o 2 evidencias del trabajo.</p>
+            <h3 className="font-semibold">Fotografías obligatorias (2)</h3>
+            <p className="text-xs text-slate-500">
+              1. Serie de los equipos · 2. Cliente satisfecho
+            </p>
             {FOTOS_EXPRESS.map((t) => (
               <PhotoCapture
                 key={t}
                 ticketId={ticketId}
                 tipo={t}
+                label={FOTO_LABELS_EXPRESS[t]}
                 existing={fotoMap[t]}
                 onUploaded={onFotoUploaded}
                 readOnly={cerrado}

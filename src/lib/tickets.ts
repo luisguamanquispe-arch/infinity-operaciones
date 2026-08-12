@@ -9,6 +9,14 @@ import {
 } from "./ticket-instalacion";
 import { FOTO_LABELS } from "./utils";
 import { enviarWhatsAppTicketCerrado } from "./whatsapp";
+import {
+  FOTOS_OBLIGATORIAS_EXPRESS,
+  FOTO_LABELS_EXPRESS,
+} from "./soporte-express";
+import {
+  materialEsEquipoActivo,
+  tipoInventarioEfectivo,
+} from "./material-detalle";
 export async function getOrCreateOrden(ticketId: string) {
   const fotoLite = {
     select: { id: true, tipo: true, url: true, lat: true, lng: true },
@@ -96,6 +104,12 @@ export function validarCierreOrden(
     nombreRedWifi?: string | null;
     claveRedWifi?: string | null;
     resumenTrabajo?: string | null;
+    materiales?: {
+      serie?: string | null;
+      modelo?: string | null;
+      marca?: string | null;
+      inventario?: { nombre: string; tipo?: string } | null;
+    }[];
   },
   options?: {
     esInfraestructura?: boolean;
@@ -115,7 +129,28 @@ export function validarCierreOrden(
     if (resumen.length < 10) {
       errores.push("Indique el trabajo realizado (mínimo 10 caracteres)");
     }
-    // Fotos, firma, mediciones y checklist avanzado son opcionales en Express.
+    for (const tipo of FOTOS_OBLIGATORIAS_EXPRESS) {
+      if (!orden.fotografias.some((f) => f.tipo === tipo)) {
+        errores.push(
+          `Falta foto: ${FOTO_LABELS_EXPRESS[tipo] || FOTO_LABELS[tipo] || tipo}`
+        );
+      }
+    }
+    for (const m of orden.materiales ?? []) {
+      const nombre = m.inventario?.nombre ?? "";
+      const tipoInv = tipoInventarioEfectivo(
+        (m.inventario?.tipo as "CONSUMIBLE" | "PATCHCORD" | "EQUIPO" | undefined) ??
+          "CONSUMIBLE",
+        nombre
+      );
+      const esEquipo = tipoInv === "EQUIPO" || materialEsEquipoActivo(nombre);
+      if (!esEquipo) continue;
+      if (!m.serie?.trim() || !m.modelo?.trim() || !m.marca?.trim()) {
+        errores.push(
+          `Equipo ${nombre || "entregado"}: indique marca, modelo y serie`
+        );
+      }
+    }
     return { valido: errores.length === 0, errores };
   }
 

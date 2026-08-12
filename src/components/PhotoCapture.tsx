@@ -11,6 +11,8 @@ interface PhotoCaptureProps {
   existing?: { id?: string; url: string; imagenSrc?: string } | null;
   onUploaded: () => void;
   readOnly?: boolean;
+  /** Etiqueta visible; si no se pasa, usa FOTO_LABELS[tipo]. */
+  label?: string;
 }
 
 export function PhotoCapture({
@@ -19,6 +21,7 @@ export function PhotoCapture({
   existing,
   onUploaded,
   readOnly = false,
+  label,
 }: PhotoCaptureProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(false);
@@ -115,7 +118,7 @@ export function PhotoCapture({
           ) : (
             <Camera className="w-4 h-4 text-slate-400 shrink-0" />
           )}
-          <span className="text-sm truncate">{FOTO_LABELS[tipo] || tipo}</span>
+          <span className="text-sm truncate">{label || FOTO_LABELS[tipo] || tipo}</span>
         </div>
 
         {!existing && readOnly ? (

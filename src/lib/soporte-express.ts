@@ -5,8 +5,18 @@ export const MODALIDAD_SOPORTE_LABELS: Record<ModalidadSoporte, string> = {
   EXPRESS: "Soporte Express",
 };
 
-/** Fotografías opcionales (máx. 2 slots) en Soporte Express. */
-export const FOTOS_EXPRESS: TipoFoto[] = ["TRABAJO", "CLIENTE_CONFORME"];
+/**
+ * Fotos obligatorias en Soporte Express (mín. 2):
+ * 1 serie de equipos · 2 cliente satisfecho
+ */
+export const FOTOS_EXPRESS: TipoFoto[] = ["ONU", "CLIENTE_CONFORME"];
+
+export const FOTOS_OBLIGATORIAS_EXPRESS: TipoFoto[] = [...FOTOS_EXPRESS];
+
+export const FOTO_LABELS_EXPRESS: Record<string, string> = {
+  ONU: "1. Serie de los equipos",
+  CLIENTE_CONFORME: "2. Cliente satisfecho",
+};
 
 export const TRABAJO_EXPRESS_LABELS: Record<TrabajoExpress, string> = {
   INSTALACION_REPETIDOR_WIFI: "Instalación de repetidor WiFi",

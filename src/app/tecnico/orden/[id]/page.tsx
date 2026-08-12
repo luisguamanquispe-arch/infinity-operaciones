@@ -1151,13 +1151,14 @@ export default function OrdenPage() {
             {/* Materiales */}
             <section className="bg-white rounded-xl border p-4 space-y-3">
               <h3 className="font-semibold">
-                Material utilizado{esExpress ? " (opcional)" : ""}
+                Material utilizado
+                {esExpress ? " (equipos: marca, modelo y serie)" : ""}
               </h3>
               <p className="text-xs text-slate-500">
                 {esInfra
                   ? "Registre materiales usados. Equipos y fibras requieren serie/lote, modelo y marca."
                   : esExpress
-                    ? "Opcional. Router, ONU, bridge y repetidor: marca, modelo y serie."
+                    ? "Si entrega equipos al cliente (Router, ONU, Bridge, Repetidor, etc.), registre marca, modelo y serie obligatorios."
                     : `Materiales: Router, ONU y Bridge (marca, modelo y serie); Fibra; Patch cord; Rosetas; Repetidores (marca, modelo y serie); Otros. Cable drop / fibra droop incluye ${FIBRA_DROP_LIMITE_M} m; el excedente se marca en rojo.`}
               </p>
               {materiales.map((m, i) => {
