@@ -360,6 +360,7 @@ model Ticket {
   @@index([siTipoTrabajo])
   @@index([estadoRevision])
   @@index([modalidadSoporte])
+  @@index([clienteId, createdAt])
 }
 
 /// Cierre con justificación técnica (trabajo no ejecutado); requiere aprobación del supervisor.

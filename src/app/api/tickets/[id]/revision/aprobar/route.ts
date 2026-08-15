@@ -10,6 +10,7 @@ import { esClienteInfraestructura } from "@/lib/cliente-infraestructura";
 import { enviarWhatsApp } from "@/lib/tickets";
 import { esTicketInfraestructura } from "@/lib/ticket-infraestructura";
 import { registrarSiHistorial } from "@/lib/soporte-infraestructura/historial";
+import { FLUJO_TICKET, logFlujoTicket } from "@/lib/ticket-flujo-log";
 
 /** Supervisor/Admin: aprueba el reporte → CERRADO + APROBADO (cierre oficial). */
 export async function POST(
@@ -122,5 +123,22 @@ export async function POST(
     });
   }
 
+  logFlujoTicket(FLUJO_TICKET.TICKET_CLOSED, {
+    ticketId: id,
+    codigo: ticket.codigo,
+    clienteId: ticket.clienteId,
+    tecnicoId: ticket.tecnicoId ?? undefined,
+    estado: "CERRADO",
+    resultado: "aprobado",
+  });
+  logFlujoTicket(FLUJO_TICKET.HISTORY_UPDATED, {
+    ticketId: id,
+    codigo: ticket.codigo,
+    clienteId: ticket.clienteId,
+    tecnicoId: ticket.tecnicoId ?? undefined,
+    resultado: "historial_ok",
+  });
+
   return NextResponse.json({ ok: true, estadoRevision: "APROBADO", codigo: ticket.codigo });
+}
 }

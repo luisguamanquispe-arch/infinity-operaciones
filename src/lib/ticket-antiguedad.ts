@@ -74,8 +74,8 @@ export function whereTicketNoAtendido(
       },
       {
         OR: [
-          { programadoEn: { not: null, lt: limite } },
-          { AND: [{ programadoEn: null }, { createdAt: { lt: limite } }] },
+          { programadoEn: { not: null, lte: limite } },
+          { AND: [{ programadoEn: null }, { createdAt: { lte: limite } }] },
         ],
       },
     ],
@@ -103,8 +103,8 @@ export function whereTicketActivoEnLista(
           },
           {
             OR: [
-              { programadoEn: { gte: limite } },
-              { AND: [{ programadoEn: null }, { createdAt: { gte: limite } }] },
+              { programadoEn: { gt: limite } },
+              { AND: [{ programadoEn: null }, { createdAt: { gt: limite } }] },
             ],
           },
         ],
@@ -121,4 +121,44 @@ export function whereTicketAbiertoSinFiltroEdad(
   extra?: Prisma.TicketWhereInput
 ): Prisma.TicketWhereInput {
   return whereTicketOperativamenteAbierto(extra);
+}
+
+export type VistaTecnicoApp =
+  | "mis_ordenes"
+  | "no_atendidos"
+  | "por_corregir"
+  | "cerrado"
+  | "no_asignado";
+
+function tecnicoAsignadoLite(
+  ticket: { tecnicoId: string | null; tecnicos?: { tecnicoId: string }[] },
+  tecnicoId: string | null | undefined
+): boolean {
+  if (!tecnicoId) return false;
+  if (ticket.tecnicoId === tecnicoId) return true;
+  return ticket.tecnicos?.some((t) => t.tecnicoId === tecnicoId) ?? false;
+}
+
+/**
+ * Dónde debe ver el técnico un ticket en la App.
+ * Mis órdenes (menos de 4 días); No atendidos (4 días o más).
+ * Si sigue asignado, no desaparece de la App (salvo cerrado o no asignado).
+ */
+export function clasificarVistaTecnicoApp(
+  ticket: {
+    estado: string;
+    estadoRevision?: string | null;
+    programadoEn?: Date | string | null;
+    createdAt: Date | string;
+    tecnicoId: string | null;
+    tecnicos?: { tecnicoId: string }[];
+  },
+  tecnicoId: string | null | undefined,
+  now: Date = new Date()
+): VistaTecnicoApp {
+  if (!tecnicoAsignadoLite(ticket, tecnicoId)) return "no_asignado";
+  if (ticket.estadoRevision === "DEVUELTO_CORRECCION") return "por_corregir";
+  if (["CERRADO", "FINALIZADO", "CANCELADO"].includes(ticket.estado)) return "cerrado";
+  if (esTicketNoAtendido(ticket, now)) return "no_atendidos";
+  return "mis_ordenes";
 }

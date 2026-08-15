@@ -7,7 +7,9 @@ import {
   notificarTecnicosNuevos,
   ticketIncludeTecnicos,
   validarTecnicoIds,
+  garantizarAsignacionTrasCrear,
 } from "@/lib/ticket-tecnicos";
+import { AsignacionIncompletaError } from "@/lib/ticket-asignacion";
 import { normalizarTextoTicket, enMayusculasGuardar } from "@/lib/mayusculas";
 import { getOrCreateClienteInfraestructura } from "@/lib/cliente-infraestructura";
 import {
@@ -27,6 +29,7 @@ import type {
   TrabajoExpress,
 } from "@prisma/client";
 import { TRABAJOS_EXPRESS } from "@/lib/soporte-express";
+import { FLUJO_TICKET, logFlujoTicket } from "@/lib/ticket-flujo-log";
 
 const TIPOS_VALIDOS: TipoTrabajo[] = [
   "INSTALACION",
@@ -236,7 +239,25 @@ export async function POST(request: Request) {
       detalle: `Orden ${codigo} creada · Responsable asignado · ${tecnicoIds.length} técnico(s)`,
     });
 
+    try {
+      await garantizarAsignacionTrasCrear(ticket, tecnicoIds);
+    } catch (e) {
+      if (e instanceof AsignacionIncompletaError) {
+        return NextResponse.json({ error: e.message }, { status: 409 });
+      }
+      throw e;
+    }
+
     await notificarTecnicosNuevos(ticket, [], tecnicoIds);
+
+    logFlujoTicket(FLUJO_TICKET.TICKET_CREATED, {
+      ticketId: ticket.id,
+      codigo,
+      clienteId: ticket.clienteId,
+      tecnicoId: tecnicoIds[0],
+      tipo,
+      resultado: "creado",
+    });
 
     return NextResponse.json({ ticket }, { status: 201 });
   }
@@ -354,8 +375,25 @@ export async function POST(request: Request) {
   });
 
   if (tecnicoIds.length) {
+    try {
+      await garantizarAsignacionTrasCrear(ticket, tecnicoIds);
+    } catch (e) {
+      if (e instanceof AsignacionIncompletaError) {
+        return NextResponse.json({ error: e.message }, { status: 409 });
+      }
+      throw e;
+    }
     await notificarTecnicosNuevos(ticket, [], tecnicoIds);
   }
+
+  logFlujoTicket(FLUJO_TICKET.TICKET_CREATED, {
+    ticketId: ticket.id,
+    codigo,
+    clienteId: ticket.clienteId,
+    tecnicoId: tecnicoIds[0],
+    tipo,
+    resultado: "creado",
+  });
 
   return NextResponse.json({ ticket }, { status: 201 });
 }

@@ -1,5 +1,6 @@
 import { prisma } from "./prisma";
 import { getOrCreateOrden, calcularDuracionCronometro } from "./tickets";
+import { FLUJO_TICKET, logFlujoTicket } from "./ticket-flujo-log";
 
 export interface IniciarCronometroParams {
   ticketId: string;
@@ -19,7 +20,7 @@ export async function iniciarCronometroTicket({
 }: IniciarCronometroParams): Promise<{ yaIniciado: boolean; duracionSegundos: number }> {
   const ticket = await prisma.ticket.findUnique({
     where: { id: ticketId },
-    select: { estado: true },
+    select: { estado: true, codigo: true, clienteId: true },
   });
 
   if (!ticket || ["CERRADO", "FINALIZADO", "CANCELADO"].includes(ticket.estado)) {
@@ -94,6 +95,14 @@ export async function iniciarCronometroTicket({
         origen: "apertura_ticket",
       }),
     },
+  });
+
+  logFlujoTicket(FLUJO_TICKET.WORK_STARTED, {
+    ticketId,
+    codigo: ticket.codigo,
+    clienteId: ticket.clienteId,
+    tecnicoId,
+    resultado: "en_proceso",
   });
 
   return { yaIniciado: false, duracionSegundos: 0 };

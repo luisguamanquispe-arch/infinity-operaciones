@@ -80,6 +80,7 @@ export default function TecnicoDashboard() {
   const [bannerCerrado, setBannerCerrado] = useState<string | null>(null);
   const [resumen, setResumen] = useState<Resumen | null>(null);
   const [ordenesPendientes, setOrdenesPendientes] = useState<OrdenPendiente[]>([]);
+  const [noAtendidos, setNoAtendidos] = useState<OrdenPendiente[]>([]);
   const [agenda, setAgenda] = useState<AgendaTicket[]>([]);
   const [proximaOrden, setProximaOrden] = useState<AgendaTicket | null>(null);
   const [activosMapa, setActivosMapa] = useState<AgendaTicket[]>([]);
@@ -114,6 +115,7 @@ export default function TecnicoDashboard() {
       }
       setResumen(data.resumen);
       setOrdenesPendientes(data.ordenesPendientes ?? data.tickets ?? []);
+      setNoAtendidos(data.noAtendidos ?? []);
       setAgenda(data.agenda ?? []);
       setProximaOrden(data.proximaOrden ?? null);
       setActivosMapa(data.activosMapa ?? []);
@@ -324,6 +326,10 @@ export default function TecnicoDashboard() {
               <div className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-3 mb-3">
                 {agenda.length > 0 ? (
                   <p>No hay órdenes sin programar. Revise la Agenda de arriba.</p>
+                ) : noAtendidos.length > 0 ? (
+                  <p>
+                    No hay órdenes en plazo. Los tickets de 4 días o más están en «No atendidos».
+                  </p>
                 ) : (
                   <p>
                     No hay órdenes activas en su perfil. El supervisor debe destinarle tickets.
@@ -335,6 +341,22 @@ export default function TecnicoDashboard() {
             ordenes={ordenesPendientes.filter((o) => o.tipo !== "INFRAESTRUCTURA")}
           />
         </section>
+
+        {noAtendidos.length > 0 && (
+          <section>
+            <h2 className="font-semibold mb-1 flex items-center gap-2 text-red-900">
+              <AlertTriangle className="w-5 h-5" />
+              No atendidos (+4 días)
+            </h2>
+            <p className="text-xs text-slate-500 mb-3">
+              Siguen asignados a usted. Salieron de Mis órdenes por antigüedad, no desaparecieron.
+            </p>
+            <TecnicoOrdenesPendientes
+              ordenes={noAtendidos}
+              emptyLabel="No tiene tickets sin atención de 4 días o más."
+            />
+          </section>
+        )}
       </main>
       <div className="max-w-6xl mx-auto px-4 pb-4">
         <GitShaBadge />

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { tecnicoAsignadoAlTicket } from "@/lib/ticket-tecnicos";
 import { asegurarColaboracionOrden, infoReporteOrden } from "@/lib/ticket-reporte";
 import { verificarTicketEditable } from "@/lib/ticket-cerrado";
+import { FLUJO_TICKET, logFlujoTicket } from "@/lib/ticket-flujo-log";
 
 /**
  * Al abrir la orden: marca LEIDO (semáforo). F5/E4: no reclama reportador.
@@ -83,6 +84,15 @@ export async function POST(
   }
 
   const reporte = await infoReporteOrden(id, session.tecnicoId);
+
+  logFlujoTicket(FLUJO_TICKET.TICKET_RECEIVED_BY_TECHNICIAN, {
+    ticketId: id,
+    codigo: ticket.codigo,
+    clienteId: ticket.clienteId,
+    tecnicoId: session.tecnicoId,
+    estado: ticket.estado === "PENDIENTE" ? "LEIDO" : ticket.estado,
+    resultado: "recibido",
+  });
 
   return NextResponse.json({
     ok: true,

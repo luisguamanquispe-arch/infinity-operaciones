@@ -3,7 +3,11 @@ import { prisma } from "@/lib/prisma";
 import { getFullSession } from "@/lib/auth";
 import { calcularDuracionCronometro } from "@/lib/tickets";
 import { diaKey } from "@/lib/calendario";
-import { whereTicketActivoEnLista } from "@/lib/ticket-antiguedad";
+import {
+  diasDesdeReferencia,
+  whereTicketActivoEnLista,
+  whereTicketNoAtendido,
+} from "@/lib/ticket-antiguedad";
 
 export const runtime = "nodejs";
 
@@ -38,7 +42,11 @@ export async function GET() {
 
   const tecnicoId = session.tecnicoId;
 
-  const [tecnico, activos, finalizadasHoy] = await Promise.all([
+  const asignadoAMi = {
+    OR: [{ tecnicoId }, { tecnicos: { some: { tecnicoId } } }],
+  };
+
+  const [tecnico, activos, noAtendidosDb, finalizadasHoy] = await Promise.all([
     prisma.tecnico.findUnique({
       where: { id: tecnicoId },
       select: {
@@ -48,9 +56,7 @@ export async function GET() {
       },
     }),
     prisma.ticket.findMany({
-      where: whereTicketActivoEnLista({
-        OR: [{ tecnicoId }, { tecnicos: { some: { tecnicoId } } }],
-      }),
+      where: whereTicketActivoEnLista(asignadoAMi),
       include: {
         cliente: clienteSelect,
         orden: {
@@ -64,17 +70,27 @@ export async function GET() {
       orderBy: [{ programadoEn: "asc" }, { prioridad: "asc" }, { createdAt: "asc" }],
       take: 80,
     }),
+    prisma.ticket.findMany({
+      where: whereTicketNoAtendido(asignadoAMi),
+      include: {
+        cliente: clienteSelect,
+        orden: {
+          select: {
+            cronometro: {
+              select: { inicio: true, fin: true, pausasJson: true },
+            },
+          },
+        },
+      },
+      orderBy: [{ createdAt: "asc" }, { prioridad: "asc" }],
+      take: 80,
+    }),
     prisma.ticket.count({
       where: {
         AND: [
           { estado: { in: ["FINALIZADO", "CERRADO"] } },
           { updatedAt: { gte: hoy, lte: finHoy } },
-          {
-            OR: [
-              { tecnicoId },
-              { tecnicos: { some: { tecnicoId } } },
-            ],
-          },
+          asignadoAMi,
         ],
       },
     }),
@@ -174,13 +190,18 @@ export async function GET() {
         ordenesActivas: activos.length,
         codigos: activos.map((t) => t.codigo),
         /** Señal E1: sesión válida pero 0 órdenes — revisar reconciliar-e1 */
-        posibleE1: activos.length === 0,
+        posibleE1: activos.length === 0 && noAtendidosDb.length === 0,
       },
       proximaOrden: proxima ? serializeAgenda(proxima) : null,
       agenda: agendaRaw.map(serializeAgenda),
       activosMapa: activos.map(serializeActivoMapa),
       /** Órdenes activas sin fecha programada (las programadas van en Agenda). */
       ordenesPendientes: ordenesSinProgramar,
+      /** Asignados con ≥4 días sin atención. Siguen visibles para el técnico. */
+      noAtendidos: noAtendidosDb.map((t) => ({
+        ...serializeTicket(t),
+        diasSinAtencion: Math.floor(diasDesdeReferencia(t)),
+      })),
       /** Todas las activas (mapa / compat). */
       tickets: ordenes,
     },

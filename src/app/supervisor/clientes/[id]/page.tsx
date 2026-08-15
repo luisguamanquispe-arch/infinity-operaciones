@@ -6,6 +6,10 @@ import Link from "next/link";
 import { ArrowLeft, CheckCircle, Clock, Loader2, Trash2 } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
 import { ClienteForm, clienteToForm, formToPayload } from "@/components/ClienteForm";
+import {
+  HistorialSoportesResumen,
+  type ResumenSoportes,
+} from "@/components/clientes/HistorialSoportesResumen";
 import { CAMPOS_CLIENTE_LABELS } from "@/lib/cliente-crud";
 import { mensajeCedulaInvalida, normalizarCedula, validarCedulaEcuatoriana } from "@/lib/cedula-ec";
 
@@ -35,22 +39,26 @@ export default function EditarClientePage() {
   const [ticketsCount, setTicketsCount] = useState(0);
   const [confirmarEliminar, setConfirmarEliminar] = useState(false);
   const [eliminando, setEliminando] = useState(false);
+  const [resumenSoportes, setResumenSoportes] = useState<ResumenSoportes | null>(null);
 
   async function cargar() {
-    const [resCliente, resHist, resMe] = await Promise.all([
+    const [resCliente, resHist, resMe, resSop] = await Promise.all([
       fetch(`/api/clientes/${id}`),
       fetch(`/api/clientes/${id}/historial`),
       fetch("/api/auth/me"),
+      fetch(`/api/clientes/${id}/soportes?limit=1`),
     ]);
     const dataCliente = await resCliente.json();
     const dataHist = await resHist.json();
     const dataMe = await resMe.json().catch(() => ({}));
+    const dataSop = await resSop.json().catch(() => ({}));
     if (resCliente.ok && dataCliente.cliente) {
       setForm(clienteToForm(dataCliente.cliente));
       setTicketsCount(dataCliente.cliente._count?.tickets ?? 0);
     }
     if (resHist.ok) setHistorial(dataHist.historial || []);
     if (resMe.ok && dataMe.permisos?.clientes?.eliminar === true) setEsAdmin(true);
+    if (resSop.ok && dataSop.resumen) setResumenSoportes(dataSop.resumen);
     setLoading(false);
   }
 
@@ -130,6 +138,15 @@ export default function EditarClientePage() {
           <div className="bg-emerald-50 text-emerald-700 p-3 rounded-xl text-sm flex items-center gap-2">
             <CheckCircle className="w-4 h-4" /> {exito}
           </div>
+        )}
+
+        {resumenSoportes && (
+          <HistorialSoportesResumen
+            clienteNombre={form.nombre || "Cliente"}
+            plan={form.plan || "—"}
+            resumen={resumenSoportes}
+            href={`/supervisor/clientes/${id}/soportes`}
+          />
         )}
 
         <form onSubmit={handleSubmit} className="bg-white rounded-xl border p-4 space-y-4">

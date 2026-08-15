@@ -13,10 +13,12 @@ export interface OrdenPendiente {
   estado: string;
   programadoEn?: string | null;
   cliente: { nombre: string; sector: string };
+  diasSinAtencion?: number;
 }
 
 interface Props {
   ordenes: OrdenPendiente[];
+  emptyLabel?: string;
 }
 
 const prioridadColor: Record<string, string> = {
@@ -26,7 +28,7 @@ const prioridadColor: Record<string, string> = {
 };
 
 /** Lista de órdenes activas del técnico (por leer / leído / en proceso). */
-export function TecnicoOrdenesPendientes({ ordenes }: Props) {
+export function TecnicoOrdenesPendientes({ ordenes, emptyLabel }: Props) {
   const router = useRouter();
 
   return (
@@ -47,7 +49,8 @@ export function TecnicoOrdenesPendientes({ ordenes }: Props) {
             {ordenes.length === 0 ? (
               <tr>
                 <td colSpan={6} className="p-6 text-center text-slate-400">
-                  No tiene órdenes activas asignadas. El supervisor debe destinarle tickets.
+                  {emptyLabel ??
+                    "No tiene órdenes activas asignadas. El supervisor debe destinarle tickets."}
                 </td>
               </tr>
             ) : (
@@ -60,6 +63,9 @@ export function TecnicoOrdenesPendientes({ ordenes }: Props) {
                   <td className="p-3">
                     <span className="text-infinity-600 font-semibold">{t.codigo}</span>
                     <p className="text-xs text-slate-400 sm:hidden">{TIPO_LABELS[t.tipo]}</p>
+                    {typeof t.diasSinAtencion === "number" && (
+                      <p className="text-[11px] text-red-700">{t.diasSinAtencion} días sin atención</p>
+                    )}
                   </td>
                   <td className="p-3">
                     {t.programadoEn ? (

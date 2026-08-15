@@ -12,6 +12,7 @@ import {
   ticketIncludeTecnicos,
   validarTecnicoIds,
 } from "@/lib/ticket-tecnicos";
+import { AsignacionIncompletaError } from "@/lib/ticket-asignacion";
 import { fotoImagenSrcRapida } from "@/lib/foto-image";
 import { firmaImagenSrcRapida } from "@/lib/firma-image";
 import { normalizarTextoTicket, enMayusculasGuardar } from "@/lib/mayusculas";
@@ -414,7 +415,14 @@ export async function PATCH(
 
   let idsNuevos = idsAnteriores;
   if (tecnicoIdsInput !== undefined) {
-    idsNuevos = await asignarTecnicosTicket(id, tecnicoIdsInput);
+    try {
+      idsNuevos = await asignarTecnicosTicket(id, tecnicoIdsInput);
+    } catch (e) {
+      if (e instanceof AsignacionIncompletaError) {
+        return NextResponse.json({ error: e.message }, { status: 409 });
+      }
+      throw e;
+    }
   }
 
   const updated = await prisma.ticket.findUnique({

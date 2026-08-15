@@ -6,6 +6,7 @@ import { persistTicketImage } from "@/lib/media-storage";
 import { tecnicoAsignadoAlTicket } from "@/lib/ticket-tecnicos";
 import { asegurarColaboracionOrden } from "@/lib/ticket-reporte";
 import { verificarTicketEditable } from "@/lib/ticket-cerrado";
+import { FLUJO_TICKET, logFlujoTicket } from "@/lib/ticket-flujo-log";
 import type { TipoFoto } from "@prisma/client";
 
 export const maxDuration = 60;
@@ -112,6 +113,15 @@ export async function POST(
         tipo: tipo as TipoFoto,
         id: { not: foto.id },
       },
+    });
+
+    logFlujoTicket(FLUJO_TICKET.PHOTOS_UPLOADED, {
+      ticketId: id,
+      codigo: ticket.codigo,
+      clienteId: ticket.clienteId,
+      tecnicoId: session.tecnicoId,
+      tipo,
+      resultado: "ok",
     });
 
     return NextResponse.json({ foto });

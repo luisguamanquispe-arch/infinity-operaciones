@@ -13,6 +13,7 @@ import {
   ticketIncludeTecnicos,
   validarTecnicoIds,
 } from "@/lib/ticket-tecnicos";
+import { AsignacionIncompletaError } from "@/lib/ticket-asignacion";
 
 export const runtime = "nodejs";
 
@@ -135,7 +136,15 @@ export async function PATCH(request: Request) {
   }
 
   const anteriores = tecnicoIdsFromTicket(ticket);
-  const nuevos = await asignarTecnicosTicket(ticketId, tecnicoIds);
+  let nuevos: string[];
+  try {
+    nuevos = await asignarTecnicosTicket(ticketId, tecnicoIds);
+  } catch (e) {
+    if (e instanceof AsignacionIncompletaError) {
+      return NextResponse.json({ error: e.message }, { status: 409 });
+    }
+    throw e;
+  }
 
   const actualizado = await prisma.ticket.findUnique({
     where: { id: ticketId },

@@ -15,6 +15,7 @@ import { asegurarColaboracionOrden } from "@/lib/ticket-reporte";
 import { ordenServicioCerrada } from "@/lib/ticket-cerrado";
 import { registrarSiHistorial } from "@/lib/soporte-infraestructura/historial";
 import { registrarRevisionHistorial } from "@/lib/revision-reporte";
+import { FLUJO_TICKET, logFlujoTicket } from "@/lib/ticket-flujo-log";
 
 export async function POST(
   request: Request,
@@ -182,6 +183,37 @@ export async function POST(
       detalle: `Enviada a revisión por técnico responsable`,
     });
   }
+
+  logFlujoTicket(FLUJO_TICKET.REPORT_SUBMITTED, {
+    ticketId: id,
+    codigo: ticket.codigo,
+    clienteId: ticket.clienteId,
+    tecnicoId: session.tecnicoId,
+    resultado: "enviado_revision",
+  });
+  logFlujoTicket(FLUJO_TICKET.REPORT_RECEIVED, {
+    ticketId: id,
+    codigo: ticket.codigo,
+    clienteId: ticket.clienteId,
+    tecnicoId: session.tecnicoId,
+    estado: "FINALIZADO",
+    resultado: "recibido",
+  });
+  logFlujoTicket(FLUJO_TICKET.TICKET_CLOSED, {
+    ticketId: id,
+    codigo: ticket.codigo,
+    clienteId: ticket.clienteId,
+    tecnicoId: session.tecnicoId,
+    estado: "FINALIZADO",
+    resultado: "finalizado",
+  });
+  logFlujoTicket(FLUJO_TICKET.HISTORY_UPDATED, {
+    ticketId: id,
+    codigo: ticket.codigo,
+    clienteId: ticket.clienteId,
+    tecnicoId: session.tecnicoId,
+    resultado: "historial_ok",
+  });
 
   return NextResponse.json({
     ok: true,

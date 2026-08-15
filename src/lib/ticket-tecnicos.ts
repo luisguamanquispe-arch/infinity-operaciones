@@ -1,7 +1,13 @@
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
 import { notificarTecnicoAsignacion } from "@/lib/notificaciones-tecnico";
-import { whereTicketActivoEnLista } from "@/lib/ticket-antiguedad";
+import { esTicketNoAtendido, whereTicketActivoEnLista } from "@/lib/ticket-antiguedad";
+import { FLUJO_TICKET, logFlujoTicket } from "@/lib/ticket-flujo-log";
+import {
+  AsignacionIncompletaError,
+  asignacionEstaCompleta,
+  MSG_ASIGNACION_SIN_TECNICO,
+} from "@/lib/ticket-asignacion";
 
 export const ticketIncludeTecnicos = {
   tecnicos: {
@@ -71,6 +77,9 @@ export async function asignarTecnicosTicket(
   tecnicoIds: string[]
 ): Promise<string[]> {
   const unicos = [...new Set(tecnicoIds.filter(Boolean))];
+  if (unicos.length === 0) {
+    throw new AsignacionIncompletaError(MSG_ASIGNACION_SIN_TECNICO);
+  }
 
   await prisma.$transaction(async (tx) => {
     const actuales = await tx.ticketTecnico.findMany({
@@ -102,7 +111,29 @@ export async function asignarTecnicosTicket(
     });
   });
 
+  const verificado = await prisma.ticket.findUnique({
+    where: { id: ticketId },
+    select: {
+      tecnicoId: true,
+      tecnicos: { select: { tecnicoId: true } },
+    },
+  });
+  const check = asignacionEstaCompleta(verificado, unicos);
+  if (!check.ok) {
+    throw new AsignacionIncompletaError(check.error);
+  }
+
   return unicos;
+}
+
+/** Tras create anidado: repara si falta TicketTecnico o tecnicoId. */
+export async function garantizarAsignacionTrasCrear(
+  ticket: { id: string; tecnicoId: string | null; tecnicos?: { tecnicoId: string }[] },
+  ids: string[]
+): Promise<string[]> {
+  const check = asignacionEstaCompleta(ticket, ids);
+  if (check.ok) return ids;
+  return asignarTecnicosTicket(ticket.id, ids);
 }
 
 /** Notifica solo a técnicos recién agregados. */
@@ -113,6 +144,27 @@ export async function notificarTecnicosNuevos(
 ) {
   const agregados = idsNuevos.filter((id) => !idsAnteriores.includes(id));
   if (agregados.length === 0) return;
+
+  logFlujoTicket(FLUJO_TICKET.TECHNICIAN_ASSIGNED, {
+    ticketId: ticket.id,
+    codigo: ticket.codigo,
+    clienteId: ticket.clienteId,
+    tecnicoId: agregados[0],
+    tecnicos: agregados.length,
+    resultado: "asignado",
+  });
+
+  const visibleEnApp = !esTicketNoAtendido(ticket);
+  logFlujoTicket(FLUJO_TICKET.TICKET_SENT_TO_TECHNICIAN, {
+    ticketId: ticket.id,
+    codigo: ticket.codigo,
+    clienteId: ticket.clienteId,
+    tecnicoId: agregados[0],
+    tecnicos: agregados.length,
+    visibleEnApp,
+    resultado: visibleEnApp ? "mis_ordenes" : "no_atendidos",
+    motivoOculto: visibleEnApp ? undefined : "no_atendido_4d",
+  });
 
   const tecnicos = await prisma.tecnico.findMany({
     where: { id: { in: agregados } },
