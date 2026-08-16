@@ -77,6 +77,13 @@ function serializeAsignacion(
     observaciones: string | null;
     tecnico: { id: string; usuario: { nombre: string } };
     usuario: { nombre: string };
+    actas?: Array<{
+      id: string;
+      tipo: "ENTREGA" | "RECEPCION";
+      createdAt: Date;
+      kilometraje: number;
+      combustible: number;
+    }>;
   }
 ) {
   return {
@@ -91,6 +98,13 @@ function serializeAsignacion(
     tecnicoId: a.tecnico.id,
     tecnicoNombre: a.tecnico.usuario.nombre,
     asignadoPor: a.usuario.nombre,
+    actas: (a.actas ?? []).map((act) => ({
+      id: act.id,
+      tipo: act.tipo,
+      createdAt: act.createdAt,
+      kilometraje: act.kilometraje,
+      combustible: act.combustible,
+    })),
   };
 }
 
@@ -344,6 +358,17 @@ export async function hojaDeVida(id: string) {
         }
       : null,
     asignaciones: v.asignaciones.map(serializeAsignacion),
+    actas: v.asignaciones
+      .flatMap((a) =>
+        a.actas.map((act) => ({
+          id: act.id,
+          tipo: act.tipo,
+          createdAt: act.createdAt,
+          kilometraje: act.kilometraje,
+          combustible: act.combustible,
+        }))
+      )
+      .sort((x, y) => y.createdAt.getTime() - x.createdAt.getTime()),
     alertaMant,
     docsAlertas,
     costos,

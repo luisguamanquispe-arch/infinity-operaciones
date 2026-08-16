@@ -21,7 +21,13 @@ type Ficha = {
   estado: string;
   kilometrajeActual: number;
   responsable: { nombre: string; tecnicoId: string; asignacionId: string } | null;
-  asignaciones: { id: string; tecnicoNombre: string; fechaInicio: string; fechaFin: string | null }[];
+  asignaciones: {
+    id: string;
+    tecnicoNombre: string;
+    fechaInicio: string;
+    fechaFin: string | null;
+    actas?: { id: string; tipo: string }[];
+  }[];
   cargasCombustible: { id: string; fecha: string; total: number; galones: number; consumoFueraPromedio: boolean; estacion: string }[];
   lecturasKm: { id: string; kilometraje: number; createdAt: string; origen: string }[];
   mantenimientos: { id: string; fecha: string; tipo: string; costo: number; descripcion: string }[];
@@ -33,7 +39,7 @@ type Ficha = {
   docsAlertas: { tipo: string; alerta: string }[];
   alertaMant: string | null;
   alertaNoApto?: string | null;
-  actas?: unknown[];
+  actas?: { id: string; tipo: string; createdAt: string; kilometraje: number; combustible: number }[];
 };
 
 export default function VehiculoFichaPage() {
@@ -185,14 +191,31 @@ export default function VehiculoFichaPage() {
           <a className="px-3 py-1 rounded border text-sm" href={`/api/vehiculos/${id}/pdf`}>
             PDF hoja de vida
           </a>
-          <a className="px-3 py-1 rounded border text-sm" href={`/api/vehiculos/${id}/acta/pdf`}>
-            PDF acta
-          </a>
+          {(ficha.actas?.length ?? 0) > 0 ? (
+            <a
+              className="px-3 py-1 rounded border text-sm"
+              href={`/api/vehiculos/${id}/acta/pdf?actaId=${encodeURIComponent(ficha.actas![0].id)}`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              PDF última acta
+            </a>
+          ) : (
+            <span
+              className="px-3 py-1 rounded border text-sm text-slate-400"
+              title="El acta se genera al asignar o recibir el vehículo"
+            >
+              PDF acta (sin acta)
+            </span>
+          )}
         </div>
 
         {tab === "datos" && (
           <section className="border rounded-xl p-4 bg-white space-y-4">
             <h2 className="font-semibold">Entregar vehículo</h2>
+            <p className="text-xs text-slate-600">
+              Al entregar se genera el acta de entrega (PDF). Al recibir se genera el de recepción.
+            </p>
             <form onSubmit={asignar} className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
               <Campo label="Técnico">
                 <select
@@ -306,11 +329,30 @@ export default function VehiculoFichaPage() {
         )}
 
         {tab === "asignaciones" && (
-          <ul className="text-sm space-y-1">
+          <ul className="text-sm space-y-3">
+            {ficha.asignaciones.length === 0 && <li className="text-gray-500">Sin asignaciones.</li>}
             {ficha.asignaciones.map((a) => (
-              <li key={a.id}>
-                {a.tecnicoNombre} · {new Date(a.fechaInicio).toLocaleString("es-EC")} →{" "}
-                {a.fechaFin ? new Date(a.fechaFin).toLocaleString("es-EC") : "abierta"}
+              <li key={a.id} className="border rounded p-2">
+                <div>
+                  {a.tecnicoNombre} · {new Date(a.fechaInicio).toLocaleString("es-EC")} →{" "}
+                  {a.fechaFin ? new Date(a.fechaFin).toLocaleString("es-EC") : "abierta"}
+                </div>
+                <div className="text-xs mt-1 space-x-2">
+                  {(a.actas ?? []).length === 0 && (
+                    <span className="text-gray-500">Sin acta (asigne o reciba el vehículo).</span>
+                  )}
+                  {(a.actas ?? []).map((act) => (
+                    <a
+                      key={act.id}
+                      className="text-red-700 underline"
+                      href={`/api/vehiculos/${id}/acta/pdf?actaId=${encodeURIComponent(act.id)}`}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      PDF {act.tipo === "ENTREGA" ? "entrega" : "recepción"}
+                    </a>
+                  ))}
+                </div>
               </li>
             ))}
           </ul>
