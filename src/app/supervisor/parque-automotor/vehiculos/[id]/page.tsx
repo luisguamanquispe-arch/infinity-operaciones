@@ -4,7 +4,13 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { AppHeader } from "@/components/AppHeader";
 import { ParqueSubnav } from "@/components/parque/ParqueSubnav";
-import { ACTA_ITEMS } from "@/lib/parque-automotor/labels";
+import { Campo, campoControl } from "@/components/parque/Campo";
+import {
+  ACTA_ITEMS,
+  CLASE_MANT_LABELS,
+  TIPO_DOC_LABELS,
+  TIPO_MANT_LABELS,
+} from "@/lib/parque-automotor/labels";
 
 type Ficha = {
   id: string;
@@ -42,6 +48,11 @@ export default function VehiculoFichaPage() {
     combustibleEntrega: 100,
     observaciones: "",
   });
+  const [recepcion, setRecepcion] = useState({
+    kilometrajeRecepcion: 0,
+    combustibleRecepcion: 50,
+    observaciones: "",
+  });
   const [tab, setTab] = useState("datos");
 
   async function cargar() {
@@ -51,6 +62,10 @@ export default function VehiculoFichaPage() {
     else {
       setFicha(j);
       setAsig((s) => ({ ...s, kilometrajeEntrega: j.kilometrajeActual || 0 }));
+      setRecepcion((s) => ({
+        ...s,
+        kilometrajeRecepcion: j.kilometrajeActual || 0,
+      }));
     }
   }
 
@@ -81,15 +96,15 @@ export default function VehiculoFichaPage() {
     else await cargar();
   }
 
-  async function recibir() {
-    const km = Number(prompt("Kilometraje de recepción", String(ficha?.kilometrajeActual ?? 0)));
-    if (!Number.isFinite(km)) return;
+  async function recibir(e: React.FormEvent) {
+    e.preventDefault();
     const r = await fetch(`/api/vehiculos/${id}/recibir`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        kilometrajeRecepcion: km,
-        combustibleRecepcion: 50,
+        kilometrajeRecepcion: recepcion.kilometrajeRecepcion,
+        combustibleRecepcion: recepcion.combustibleRecepcion,
+        observaciones: recepcion.observaciones,
         checklist: Object.fromEntries(ACTA_ITEMS.map((i) => [i.key, true])),
       }),
     });
@@ -123,17 +138,17 @@ export default function VehiculoFichaPage() {
     );
   }
 
-  const tabs = [
-    "datos",
-    "asignaciones",
-    "km",
-    "combustible",
-    "mantenimiento",
-    "novedades",
-    "inspecciones",
-    "documentos",
-    "tickets",
-    "costos",
+  const tabs: { id: string; label: string }[] = [
+    { id: "datos", label: "Datos" },
+    { id: "asignaciones", label: "Asignaciones" },
+    { id: "km", label: "Kilometraje" },
+    { id: "combustible", label: "Combustible" },
+    { id: "mantenimiento", label: "Mantenimiento" },
+    { id: "novedades", label: "Novedades" },
+    { id: "inspecciones", label: "Inspecciones" },
+    { id: "documentos", label: "Documentos" },
+    { id: "tickets", label: "Tickets" },
+    { id: "costos", label: "Costos" },
   ];
 
   return (
@@ -160,11 +175,11 @@ export default function VehiculoFichaPage() {
         <div className="flex gap-2 flex-wrap">
           {tabs.map((t) => (
             <button
-              key={t}
-              onClick={() => setTab(t)}
-              className={`px-3 py-1 rounded border text-sm ${tab === t ? "bg-infinity-600 text-white" : ""}`}
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              className={`px-3 py-1 rounded border text-sm ${tab === t.id ? "bg-infinity-600 text-white" : ""}`}
             >
-              {t}
+              {t.label}
             </button>
           ))}
           <a className="px-3 py-1 rounded border text-sm" href={`/api/vehiculos/${id}/pdf`}>
@@ -176,38 +191,61 @@ export default function VehiculoFichaPage() {
         </div>
 
         {tab === "datos" && (
-          <section className="border rounded-xl p-4 bg-white space-y-3">
-            <form onSubmit={asignar} className="grid sm:grid-cols-4 gap-2">
-              <select
-                className="border rounded px-2 py-1"
-                value={asig.tecnicoId}
-                onChange={(e) => setAsig({ ...asig, tecnicoId: e.target.value })}
-                required
-                disabled={ficha.estado !== "DISPONIBLE"}
-              >
-                <option value="">Técnico</option>
-                {tecnicos.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.nombre}
-                  </option>
-                ))}
-              </select>
-              <input
-                type="number"
-                className="border rounded px-2 py-1"
-                value={asig.kilometrajeEntrega}
-                onChange={(e) => setAsig({ ...asig, kilometrajeEntrega: Number(e.target.value) })}
-              />
-              <input
-                type="number"
-                className="border rounded px-2 py-1"
-                value={asig.combustibleEntrega}
-                onChange={(e) => setAsig({ ...asig, combustibleEntrega: Number(e.target.value) })}
-                placeholder="% combustible"
-              />
-              <button className="bg-infinity-600 text-white rounded" disabled={ficha.estado !== "DISPONIBLE"}>
-                Asignar / entregar
-              </button>
+          <section className="border rounded-xl p-4 bg-white space-y-4">
+            <h2 className="font-semibold">Entregar vehículo</h2>
+            <form onSubmit={asignar} className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              <Campo label="Técnico">
+                <select
+                  className={campoControl}
+                  value={asig.tecnicoId}
+                  onChange={(e) => setAsig({ ...asig, tecnicoId: e.target.value })}
+                  required
+                  disabled={ficha.estado !== "DISPONIBLE"}
+                >
+                  <option value="">Seleccione un técnico</option>
+                  {tecnicos.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.nombre}
+                    </option>
+                  ))}
+                </select>
+              </Campo>
+              <Campo label="Kilometraje de entrega">
+                <input
+                  type="number"
+                  min={0}
+                  className={campoControl}
+                  value={asig.kilometrajeEntrega}
+                  onChange={(e) => setAsig({ ...asig, kilometrajeEntrega: Number(e.target.value) })}
+                  required
+                  disabled={ficha.estado !== "DISPONIBLE"}
+                />
+              </Campo>
+              <Campo label="Combustible de entrega (%)">
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  className={campoControl}
+                  value={asig.combustibleEntrega}
+                  onChange={(e) => setAsig({ ...asig, combustibleEntrega: Number(e.target.value) })}
+                  required
+                  disabled={ficha.estado !== "DISPONIBLE"}
+                />
+              </Campo>
+              <Campo label="Observaciones" className="sm:col-span-2 lg:col-span-4">
+                <input
+                  className={campoControl}
+                  value={asig.observaciones}
+                  onChange={(e) => setAsig({ ...asig, observaciones: e.target.value })}
+                  disabled={ficha.estado !== "DISPONIBLE"}
+                />
+              </Campo>
+              <div className="flex items-end">
+                <button className="bg-infinity-600 text-white rounded px-4 py-2" disabled={ficha.estado !== "DISPONIBLE"}>
+                  Asignar / entregar
+                </button>
+              </div>
             </form>
             {ficha.estado !== "DISPONIBLE" && (
               <p className="text-xs text-slate-600">
@@ -215,9 +253,54 @@ export default function VehiculoFichaPage() {
               </p>
             )}
             {ficha.responsable && (
-              <button onClick={recibir} className="px-3 py-1 border rounded">
-                Recibir vehículo
-              </button>
+              <div className="border-t pt-4 space-y-3">
+                <h2 className="font-semibold">Recibir vehículo</h2>
+                <form onSubmit={recibir} className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                  <Campo label="Kilometraje de recepción">
+                    <input
+                      type="number"
+                      min={0}
+                      className={campoControl}
+                      value={recepcion.kilometrajeRecepcion}
+                      onChange={(e) =>
+                        setRecepcion({
+                          ...recepcion,
+                          kilometrajeRecepcion: Number(e.target.value),
+                        })
+                      }
+                      required
+                    />
+                  </Campo>
+                  <Campo label="Combustible de recepción (%)">
+                    <input
+                      type="number"
+                      min={0}
+                      max={100}
+                      className={campoControl}
+                      value={recepcion.combustibleRecepcion}
+                      onChange={(e) =>
+                        setRecepcion({
+                          ...recepcion,
+                          combustibleRecepcion: Number(e.target.value),
+                        })
+                      }
+                      required
+                    />
+                  </Campo>
+                  <Campo label="Observaciones">
+                    <input
+                      className={campoControl}
+                      value={recepcion.observaciones}
+                      onChange={(e) =>
+                        setRecepcion({ ...recepcion, observaciones: e.target.value })
+                      }
+                    />
+                  </Campo>
+                  <div className="flex items-end">
+                    <button className="px-4 py-2 border rounded">Recibir vehículo</button>
+                  </div>
+                </form>
+              </div>
             )}
           </section>
         )}
@@ -335,17 +418,36 @@ function KmForm({
   onSubmit: (km: number, obs?: string) => void;
 }) {
   const [v, setV] = useState(km);
+  const [obs, setObs] = useState("");
   return (
     <div className="space-y-2">
       <form
-        className="flex gap-2"
+        className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3"
         onSubmit={(e) => {
           e.preventDefault();
-          onSubmit(v);
+          onSubmit(v, obs || undefined);
         }}
       >
-        <input type="number" className="border rounded px-2" value={v} onChange={(e) => setV(Number(e.target.value))} />
-        <button className="bg-infinity-600 text-white rounded px-3">Registrar km</button>
+        <Campo label="Kilometraje">
+          <input
+            type="number"
+            min={0}
+            className={campoControl}
+            value={v}
+            onChange={(e) => setV(Number(e.target.value))}
+            required
+          />
+        </Campo>
+        <Campo label="Observación">
+          <input
+            className={campoControl}
+            value={obs}
+            onChange={(e) => setObs(e.target.value)}
+          />
+        </Campo>
+        <div className="flex items-end">
+          <button className="bg-infinity-600 text-white rounded px-4 py-2">Registrar kilometraje</button>
+        </div>
       </form>
       <ul className="text-sm">
         {historial.map((h) => (
@@ -371,17 +473,55 @@ function CombForm({
   return (
     <div className="space-y-2">
       <form
-        className="grid sm:grid-cols-5 gap-2"
+        className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3"
         onSubmit={(e) => {
           e.preventDefault();
           onSubmit(f);
         }}
       >
-        <input className="border rounded px-2" placeholder="Estación" value={f.estacion} onChange={(e) => setF({ ...f, estacion: e.target.value })} required />
-        <input type="number" className="border rounded px-2" value={f.kilometraje} onChange={(e) => setF({ ...f, kilometraje: Number(e.target.value) })} />
-        <input type="number" step="0.01" className="border rounded px-2" placeholder="Galones" value={f.galones} onChange={(e) => setF({ ...f, galones: Number(e.target.value) })} />
-        <input type="number" step="0.01" className="border rounded px-2" placeholder="$/gal" value={f.precioPorGalon} onChange={(e) => setF({ ...f, precioPorGalon: Number(e.target.value) })} />
-        <button className="bg-infinity-600 text-white rounded">Cargar</button>
+        <Campo label="Estación de servicio">
+          <input
+            className={campoControl}
+            value={f.estacion}
+            onChange={(e) => setF({ ...f, estacion: e.target.value })}
+            required
+          />
+        </Campo>
+        <Campo label="Kilometraje">
+          <input
+            type="number"
+            min={0}
+            className={campoControl}
+            value={f.kilometraje}
+            onChange={(e) => setF({ ...f, kilometraje: Number(e.target.value) })}
+            required
+          />
+        </Campo>
+        <Campo label="Galones">
+          <input
+            type="number"
+            step="0.01"
+            min={0}
+            className={campoControl}
+            value={f.galones}
+            onChange={(e) => setF({ ...f, galones: Number(e.target.value) })}
+            required
+          />
+        </Campo>
+        <Campo label="Precio por galón (USD)">
+          <input
+            type="number"
+            step="0.01"
+            min={0}
+            className={campoControl}
+            value={f.precioPorGalon}
+            onChange={(e) => setF({ ...f, precioPorGalon: Number(e.target.value) })}
+            required
+          />
+        </Campo>
+        <div className="flex items-end">
+          <button className="bg-infinity-600 text-white rounded px-4 py-2">Registrar carga</button>
+        </div>
       </form>
       <ul className="text-sm">
         {rows.map((c) => (
@@ -417,21 +557,70 @@ function MantForm({
   return (
     <div className="space-y-2">
       <form
-        className="grid sm:grid-cols-3 gap-2"
+        className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3"
         onSubmit={(e) => {
           e.preventDefault();
           onSubmit(f);
         }}
       >
-        <select className="border rounded px-2" value={f.clase} onChange={(e) => setF({ ...f, clase: e.target.value })}>
-          <option>PREVENTIVO</option>
-          <option>CORRECTIVO</option>
-        </select>
-        <input className="border rounded px-2" placeholder="Descripción" value={f.descripcion} onChange={(e) => setF({ ...f, descripcion: e.target.value })} required />
-        <input type="number" className="border rounded px-2" value={f.costo} onChange={(e) => setF({ ...f, costo: Number(e.target.value) })} />
-        <input type="number" className="border rounded px-2" value={f.kilometraje} onChange={(e) => setF({ ...f, kilometraje: Number(e.target.value) })} />
-        <input type="number" className="border rounded px-2" value={f.proximoKm} onChange={(e) => setF({ ...f, proximoKm: Number(e.target.value) })} />
-        <button className="bg-infinity-600 text-white rounded">Registrar</button>
+        <Campo label="Clase de mantenimiento">
+          <select className={campoControl} value={f.clase} onChange={(e) => setF({ ...f, clase: e.target.value })}>
+            {Object.entries(CLASE_MANT_LABELS).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </Campo>
+        <Campo label="Tipo de trabajo">
+          <select className={campoControl} value={f.tipo} onChange={(e) => setF({ ...f, tipo: e.target.value })}>
+            {Object.entries(TIPO_MANT_LABELS).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </Campo>
+        <Campo label="Descripción" className="sm:col-span-2 lg:col-span-3">
+          <input
+            className={campoControl}
+            value={f.descripcion}
+            onChange={(e) => setF({ ...f, descripcion: e.target.value })}
+            required
+          />
+        </Campo>
+        <Campo label="Costo (USD)">
+          <input
+            type="number"
+            min={0}
+            step="0.01"
+            className={campoControl}
+            value={f.costo}
+            onChange={(e) => setF({ ...f, costo: Number(e.target.value) })}
+          />
+        </Campo>
+        <Campo label="Kilometraje">
+          <input
+            type="number"
+            min={0}
+            className={campoControl}
+            value={f.kilometraje}
+            onChange={(e) => setF({ ...f, kilometraje: Number(e.target.value) })}
+            required
+          />
+        </Campo>
+        <Campo label="Próximo mantenimiento (km)">
+          <input
+            type="number"
+            min={0}
+            className={campoControl}
+            value={f.proximoKm}
+            onChange={(e) => setF({ ...f, proximoKm: Number(e.target.value) })}
+          />
+        </Campo>
+        <div className="flex items-end">
+          <button className="bg-infinity-600 text-white rounded px-4 py-2">Registrar mantenimiento</button>
+        </div>
       </form>
       <button className="border rounded px-3 py-1 text-sm" onClick={onOperativo}>
         Volver a operativo
@@ -465,22 +654,39 @@ function DocsForm({
         </p>
       )}
       <form
-        className="flex gap-2 flex-wrap"
+        className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3"
         onSubmit={(e) => {
           e.preventDefault();
           onSubmit(f);
         }}
       >
-        <select className="border rounded px-2" value={f.tipo} onChange={(e) => setF({ ...f, tipo: e.target.value })}>
-          <option>MATRICULA</option>
-          <option>REVISION</option>
-          <option>SEGURO</option>
-          <option>PERMISO</option>
-          <option>OTRO</option>
-        </select>
-        <input className="border rounded px-2" placeholder="Número" value={f.numero} onChange={(e) => setF({ ...f, numero: e.target.value })} />
-        <input type="date" className="border rounded px-2" value={f.fechaVencimiento} onChange={(e) => setF({ ...f, fechaVencimiento: e.target.value })} />
-        <button className="bg-infinity-600 text-white rounded px-3">Guardar</button>
+        <Campo label="Tipo de documento">
+          <select className={campoControl} value={f.tipo} onChange={(e) => setF({ ...f, tipo: e.target.value })}>
+            {Object.entries(TIPO_DOC_LABELS).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </Campo>
+        <Campo label="Número">
+          <input
+            className={campoControl}
+            value={f.numero}
+            onChange={(e) => setF({ ...f, numero: e.target.value })}
+          />
+        </Campo>
+        <Campo label="Fecha de vencimiento">
+          <input
+            type="date"
+            className={campoControl}
+            value={f.fechaVencimiento}
+            onChange={(e) => setF({ ...f, fechaVencimiento: e.target.value })}
+          />
+        </Campo>
+        <div className="flex items-end">
+          <button className="bg-infinity-600 text-white rounded px-4 py-2">Guardar documento</button>
+        </div>
       </form>
       <ul className="text-sm">
         {rows.map((d) => (
