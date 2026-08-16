@@ -20,6 +20,7 @@ import { GitShaBadge } from "@/components/GitShaBadge";
 import { StatCard } from "@/components/StatCard";
 import { TecnicoOrdenesPendientes } from "@/components/tecnico/TecnicoOrdenesPendientes";
 import type { OrdenPendiente } from "@/components/tecnico/TecnicoOrdenesPendientes";
+import { TecnicoMiVehiculoResumen } from "@/components/tecnico/TecnicoMiVehiculoResumen";
 import { TecnicoAgenda } from "@/components/TecnicoAgenda";
 import { TecnicoDashboardSkeleton } from "@/components/tecnico/TecnicoDashboardSkeleton";
 import { formatDate } from "@/lib/utils";
@@ -357,6 +358,8 @@ export default function TecnicoDashboard() {
             />
           </section>
         )}
+
+        <TecnicoMiVehiculoResumen />
       </main>
       <div className="max-w-6xl mx-auto px-4 pb-4">
         <GitShaBadge />

@@ -181,6 +181,9 @@ model Usuario {
   siHistoriales          SiHistorial[]
   revisionesHistorial    RevisionHistorial[]
   justificacionesRevisadas JustificacionTecnica[]
+  asignacionesVehiculo     AsignacionVehiculo[] @relation("AsignacionVehiculoPor")
+  auditoriasVehiculo       VehiculoAuditoria[]
+  firmasActaVehiculo       ActaVehiculoFirma[]
 }
 
 model Tecnico {
@@ -202,6 +205,12 @@ model Tecnico {
   irParticipaciones IrParticipante[]
   siComentarios SiComentario[]
   justificacionesTecnicas JustificacionTecnica[]
+  asignacionesVehiculo    AsignacionVehiculo[]
+  lecturasKilometraje     LecturaKilometraje[]
+  cargasCombustible       CargaCombustible[]
+  inspeccionesVehiculo    InspeccionVehiculo[]
+  novedadesVehiculo       NovedadVehiculo[]
+  usosVehiculoTicket      UsoVehiculoTicket[]
 }
 
 model Cliente {
@@ -355,6 +364,7 @@ model Ticket {
   siComentarios        SiComentario[]
   revisionesHistorial  RevisionHistorial[]
   justificacionesTecnicas JustificacionTecnica[]
+  usosVehiculo            UsoVehiculoTicket[]
 
   @@index([tipo, estado])
   @@index([siTipoTrabajo])
@@ -1124,4 +1134,443 @@ model SrHistorial {
   usuario       Usuario  @relation(fields: [usuarioId], references: [id])
 
   @@index([ticketId, fecha])
+}
+
+// ——— Parque automotor (dominio nuevo; no toca flujo de tickets) ———
+
+enum EstadoVehiculo {
+  DISPONIBLE
+  ASIGNADO
+  MANTENIMIENTO
+  FUERA_SERVICIO
+  INACTIVO
+}
+
+enum TipoVehiculo {
+  CAMIONETA
+  AUTO
+  MOTO
+  FURGON
+  OTRO
+}
+
+enum TipoActaVehiculo {
+  ENTREGA
+  RECEPCION
+}
+
+enum TipoFirmaActaVehiculo {
+  TECNICO
+  ADMINISTRADOR
+}
+
+enum ResultadoInspeccionVehiculo {
+  APROBADO
+  CON_NOVEDADES
+  NO_APTO
+}
+
+enum TipoMantenimientoVehiculo {
+  ACEITE
+  FILTROS
+  FRENOS
+  LLANTAS
+  BATERIA
+  SUSPENSION
+  MOTOR
+  TRANSMISION
+  SISTEMA_ELECTRICO
+  AIRE_ACONDICIONADO
+  CORREA_DISTRIBUCION
+  REPARACION_GENERAL
+  OTRO
+}
+
+enum ClaseMantenimientoVehiculo {
+  PREVENTIVO
+  CORRECTIVO
+}
+
+enum TipoNovedadVehiculo {
+  MECANICA
+  ELECTRICA
+  CARROCERIA
+  NEUMATICOS
+  ACCIDENTE
+  ACCESORIOS
+  OTRO
+}
+
+enum EstadoNovedadVehiculo {
+  REPORTADA
+  EN_REVISION
+  APROBADA
+  EN_REPARACION
+  RESUELTA
+  CANCELADA
+}
+
+enum GravedadNovedadVehiculo {
+  BAJA
+  MEDIA
+  ALTA
+  CRITICA
+}
+
+enum TipoDocumentoVehiculo {
+  MATRICULA
+  REVISION
+  SEGURO
+  PERMISO
+  OTRO
+}
+
+enum OrigenKmVehiculo {
+  INSPECCION
+  COMBUSTIBLE
+  ASIGNACION
+  MANUAL
+  MANTENIMIENTO
+  NOVEDAD
+}
+
+enum EstadoRegistroVehiculo {
+  ACTIVO
+  ANULADO
+  CORREGIDO
+}
+
+model Vehiculo {
+  id                  String          @id @default(cuid())
+  placa               String          @unique
+  marca               String
+  modelo              String
+  anio                Int
+  color               String?
+  tipo                TipoVehiculo    @default(CAMIONETA)
+  vin                 String?
+  numeroMotor         String?
+  kilometrajeInicial  Int             @default(0)
+  kilometrajeActual   Int             @default(0)
+  fechaAdquisicion    DateTime?
+  estado              EstadoVehiculo  @default(DISPONIBLE)
+  observaciones       String?         @db.Text
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+  asignaciones        AsignacionVehiculo[]
+  actas               ActaVehiculo[]
+  fotos               FotoVehiculo[]
+  lecturasKm          LecturaKilometraje[]
+  cargasCombustible   CargaCombustible[]
+  inspecciones        InspeccionVehiculo[]
+  mantenimientos      MantenimientoVehiculo[]
+  novedades           NovedadVehiculo[]
+  documentos          DocumentoVehiculo[]
+  auditorias          VehiculoAuditoria[]
+  usosTicket          UsoVehiculoTicket[]
+
+  @@index([estado])
+  @@index([kilometrajeActual])
+}
+
+model AsignacionVehiculo {
+  id                   String    @id @default(cuid())
+  vehiculoId           String
+  tecnicoId            String
+  fechaInicio          DateTime  @default(now())
+  fechaFin             DateTime?
+  kilometrajeEntrega   Int
+  kilometrajeRecepcion Int?
+  combustibleEntrega   Float
+  combustibleRecepcion Float?
+  observaciones        String?   @db.Text
+  usuarioId            String
+  createdAt            DateTime  @default(now())
+  vehiculo             Vehiculo  @relation(fields: [vehiculoId], references: [id])
+  tecnico              Tecnico   @relation(fields: [tecnicoId], references: [id])
+  usuario              Usuario   @relation("AsignacionVehiculoPor", fields: [usuarioId], references: [id])
+  actas                ActaVehiculo[]
+
+  @@index([vehiculoId, fechaInicio])
+  @@index([tecnicoId, fechaInicio])
+  @@index([fechaFin])
+  // Unicidad abierta (parcial, SQL): AsignacionVehiculo_abierta_uidx (vehiculoId)
+  // y AsignacionVehiculo_tecnico_abierta_uidx (tecnicoId) WHERE fechaFin IS NULL.
+}
+
+model ActaVehiculo {
+  id                 String           @id @default(cuid())
+  vehiculoId         String
+  asignacionId       String
+  tipo               TipoActaVehiculo
+  kilometraje        Int
+  combustible        Float
+  estadoExterior     Boolean          @default(true)
+  estadoInterior     Boolean          @default(true)
+  llantas            Boolean          @default(true)
+  llantaEmergencia   Boolean          @default(true)
+  gata               Boolean          @default(true)
+  herramientas       Boolean          @default(true)
+  extintor           Boolean          @default(true)
+  botiquin           Boolean          @default(true)
+  documentosOk       Boolean          @default(true)
+  accesorios         Boolean          @default(true)
+  observaciones      String?          @db.Text
+  createdAt          DateTime         @default(now())
+  vehiculo           Vehiculo         @relation(fields: [vehiculoId], references: [id])
+  asignacion         AsignacionVehiculo @relation(fields: [asignacionId], references: [id])
+  fotos              ActaVehiculoFoto[]
+  firmas             ActaVehiculoFirma[]
+
+  @@index([vehiculoId, createdAt])
+  @@index([asignacionId, tipo])
+}
+
+model ActaVehiculoFoto {
+  id         String       @id @default(cuid())
+  actaId     String
+  url        String
+  imagenData String?      @db.Text
+  tomadaEn   DateTime     @default(now())
+  acta       ActaVehiculo @relation(fields: [actaId], references: [id], onDelete: Cascade)
+
+  @@index([actaId])
+}
+
+model ActaVehiculoFirma {
+  id          String                 @id @default(cuid())
+  actaId      String
+  tipo        TipoFirmaActaVehiculo
+  nombre      String
+  imagenUrl   String
+  imagenData  String?                @db.Text
+  usuarioId   String?
+  firmadoEn   DateTime               @default(now())
+  acta        ActaVehiculo           @relation(fields: [actaId], references: [id], onDelete: Cascade)
+  usuario     Usuario?               @relation(fields: [usuarioId], references: [id])
+
+  @@unique([actaId, tipo])
+  @@index([actaId])
+}
+
+model FotoVehiculo {
+  id         String   @id @default(cuid())
+  vehiculoId String
+  url        String
+  imagenData String?  @db.Text
+  tomadaEn   DateTime @default(now())
+  vehiculo   Vehiculo @relation(fields: [vehiculoId], references: [id], onDelete: Cascade)
+
+  @@index([vehiculoId, tomadaEn])
+}
+
+model LecturaKilometraje {
+  id             String                 @id @default(cuid())
+  vehiculoId     String
+  tecnicoId      String?
+  kilometraje    Int
+  origen         OrigenKmVehiculo
+  observacion    String?
+  estadoRegistro EstadoRegistroVehiculo @default(ACTIVO)
+  createdAt      DateTime               @default(now())
+  vehiculo       Vehiculo               @relation(fields: [vehiculoId], references: [id])
+  tecnico        Tecnico?               @relation(fields: [tecnicoId], references: [id])
+
+  @@index([vehiculoId, createdAt])
+  @@index([vehiculoId, kilometraje])
+  @@index([tecnicoId])
+  @@index([estadoRegistro])
+}
+
+model CargaCombustible {
+  id                   String                 @id @default(cuid())
+  vehiculoId           String
+  tecnicoId            String?
+  fecha                DateTime               @default(now())
+  estacion             String
+  kilometraje          Int
+  galones              Float
+  precioPorGalon       Float
+  total                Float
+  numeroFactura        String?
+  comprobanteUrl       String?
+  comprobanteData      String?                @db.Text
+  observaciones        String?                @db.Text
+  kmPorGalon           Float?
+  kmRecorridos         Int?
+  consumoFueraPromedio Boolean                @default(false)
+  estadoRegistro       EstadoRegistroVehiculo @default(ACTIVO)
+  createdAt            DateTime               @default(now())
+  vehiculo             Vehiculo               @relation(fields: [vehiculoId], references: [id])
+  tecnico              Tecnico?               @relation(fields: [tecnicoId], references: [id])
+
+  @@index([vehiculoId, fecha])
+  @@index([tecnicoId, fecha])
+  @@index([estadoRegistro])
+}
+
+model InspeccionVehiculo {
+  id               String                       @id @default(cuid())
+  vehiculoId       String
+  tecnicoId        String
+  fecha            DateTime                     @default(now())
+  kilometraje      Int
+  combustible      Float
+  aceite           Boolean                      @default(true)
+  refrigerante     Boolean                      @default(true)
+  frenos           Boolean                      @default(true)
+  luces            Boolean                      @default(true)
+  direccionales    Boolean                      @default(true)
+  llantas          Boolean                      @default(true)
+  llantaEmergencia Boolean                      @default(true)
+  gata             Boolean                      @default(true)
+  extintor         Boolean                      @default(true)
+  botiquin         Boolean                      @default(true)
+  herramientas     Boolean                      @default(true)
+  carroceria       Boolean                      @default(true)
+  vidrios          Boolean                      @default(true)
+  espejos          Boolean                      @default(true)
+  documentosOk     Boolean                      @default(true)
+  resultado        ResultadoInspeccionVehiculo
+  observaciones    String?                      @db.Text
+  createdAt        DateTime                     @default(now())
+  vehiculo         Vehiculo                     @relation(fields: [vehiculoId], references: [id])
+  tecnico          Tecnico                      @relation(fields: [tecnicoId], references: [id])
+  fotos            InspeccionVehiculoFoto[]
+
+  @@index([vehiculoId, fecha])
+  @@index([tecnicoId, fecha])
+  @@index([resultado])
+}
+
+model InspeccionVehiculoFoto {
+  id          String              @id @default(cuid())
+  inspeccionId String
+  url         String
+  imagenData  String?             @db.Text
+  tomadaEn    DateTime            @default(now())
+  inspeccion  InspeccionVehiculo  @relation(fields: [inspeccionId], references: [id], onDelete: Cascade)
+
+  @@index([inspeccionId])
+}
+
+model MantenimientoVehiculo {
+  id                   String                    @id @default(cuid())
+  vehiculoId           String
+  fecha                DateTime                  @default(now())
+  kilometraje          Int
+  clase                ClaseMantenimientoVehiculo
+  tipo                 TipoMantenimientoVehiculo
+  descripcion          String                    @db.Text
+  proveedor            String?
+  costo                Float
+  facturaUrl           String?
+  facturaData          String?                   @db.Text
+  proximoFecha         DateTime?
+  proximoKm            Int?
+  observaciones        String?                   @db.Text
+  estadoRegistro       EstadoRegistroVehiculo    @default(ACTIVO)
+  createdAt            DateTime                  @default(now())
+  vehiculo             Vehiculo                  @relation(fields: [vehiculoId], references: [id])
+  fotos                MantenimientoVehiculoFoto[]
+
+  @@index([vehiculoId, fecha])
+  @@index([tipo])
+}
+
+model MantenimientoVehiculoFoto {
+  id              String                @id @default(cuid())
+  mantenimientoId String
+  url             String
+  imagenData      String?               @db.Text
+  tomadaEn        DateTime              @default(now())
+  mantenimiento   MantenimientoVehiculo @relation(fields: [mantenimientoId], references: [id], onDelete: Cascade)
+
+  @@index([mantenimientoId])
+}
+
+model NovedadVehiculo {
+  id             String                 @id @default(cuid())
+  vehiculoId     String
+  tecnicoId      String
+  fecha          DateTime               @default(now())
+  kilometraje    Int
+  tipo           TipoNovedadVehiculo
+  descripcion    String                 @db.Text
+  gravedad       GravedadNovedadVehiculo @default(MEDIA)
+  puedeCircular  Boolean                @default(true)
+  estado         EstadoNovedadVehiculo  @default(REPORTADA)
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+  vehiculo       Vehiculo               @relation(fields: [vehiculoId], references: [id])
+  tecnico        Tecnico                @relation(fields: [tecnicoId], references: [id])
+  fotos          NovedadVehiculoFoto[]
+
+  @@index([vehiculoId, fecha])
+  @@index([tecnicoId, fecha])
+  @@index([estado])
+}
+
+model NovedadVehiculoFoto {
+  id         String          @id @default(cuid())
+  novedadId  String
+  url        String
+  imagenData String?         @db.Text
+  tomadaEn   DateTime        @default(now())
+  novedad    NovedadVehiculo @relation(fields: [novedadId], references: [id], onDelete: Cascade)
+
+  @@index([novedadId])
+}
+
+model DocumentoVehiculo {
+  id               String               @id @default(cuid())
+  vehiculoId       String
+  tipo             TipoDocumentoVehiculo
+  numero           String?
+  fechaInicio      DateTime?
+  fechaVencimiento DateTime?
+  archivoUrl       String?
+  archivoData      String?              @db.Text
+  observacion      String?
+  createdAt        DateTime             @default(now())
+  vehiculo         Vehiculo             @relation(fields: [vehiculoId], references: [id], onDelete: Cascade)
+
+  @@index([vehiculoId, fechaVencimiento])
+  @@index([tipo])
+}
+
+model VehiculoAuditoria {
+  id            String   @id @default(cuid())
+  vehiculoId    String?
+  entidad       String
+  registroId    String
+  usuarioId     String?
+  accion        String
+  motivo        String?
+  valorAnterior String?  @db.Text
+  valorNuevo    String?  @db.Text
+  createdAt     DateTime @default(now())
+  vehiculo      Vehiculo? @relation(fields: [vehiculoId], references: [id])
+  usuario       Usuario?  @relation(fields: [usuarioId], references: [id])
+
+  @@index([vehiculoId, createdAt])
+  @@index([entidad, registroId])
+}
+
+/// Relación opcional ticket↔vehículo. No altera columnas de Ticket ni OrdenServicio.
+model UsoVehiculoTicket {
+  id               String   @id @default(cuid())
+  vehiculoId       String
+  tecnicoId        String
+  ticketId         String
+  kilometrajeInicio Int?
+  kilometrajeFin    Int?
+  createdAt        DateTime @default(now())
+  vehiculo         Vehiculo @relation(fields: [vehiculoId], references: [id])
+  tecnico          Tecnico  @relation(fields: [tecnicoId], references: [id])
+  ticket           Ticket   @relation(fields: [ticketId], references: [id])
+
+  @@index([vehiculoId, createdAt])
+  @@index([ticketId])
+  @@index([tecnicoId])
 }

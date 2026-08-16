@@ -34,7 +34,8 @@ export type ModuloId =
   | "usuarios"
   | "backup"
   | "eliminar_soportes"
-  | "tecnico_home";
+  | "tecnico_home"
+  | "parque_automotor";
 
 export type NavContext =
   | "gerencia"
@@ -91,7 +92,7 @@ export type ModuloDef = {
   /** Orden dentro del menú (menor = primero). */
   order: number;
   /** CTA grande en home supervisor. */
-  homeIcon?: "plus" | "calendar" | "file" | "users" | "contact" | "bell";
+  homeIcon?: "plus" | "calendar" | "file" | "users" | "contact" | "bell" | "car";
 };
 
 /**
@@ -208,6 +209,17 @@ export const MODULOS: ModuloDef[] = [
     contexts: ["home-tiles", "acciones"],
     order: 145,
     homeIcon: "bell",
+  },
+  {
+    id: "parque_automotor",
+    href: "/supervisor/parque-automotor",
+    label: "Parque automotor",
+    group: "campo",
+    tone: "sky",
+    roles: ["ADMIN", "SUPERVISOR"],
+    contexts: ["home-tiles", "acciones"],
+    order: 150,
+    homeIcon: "car",
   },
 ];
 

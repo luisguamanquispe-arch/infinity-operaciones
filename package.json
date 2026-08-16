@@ -26,7 +26,8 @@
     "db:setup:dev": "prisma db push && tsx prisma/seed.ts",
     "start:railway": "node scripts/render-start.cjs",
     "test:cliente-app": "node --test scripts/test-cliente-app.mjs",
-    "test:historial-soportes": "tsx --test src/lib/historial-soportes.test.ts src/lib/ticket-flujo-visibilidad.test.ts"
+    "test:historial-soportes": "tsx --test src/lib/historial-soportes.test.ts src/lib/ticket-flujo-visibilidad.test.ts",
+    "test:parque-automotor": "tsx --test src/lib/parque-automotor/reglas.test.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1065.0",

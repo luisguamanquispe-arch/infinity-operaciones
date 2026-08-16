@@ -4,6 +4,7 @@ import Link from "next/link";
 import {
   Bell,
   CalendarDays,
+  Car,
   Contact,
   FileText,
   Plus,
@@ -75,6 +76,8 @@ function HomeIcon({ name }: { name?: NavItemResolved["homeIcon"] }) {
       return <Contact className={cls} />;
     case "bell":
       return <Bell className={cls} />;
+    case "car":
+      return <Car className={cls} />;
     case "plus":
     default:
       return <Plus className={cls} />;

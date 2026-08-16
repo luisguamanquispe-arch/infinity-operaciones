@@ -1,3 +1,4 @@
+import { PARQUE_BACKUP_TABLES } from "@/lib/parque-automotor/backup-tablas";
 import { prisma } from "@/lib/prisma";
 
 export const BACKUP_FORMAT_VERSION = 1;
@@ -37,6 +38,7 @@ export const BACKUP_TABLE_ORDER = [
   "HdEscalamiento",
   "HdSugerenciaIa",
   "HdSesionAgente",
+  ...PARQUE_BACKUP_TABLES,
 ] as const;
 
 export type BackupTableName = (typeof BACKUP_TABLE_ORDER)[number];
@@ -81,6 +83,23 @@ function delegate(name: BackupTableName): Delegate {
     HdEscalamiento: prisma.hdEscalamiento as unknown as Delegate,
     HdSugerenciaIa: prisma.hdSugerenciaIa as unknown as Delegate,
     HdSesionAgente: prisma.hdSesionAgente as unknown as Delegate,
+    Vehiculo: prisma.vehiculo as unknown as Delegate,
+    AsignacionVehiculo: prisma.asignacionVehiculo as unknown as Delegate,
+    ActaVehiculo: prisma.actaVehiculo as unknown as Delegate,
+    ActaVehiculoFoto: prisma.actaVehiculoFoto as unknown as Delegate,
+    ActaVehiculoFirma: prisma.actaVehiculoFirma as unknown as Delegate,
+    FotoVehiculo: prisma.fotoVehiculo as unknown as Delegate,
+    LecturaKilometraje: prisma.lecturaKilometraje as unknown as Delegate,
+    CargaCombustible: prisma.cargaCombustible as unknown as Delegate,
+    InspeccionVehiculo: prisma.inspeccionVehiculo as unknown as Delegate,
+    InspeccionVehiculoFoto: prisma.inspeccionVehiculoFoto as unknown as Delegate,
+    MantenimientoVehiculo: prisma.mantenimientoVehiculo as unknown as Delegate,
+    MantenimientoVehiculoFoto: prisma.mantenimientoVehiculoFoto as unknown as Delegate,
+    NovedadVehiculo: prisma.novedadVehiculo as unknown as Delegate,
+    NovedadVehiculoFoto: prisma.novedadVehiculoFoto as unknown as Delegate,
+    DocumentoVehiculo: prisma.documentoVehiculo as unknown as Delegate,
+    VehiculoAuditoria: prisma.vehiculoAuditoria as unknown as Delegate,
+    UsoVehiculoTicket: prisma.usoVehiculoTicket as unknown as Delegate,
   };
   return map[name];
 }
