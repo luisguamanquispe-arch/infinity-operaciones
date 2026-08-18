@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getFullSession } from "@/lib/auth";
 import { puedeGestionarParque } from "@/lib/parque-automotor/reglas";
+import { leerImagenParque } from "@/lib/parque-automotor/media";
 
 export const runtime = "nodejs";
 
@@ -30,24 +31,14 @@ export async function GET(
     return NextResponse.json({ error: "No autorizado" }, { status: 403 });
   }
 
-  const foto = await prisma.fotoVehiculo.findFirst({
-    where: { vehiculoId, url: { endsWith: `/${filename}` } },
-    select: { imagenData: true },
-  });
-  const data =
-    foto?.imagenData ||
-    (
-      await prisma.cargaCombustible.findFirst({
-        where: { vehiculoId, comprobanteData: { not: null } },
-        select: { comprobanteData: true },
-        orderBy: { fecha: "desc" },
-      })
-    )?.comprobanteData;
-
-  if (!data) {
+  const found = await leerImagenParque(vehiculoId, filename);
+  if (!found) {
     return NextResponse.json({ error: "No encontrado" }, { status: 404 });
   }
-  const match = data.match(/^data:([^;]+);base64,(.+)$/);
+  if ("redirect" in found) {
+    return NextResponse.redirect(found.redirect);
+  }
+  const match = found.dataUrl.match(/^data:([^;]+);base64,(.+)$/);
   if (!match) {
     return NextResponse.json({ error: "No encontrado" }, { status: 404 });
   }

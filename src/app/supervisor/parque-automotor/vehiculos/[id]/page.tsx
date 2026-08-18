@@ -12,6 +12,30 @@ import {
   TIPO_MANT_LABELS,
 } from "@/lib/parque-automotor/labels";
 
+type FotoEv = {
+  id: string;
+  url: string;
+  fecha: string;
+  kilometraje: number | null;
+  tecnicoNombre: string | null;
+  descripcion: string;
+  registroId: string;
+  tipo?: string;
+};
+
+type Evento = {
+  id: string;
+  fecha: string;
+  tipo: string;
+  titulo: string;
+  descripcion: string;
+  estado?: string | null;
+  tecnicoNombre?: string | null;
+  kilometraje?: number | null;
+  registroId: string;
+  fotos: { id: string; url: string }[];
+};
+
 type Ficha = {
   id: string;
   placa: string;
@@ -28,11 +52,29 @@ type Ficha = {
     fechaFin: string | null;
     actas?: { id: string; tipo: string }[];
   }[];
-  cargasCombustible: { id: string; fecha: string; total: number; galones: number; consumoFueraPromedio: boolean; estacion: string }[];
-  lecturasKm: { id: string; kilometraje: number; createdAt: string; origen: string }[];
-  mantenimientos: { id: string; fecha: string; tipo: string; costo: number; descripcion: string }[];
-  novedades: { id: string; fecha: string; tipo: string; estado: string; descripcion: string }[];
-  inspecciones: { id: string; fecha: string; resultado: string }[];
+  cargasCombustible: {
+    id: string;
+    fecha: string;
+    total: number;
+    galones: number;
+    consumoFueraPromedio: boolean;
+    estacion: string;
+    comprobanteUrl?: string | null;
+    tecnicoNombre?: string | null;
+    kilometraje?: number;
+  }[];
+  lecturasKm: { id: string; kilometraje: number; createdAt: string; origen: string; tecnicoNombre?: string | null }[];
+  mantenimientos: { id: string; fecha: string; tipo: string; costo: number; descripcion: string; fotos?: { id: string; url: string }[] }[];
+  novedades: {
+    id: string;
+    fecha: string;
+    tipo: string;
+    estado: string;
+    descripcion: string;
+    tecnicoNombre?: string;
+    fotos?: { id: string; url: string }[];
+  }[];
+  inspecciones: { id: string; fecha: string; resultado: string; tecnicoNombre?: string; fotos?: { id: string; url: string }[] }[];
   documentos: { id: string; tipo: string; numero: string | null; fechaVencimiento: string | null }[];
   ticketsAtendidos: { id: string; codigo: string; estado: string; createdAt: string }[];
   costos: { totalMes: number; totalAnio: number; combustibleMes: number; mantenimientoMes: number };
@@ -40,6 +82,14 @@ type Ficha = {
   alertaMant: string | null;
   alertaNoApto?: string | null;
   actas?: { id: string; tipo: string; createdAt: string; kilometraje: number; combustible: number }[];
+  evidencia?: {
+    facturas: FotoEv[];
+    danos: FotoEv[];
+    estadoFisico: FotoEv[];
+    inspecciones: FotoEv[];
+    otras: FotoEv[];
+  };
+  timeline?: Evento[];
 };
 
 export default function VehiculoFichaPage() {
@@ -59,6 +109,7 @@ export default function VehiculoFichaPage() {
     combustibleRecepcion: 50,
     observaciones: "",
   });
+  const [viewer, setViewer] = useState<string | null>(null);
   const [tab, setTab] = useState("datos");
 
   async function cargar() {
@@ -146,6 +197,8 @@ export default function VehiculoFichaPage() {
 
   const tabs: { id: string; label: string }[] = [
     { id: "datos", label: "Datos" },
+    { id: "timeline", label: "Hoja de vida" },
+    { id: "evidencia", label: "Evidencia fotográfica" },
     { id: "asignaciones", label: "Asignaciones" },
     { id: "km", label: "Kilometraje" },
     { id: "combustible", label: "Combustible" },
@@ -328,6 +381,65 @@ export default function VehiculoFichaPage() {
           </section>
         )}
 
+        {tab === "timeline" && (
+          <ul className="space-y-2">
+            {(ficha.timeline ?? []).length === 0 && (
+              <li className="text-sm text-slate-500">Sin eventos.</li>
+            )}
+            {(ficha.timeline ?? []).map((e) => (
+              <li key={e.id} className="border rounded-xl p-3 bg-white text-sm">
+                <p className="font-medium">{e.titulo}</p>
+                <p className="text-xs text-slate-500">
+                  {new Date(e.fecha).toLocaleString("es-EC")}
+                  {e.tecnicoNombre ? ` · ${e.tecnicoNombre}` : ""}
+                  {e.kilometraje != null ? ` · ${e.kilometraje} km` : ""}
+                </p>
+                <p>{e.descripcion}</p>
+                {e.estado && <p className="text-xs">Estado: {e.estado}</p>}
+                {e.fotos.length > 0 && (
+                  <div className="flex gap-2 mt-2 flex-wrap">
+                    {e.fotos.map((f) => (
+                      <button key={f.id} type="button" onClick={() => setViewer(f.url)}>
+                        <img src={f.url} alt="" className="w-16 h-16 object-cover rounded border" />
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {tab === "evidencia" && (
+          <div className="space-y-6">
+            <GaleriaEvidencia
+              titulo="A. Facturas de gasolina"
+              items={ficha.evidencia?.facturas ?? []}
+              onOpen={setViewer}
+            />
+            <GaleriaEvidencia
+              titulo="B. Daños y novedades"
+              items={ficha.evidencia?.danos ?? []}
+              onOpen={setViewer}
+            />
+            <GaleriaEvidencia
+              titulo="C. Estado físico"
+              items={ficha.evidencia?.estadoFisico ?? []}
+              onOpen={setViewer}
+            />
+            <GaleriaEvidencia
+              titulo="D. Inspecciones"
+              items={ficha.evidencia?.inspecciones ?? []}
+              onOpen={setViewer}
+            />
+            <GaleriaEvidencia
+              titulo="E. Otras fotografías"
+              items={ficha.evidencia?.otras ?? []}
+              onOpen={setViewer}
+            />
+          </div>
+        )}
+
         {tab === "asignaciones" && (
           <ul className="text-sm space-y-3">
             {ficha.asignaciones.length === 0 && <li className="text-gray-500">Sin asignaciones.</li>}
@@ -390,6 +502,12 @@ export default function VehiculoFichaPage() {
             {ficha.novedades.map((n) => (
               <li key={n.id} className="border rounded p-2">
                 {n.tipo} · {n.estado} · {n.descripcion}
+                {n.tecnicoNombre ? ` · ${n.tecnicoNombre}` : ""}
+                {(n.fotos ?? []).map((f) => (
+                  <button key={f.id} type="button" className="ml-1" onClick={() => setViewer(f.url)}>
+                    <img src={f.url} alt="" className="inline w-10 h-10 object-cover rounded border" />
+                  </button>
+                ))}
                 {n.estado !== "RESUELTA" && (
                   <button
                     className="ml-2 text-infinity-700"
@@ -413,6 +531,12 @@ export default function VehiculoFichaPage() {
             {ficha.inspecciones.map((i) => (
               <li key={i.id}>
                 {new Date(i.fecha).toLocaleString("es-EC")} · {i.resultado}
+                {i.tecnicoNombre ? ` · ${i.tecnicoNombre}` : ""}
+                {(i.fotos ?? []).map((f) => (
+                  <button key={f.id} type="button" className="ml-1" onClick={() => setViewer(f.url)}>
+                    <img src={f.url} alt="" className="inline w-10 h-10 object-cover rounded border" />
+                  </button>
+                ))}
               </li>
             ))}
           </ul>
@@ -444,6 +568,15 @@ export default function VehiculoFichaPage() {
             <p>Total mes: ${ficha.costos.totalMes}</p>
             <p>Total año: ${ficha.costos.totalAnio}</p>
           </div>
+        )}
+        {viewer && (
+          <button
+            type="button"
+            className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4"
+            onClick={() => setViewer(null)}
+          >
+            <img src={viewer} alt="" className="max-w-full max-h-full rounded" />
+          </button>
         )}
       </main>
     </div>
@@ -494,7 +627,8 @@ function KmForm({
       <ul className="text-sm">
         {historial.map((h) => (
           <li key={h.id}>
-            {h.kilometraje} · {h.origen}
+            {new Date(h.createdAt).toLocaleString("es-EC")} · {h.kilometraje} km · {h.origen}
+            {h.tecnicoNombre ? ` · ${h.tecnicoNombre}` : ""}
           </li>
         ))}
       </ul>
@@ -567,9 +701,17 @@ function CombForm({
       </form>
       <ul className="text-sm">
         {rows.map((c) => (
-          <li key={c.id}>
-            {c.estacion} · {c.galones} gal · ${c.total}
-            {c.consumoFueraPromedio ? " · Consumo fuera del promedio." : ""}
+          <li key={c.id} className="flex gap-2 items-center">
+            <span>
+              {c.estacion} · {c.galones} gal · ${c.total}
+              {c.tecnicoNombre ? ` · ${c.tecnicoNombre}` : ""}
+              {c.consumoFueraPromedio ? " · Consumo fuera del promedio." : ""}
+            </span>
+            {c.comprobanteUrl && (
+              <a className="text-infinity-700 underline text-xs" href={c.comprobanteUrl} target="_blank" rel="noreferrer">
+                Ver factura
+              </a>
+            )}
           </li>
         ))}
       </ul>
@@ -738,5 +880,39 @@ function DocsForm({
         ))}
       </ul>
     </div>
+  );
+}
+
+function GaleriaEvidencia({
+  titulo,
+  items,
+  onOpen,
+}: {
+  titulo: string;
+  items: FotoEv[];
+  onOpen: (url: string) => void;
+}) {
+  return (
+    <section>
+      <h2 className="font-semibold mb-2">{titulo}</h2>
+      {items.length === 0 && <p className="text-sm text-slate-500">Sin fotografías.</p>}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {items.map((it) => (
+          <button
+            key={it.id}
+            type="button"
+            className="text-left border rounded-xl p-2 bg-white"
+            onClick={() => onOpen(it.url)}
+          >
+            <img src={it.url} alt="" className="w-full h-28 object-cover rounded" />
+            <p className="text-xs mt-1">{new Date(it.fecha).toLocaleString("es-EC")}</p>
+            {it.tecnicoNombre && <p className="text-xs">{it.tecnicoNombre}</p>}
+            {it.kilometraje != null && <p className="text-xs">{it.kilometraje} km</p>}
+            <p className="text-xs text-slate-600 truncate">{it.descripcion}</p>
+            <p className="text-[10px] text-slate-400 truncate">Registro {it.registroId}</p>
+          </button>
+        ))}
+      </div>
+    </section>
   );
 }

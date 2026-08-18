@@ -56,9 +56,9 @@ export function TecnicoMiVehiculoResumen() {
               {vehiculo.alertaNoApto || "El vehículo está FUERA DE SERVICIO y no puede registrar operaciones."}
             </p>
           ) : (
-            <p className="text-xs text-infinity-700 mt-1">
-              Inspección · Combustible · Kilometraje · Novedad
-            </p>
+          <p className="text-xs text-infinity-700 mt-1">
+            Kilometraje · Gasolina · Reportar daño · Inspección
+          </p>
           )}
         </Link>
       )}

@@ -32,6 +32,8 @@ import {
 } from "./reglas";
 import { BACKUP_TABLE_ORDER } from "@/lib/backup";
 import { backupIncluyeParqueCompleto } from "./backup-tablas";
+import { mapTipoNovedadReporte } from "./labels";
+import { parseMediaVehiculoFilename } from "./media-urls";
 
 describe("placa", () => {
   it("normaliza y rechaza duplicado lógico", () => {
@@ -347,6 +349,33 @@ describe("corrección final parque automotor", () => {
     const ticket = BACKUP_TABLE_ORDER.indexOf("Ticket");
     assert.ok(veh < asig && asig < acta);
     assert.ok(ticket < uso);
+  });
+});
+
+describe("mi vehículo fase 1", () => {
+  it("mapea daños de UI al enum existente", () => {
+    assert.equal(mapTipoNovedadReporte("RAYON"), "CARROCERIA");
+    assert.equal(mapTipoNovedadReporte("GOLPE"), "CARROCERIA");
+    assert.equal(mapTipoNovedadReporte("VIDRIO"), "CARROCERIA");
+    assert.equal(mapTipoNovedadReporte("LLANTA"), "NEUMATICOS");
+    assert.equal(mapTipoNovedadReporte("LUCES"), "ELECTRICA");
+    assert.equal(mapTipoNovedadReporte("ESPEJO"), "ACCESORIOS");
+    assert.equal(mapTipoNovedadReporte("INTERIOR"), "ACCESORIOS");
+    assert.equal(mapTipoNovedadReporte("MECANICA"), "MECANICA");
+    assert.equal(mapTipoNovedadReporte("OTRO"), "OTRO");
+  });
+
+  it("URLs de media identifican el registro, no un nombre genérico", () => {
+    const a = parseMediaVehiculoFilename("carga-clxyz123.jpg");
+    const b = parseMediaVehiculoFilename("carga-clxyz999.jpg");
+    const n = parseMediaVehiculoFilename("novfoto-abc1.jpg");
+    assert.equal(a?.kind, "carga");
+    assert.equal(a?.id, "clxyz123");
+    assert.notEqual(a?.id, b?.id);
+    assert.equal(n?.kind, "novfoto");
+    assert.equal(parseMediaVehiculoFilename("combustible.jpg"), null);
+    assert.equal(parseMediaVehiculoFilename("nov-0.jpg"), null);
+    assert.equal(parseMediaVehiculoFilename("../x.jpg"), null);
   });
 });
 

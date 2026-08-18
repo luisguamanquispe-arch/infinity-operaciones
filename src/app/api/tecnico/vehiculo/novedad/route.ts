@@ -3,6 +3,8 @@ import { requireTecnicoVehiculoCampo } from "@/lib/parque-automotor/auth";
 import { parqueFail } from "@/lib/parque-automotor/http";
 import { registrarNovedad } from "@/lib/parque-automotor/servicio";
 
+export const maxDuration = 60;
+
 export async function POST(request: Request) {
   try {
     const body = await request.json();

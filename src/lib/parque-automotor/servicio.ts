@@ -15,6 +15,17 @@ import type {
 } from "@prisma/client";
 import { registrarAuditoriaVehiculo } from "./auditoria";
 import {
+  MAX_FOTOS_NOVEDAD,
+  MAX_FOTOS_REGISTRO,
+  persistVehiculoImage,
+  urlCargaFactura,
+  urlFotoInspeccion,
+  urlFotoMantenimiento,
+  urlFotoNovedad,
+  urlFotoVehiculo,
+} from "./media";
+import { mapTipoNovedadReporte } from "./labels";
+import {
   ALERTA_NO_APTO,
   alertaDocumento,
   alertaMantenimientoFecha,
@@ -63,6 +74,21 @@ export function errorUnicidadAsignacion(err: unknown): ParqueError | null {
     }
   }
   return null;
+}
+
+function parqueDesdeMedia(err: unknown): never {
+  if (err instanceof Error && "status" in err) {
+    throw new ParqueError(err.message, Number((err as { status?: number }).status) || 400);
+  }
+  throw err;
+}
+
+async function guardarImagenParque(vehiculoId: string, filename: string, image: string) {
+  try {
+    return await persistVehiculoImage(vehiculoId, filename, image);
+  } catch (err) {
+    parqueDesdeMedia(err);
+  }
 }
 
 function serializeAsignacion(
@@ -286,6 +312,7 @@ export async function hojaDeVida(id: string) {
         where: { estadoRegistro: "ACTIVO" },
         orderBy: { createdAt: "desc" },
         take: 50,
+        include: { tecnico: { include: { usuario: { select: { nombre: true } } } } },
       },
       cargasCombustible: {
         where: { estadoRegistro: "ACTIVO" },
@@ -296,17 +323,24 @@ export async function hojaDeVida(id: string) {
       inspecciones: {
         orderBy: { fecha: "desc" },
         take: 20,
-        include: { tecnico: { include: { usuario: { select: { nombre: true } } } } },
+        include: {
+          tecnico: { include: { usuario: { select: { nombre: true } } } },
+          fotos: { orderBy: { tomadaEn: "asc" } },
+        },
       },
       mantenimientos: {
         where: { estadoRegistro: "ACTIVO" },
         orderBy: { fecha: "desc" },
         take: 30,
+        include: { fotos: { orderBy: { tomadaEn: "asc" } } },
       },
       novedades: {
         orderBy: { fecha: "desc" },
         take: 30,
-        include: { tecnico: { include: { usuario: { select: { nombre: true } } } } },
+        include: {
+          tecnico: { include: { usuario: { select: { nombre: true } } } },
+          fotos: { orderBy: { tomadaEn: "asc" } },
+        },
       },
       documentos: { orderBy: { createdAt: "desc" } },
       fotos: { orderBy: { tomadaEn: "desc" }, take: 20 },
@@ -379,6 +413,292 @@ export async function hojaDeVida(id: string) {
       v.inspecciones[0]?.resultado === "NO_APTO"
         ? ALERTA_NO_APTO
         : null,
+    ...serializarEvidenciaYTimeline(v),
+  };
+}
+
+type FotoRef = { id: string; url: string; tomadaEn: Date };
+
+function serializarEvidenciaYTimeline(v: {
+  id: string;
+  asignaciones: Array<{
+    id: string;
+    fechaInicio: Date;
+    fechaFin: Date | null;
+    observaciones: string | null;
+    kilometrajeEntrega: number;
+    kilometrajeRecepcion: number | null;
+    tecnico: { usuario: { nombre: string } };
+    usuario: { nombre: string };
+  }>;
+  lecturasKm: Array<{
+    id: string;
+    createdAt: Date;
+    kilometraje: number;
+    origen: string;
+    observacion: string | null;
+    tecnico: { usuario: { nombre: string } } | null;
+  }>;
+  cargasCombustible: Array<{
+    id: string;
+    fecha: Date;
+    galones: number;
+    total: number;
+    kilometraje: number;
+    estacion: string;
+    comprobanteData: string | null;
+    comprobanteUrl: string | null;
+    tecnico: { usuario: { nombre: string } } | null;
+  }>;
+  inspecciones: Array<{
+    id: string;
+    fecha: Date;
+    resultado: string;
+    kilometraje: number;
+    observaciones: string | null;
+    tecnico: { usuario: { nombre: string } };
+    fotos: FotoRef[];
+  }>;
+  mantenimientos: Array<{
+    id: string;
+    fecha: Date;
+    tipo: string;
+    descripcion: string;
+    costo: number;
+    kilometraje: number;
+    facturaData?: string | null;
+    fotos: FotoRef[];
+  }>;
+  novedades: Array<{
+    id: string;
+    fecha: Date;
+    tipo: string;
+    estado: string;
+    descripcion: string;
+    kilometraje: number;
+    puedeCircular: boolean;
+    tecnico: { usuario: { nombre: string } };
+    fotos: FotoRef[];
+  }>;
+  fotos: FotoRef[];
+}) {
+  const facturas = v.cargasCombustible
+    .filter((c) => c.comprobanteData || c.comprobanteUrl)
+    .map((c) => ({
+      id: c.id,
+      url: urlCargaFactura(v.id, c.id),
+      fecha: c.fecha,
+      kilometraje: c.kilometraje,
+      tecnicoNombre: c.tecnico?.usuario.nombre ?? null,
+      descripcion: `${c.estacion} · ${c.galones} gal · $${c.total}`,
+      registroId: c.id,
+    }));
+  const danos = v.novedades.flatMap((n) =>
+    n.fotos.map((f) => ({
+      id: f.id,
+      url: urlFotoNovedad(v.id, f.id),
+      fecha: f.tomadaEn ?? n.fecha,
+      kilometraje: n.kilometraje,
+      tecnicoNombre: n.tecnico.usuario.nombre,
+      descripcion: n.descripcion,
+      registroId: n.id,
+      tipo: n.tipo,
+    }))
+  );
+  const inspeccionFotos = v.inspecciones.flatMap((i) =>
+    i.fotos.map((f) => ({
+      id: f.id,
+      url: urlFotoInspeccion(v.id, f.id),
+      fecha: f.tomadaEn ?? i.fecha,
+      kilometraje: i.kilometraje,
+      tecnicoNombre: i.tecnico.usuario.nombre,
+      descripcion: i.resultado,
+      registroId: i.id,
+    }))
+  );
+  const mantFotos = v.mantenimientos.flatMap((m) =>
+    m.fotos.map((f) => ({
+      id: f.id,
+      url: urlFotoMantenimiento(v.id, f.id),
+      fecha: f.tomadaEn ?? m.fecha,
+      kilometraje: m.kilometraje,
+      tecnicoNombre: null as string | null,
+      descripcion: m.descripcion,
+      registroId: m.id,
+    }))
+  );
+  const estadoFisico = v.fotos.map((f) => ({
+    id: f.id,
+    url: urlFotoVehiculo(v.id, f.id),
+    fecha: f.tomadaEn,
+    kilometraje: null as number | null,
+    tecnicoNombre: null as string | null,
+    descripcion: "Foto del vehículo",
+    registroId: f.id,
+  }));
+
+  type Evento = {
+    id: string;
+    fecha: Date;
+    tipo: string;
+    titulo: string;
+    descripcion: string;
+    estado?: string | null;
+    tecnicoNombre?: string | null;
+    kilometraje?: number | null;
+    registroId: string;
+    fotos: { id: string; url: string }[];
+  };
+  const timeline: Evento[] = [];
+  for (const a of v.asignaciones) {
+    timeline.push({
+      id: `asig-${a.id}`,
+      fecha: a.fechaInicio,
+      tipo: "ASIGNACION",
+      titulo: "Asignación",
+      descripcion: `Entrega a ${a.tecnico.usuario.nombre}`,
+      tecnicoNombre: a.tecnico.usuario.nombre,
+      kilometraje: a.kilometrajeEntrega,
+      registroId: a.id,
+      fotos: [],
+    });
+    if (a.fechaFin) {
+      timeline.push({
+        id: `rec-${a.id}`,
+        fecha: a.fechaFin,
+        tipo: "RECEPCION",
+        titulo: "Recepción",
+        descripcion: a.observaciones || "Vehículo recibido",
+        tecnicoNombre: a.tecnico.usuario.nombre,
+        kilometraje: a.kilometrajeRecepcion,
+        registroId: a.id,
+        fotos: [],
+      });
+    }
+  }
+  for (const l of v.lecturasKm) {
+    timeline.push({
+      id: `km-${l.id}`,
+      fecha: l.createdAt,
+      tipo: "KM",
+      titulo: "Kilometraje",
+      descripcion: `${l.kilometraje} km (${l.origen})`,
+      tecnicoNombre: l.tecnico?.usuario.nombre ?? null,
+      kilometraje: l.kilometraje,
+      registroId: l.id,
+      fotos: [],
+    });
+  }
+  for (const c of v.cargasCombustible) {
+    timeline.push({
+      id: `gas-${c.id}`,
+      fecha: c.fecha,
+      tipo: "GASOLINA",
+      titulo: "Gasolina",
+      descripcion: `${c.galones} gal · $${c.total}`,
+      tecnicoNombre: c.tecnico?.usuario.nombre ?? null,
+      kilometraje: c.kilometraje,
+      registroId: c.id,
+      fotos:
+        c.comprobanteData || c.comprobanteUrl
+          ? [{ id: c.id, url: urlCargaFactura(v.id, c.id) }]
+          : [],
+    });
+  }
+  for (const i of v.inspecciones) {
+    timeline.push({
+      id: `insp-${i.id}`,
+      fecha: i.fecha,
+      tipo: "INSPECCION",
+      titulo: "Inspección",
+      descripcion: i.observaciones || i.resultado,
+      estado: i.resultado,
+      tecnicoNombre: i.tecnico.usuario.nombre,
+      kilometraje: i.kilometraje,
+      registroId: i.id,
+      fotos: i.fotos.map((f) => ({ id: f.id, url: urlFotoInspeccion(v.id, f.id) })),
+    });
+  }
+  for (const n of v.novedades) {
+    timeline.push({
+      id: `nov-${n.id}`,
+      fecha: n.fecha,
+      tipo: "NOVEDAD",
+      titulo: "Daño o problema",
+      descripcion: n.descripcion,
+      estado: n.estado,
+      tecnicoNombre: n.tecnico.usuario.nombre,
+      kilometraje: n.kilometraje,
+      registroId: n.id,
+      fotos: n.fotos.map((f) => ({ id: f.id, url: urlFotoNovedad(v.id, f.id) })),
+    });
+  }
+  for (const m of v.mantenimientos) {
+    timeline.push({
+      id: `mant-${m.id}`,
+      fecha: m.fecha,
+      tipo: "MANTENIMIENTO",
+      titulo: "Mantenimiento",
+      descripcion: `${m.tipo} · ${m.descripcion}`,
+      kilometraje: m.kilometraje,
+      registroId: m.id,
+      fotos: m.fotos.map((f) => ({ id: f.id, url: urlFotoMantenimiento(v.id, f.id) })),
+    });
+  }
+  timeline.sort((a, b) => b.fecha.getTime() - a.fecha.getTime());
+
+  return {
+    evidencia: {
+      facturas,
+      danos,
+      estadoFisico,
+      inspecciones: inspeccionFotos,
+      otras: mantFotos,
+    },
+    timeline,
+    cargasCombustible: v.cargasCombustible.map((c) => {
+      const { comprobanteData: _d, ...rest } = c;
+      return {
+        ...rest,
+        comprobanteUrl:
+          c.comprobanteData || c.comprobanteUrl ? urlCargaFactura(v.id, c.id) : null,
+        tecnicoNombre: c.tecnico?.usuario.nombre ?? null,
+      };
+    }),
+    lecturasKm: v.lecturasKm.map((l) => ({
+      ...l,
+      tecnicoNombre: l.tecnico?.usuario.nombre ?? null,
+    })),
+    novedades: v.novedades.map((n) => ({
+      ...n,
+      tecnicoNombre: n.tecnico.usuario.nombre,
+      fotos: n.fotos.map((f) => ({ id: f.id, url: urlFotoNovedad(v.id, f.id), tomadaEn: f.tomadaEn })),
+    })),
+    inspecciones: v.inspecciones.map((i) => ({
+      ...i,
+      tecnicoNombre: i.tecnico.usuario.nombre,
+      fotos: i.fotos.map((f) => ({
+        id: f.id,
+        url: urlFotoInspeccion(v.id, f.id),
+        tomadaEn: f.tomadaEn,
+      })),
+    })),
+    fotos: v.fotos.map((f) => ({
+      id: f.id,
+      url: urlFotoVehiculo(v.id, f.id),
+      tomadaEn: f.tomadaEn,
+    })),
+    mantenimientos: v.mantenimientos.map((m) => {
+      const { facturaData: _f, ...rest } = m;
+      return {
+        ...rest,
+        fotos: m.fotos.map((f) => ({
+          id: f.id,
+          url: urlFotoMantenimiento(v.id, f.id),
+          tomadaEn: f.tomadaEn,
+        })),
+      };
+    }),
   };
 }
 
@@ -813,16 +1133,14 @@ export async function registrarCombustible(opts: {
     data: {
       vehiculoId: opts.vehiculoId,
       tecnicoId: opts.tecnicoId ?? null,
-      estacion: opts.estacion.trim().toLocaleUpperCase("es-EC"),
+      estacion: (opts.estacion ?? "").trim().toLocaleUpperCase("es-EC") || "NO INDICADA",
       kilometraje: opts.kilometraje,
       galones: opts.galones,
       precioPorGalon: opts.precioPorGalon,
       total,
       numeroFactura: opts.numeroFactura?.trim() || null,
-      comprobanteData: opts.comprobante ?? null,
-      comprobanteUrl: opts.comprobante
-        ? `/api/media/vehiculos/${opts.vehiculoId}/combustible.jpg`
-        : null,
+      comprobanteData: null,
+      comprobanteUrl: null,
       observaciones: opts.observaciones ?? null,
       kmPorGalon,
       kmRecorridos,
@@ -830,15 +1148,40 @@ export async function registrarCombustible(opts: {
       fecha: opts.fecha ? new Date(opts.fecha) : undefined,
     },
   });
+  if (opts.comprobante) {
+    const stored = await guardarImagenParque(
+      opts.vehiculoId,
+      `carga-${carga.id}.jpg`,
+      opts.comprobante
+    );
+    await prisma.cargaCombustible.update({
+      where: { id: carga.id },
+      data: {
+        comprobanteData: stored.imagenData,
+        comprobanteUrl: stored.url,
+      },
+    });
+  }
   await registrarAuditoriaVehiculo({
     vehiculoId: opts.vehiculoId,
     entidad: "CargaCombustible",
     registroId: carga.id,
     usuarioId: opts.usuarioId,
     accion: "COMBUSTIBLE",
-    valorNuevo: { total, galones: opts.galones, anormal },
+    valorNuevo: {
+      total,
+      galones: opts.galones,
+      anormal,
+      factura: Boolean(opts.comprobante),
+    },
   });
-  return { carga, mensajeAnormal: anormal ? "Consumo fuera del promedio." : null };
+  return {
+    carga: {
+      ...carga,
+      comprobanteUrl: opts.comprobante ? urlCargaFactura(opts.vehiculoId, carga.id) : null,
+    },
+    mensajeAnormal: anormal ? "Consumo fuera del promedio." : null,
+  };
 }
 
 export async function registrarInspeccion(opts: {
@@ -891,12 +1234,6 @@ export async function registrarInspeccion(opts: {
         documentosOk: opts.items.documentosOk ?? true,
         resultado,
         observaciones: opts.observaciones ?? null,
-        fotos: {
-          create: (opts.fotos ?? []).map((img, i) => ({
-            url: `/api/media/vehiculos/${opts.vehiculoId}/insp-${i}.jpg`,
-            imagenData: img,
-          })),
-        },
       },
     });
     if (estadoDestino) {
@@ -907,13 +1244,28 @@ export async function registrarInspeccion(opts: {
     }
     return rec;
   });
+  const fotosIn = (opts.fotos ?? []).slice(0, MAX_FOTOS_REGISTRO);
+  for (const img of fotosIn) {
+    const row = await prisma.inspeccionVehiculoFoto.create({
+      data: { inspeccionId: insp.id, url: "pending" },
+    });
+    const stored = await guardarImagenParque(
+      opts.vehiculoId,
+      `inspfoto-${row.id}.jpg`,
+      img
+    );
+    await prisma.inspeccionVehiculoFoto.update({
+      where: { id: row.id },
+      data: { url: stored.url, imagenData: stored.imagenData },
+    });
+  }
   await registrarAuditoriaVehiculo({
     vehiculoId: opts.vehiculoId,
     entidad: "InspeccionVehiculo",
     registroId: insp.id,
     usuarioId: opts.usuarioId,
     accion: "INSPECCION",
-    valorNuevo: { resultado },
+    valorNuevo: { resultado, fotos: fotosIn.length },
     motivo: estadoDestino ? ALERTA_NO_APTO : null,
   });
   if (estadoDestino) {
@@ -976,12 +1328,6 @@ export async function registrarMantenimiento(opts: {
         proximoFecha: opts.proximoFecha ? new Date(opts.proximoFecha) : null,
         proximoKm: opts.proximoKm ?? null,
         observaciones: opts.observaciones ?? null,
-        fotos: {
-          create: (opts.fotos ?? []).map((img, i) => ({
-            url: `/api/media/vehiculos/${opts.vehiculoId}/mant-${i}.jpg`,
-            imagenData: img,
-          })),
-        },
       },
     });
     if (opts.clase === "CORRECTIVO") {
@@ -992,13 +1338,28 @@ export async function registrarMantenimiento(opts: {
     }
     return m;
   });
+  const fotosMant = (opts.fotos ?? []).slice(0, MAX_FOTOS_REGISTRO);
+  for (const img of fotosMant) {
+    const row = await prisma.mantenimientoVehiculoFoto.create({
+      data: { mantenimientoId: rec.id, url: "pending" },
+    });
+    const stored = await guardarImagenParque(
+      opts.vehiculoId,
+      `mantfoto-${row.id}.jpg`,
+      img
+    );
+    await prisma.mantenimientoVehiculoFoto.update({
+      where: { id: row.id },
+      data: { url: stored.url, imagenData: stored.imagenData },
+    });
+  }
   await registrarAuditoriaVehiculo({
     vehiculoId: opts.vehiculoId,
     entidad: "MantenimientoVehiculo",
     registroId: rec.id,
     usuarioId: opts.usuarioId,
     accion: "MANTENIMIENTO",
-    valorNuevo: { tipo: opts.tipo, costo: opts.costo },
+    valorNuevo: { tipo: opts.tipo, costo: opts.costo, fotos: fotosMant.length },
   });
   if (opts.clase === "CORRECTIVO") {
     const audit = auditoriaCambioEstado({
@@ -1061,7 +1422,7 @@ export async function registrarNovedad(opts: {
   tecnicoId: string;
   usuarioId?: string | null;
   kilometraje: number;
-  tipo: TipoNovedadVehiculo;
+  tipo: TipoNovedadVehiculo | string;
   descripcion: string;
   gravedad?: GravedadNovedadVehiculo;
   puedeCircular: boolean;
@@ -1086,16 +1447,10 @@ export async function registrarNovedad(opts: {
         vehiculoId: opts.vehiculoId,
         tecnicoId: opts.tecnicoId,
         kilometraje: opts.kilometraje,
-        tipo: opts.tipo,
+        tipo: mapTipoNovedadReporte(opts.tipo),
         descripcion: opts.descripcion.trim(),
         gravedad: opts.gravedad ?? "MEDIA",
         puedeCircular: opts.puedeCircular,
-        fotos: {
-          create: (opts.fotos ?? []).map((img, i) => ({
-            url: `/api/media/vehiculos/${opts.vehiculoId}/nov-${i}.jpg`,
-            imagenData: img,
-          })),
-        },
       },
     });
     if (!opts.puedeCircular) {
@@ -1106,13 +1461,32 @@ export async function registrarNovedad(opts: {
     }
     return n;
   });
+  const fotosNov = (opts.fotos ?? []).slice(0, MAX_FOTOS_NOVEDAD);
+  for (const img of fotosNov) {
+    const row = await prisma.novedadVehiculoFoto.create({
+      data: { novedadId: rec.id, url: "pending" },
+    });
+    const stored = await guardarImagenParque(
+      opts.vehiculoId,
+      `novfoto-${row.id}.jpg`,
+      img
+    );
+    await prisma.novedadVehiculoFoto.update({
+      where: { id: row.id },
+      data: { url: stored.url, imagenData: stored.imagenData },
+    });
+  }
   await registrarAuditoriaVehiculo({
     vehiculoId: opts.vehiculoId,
     entidad: "NovedadVehiculo",
     registroId: rec.id,
     usuarioId: opts.usuarioId,
     accion: "NOVEDAD",
-    valorNuevo: { puedeCircular: opts.puedeCircular, tipo: opts.tipo },
+    valorNuevo: {
+      puedeCircular: opts.puedeCircular,
+      tipo: mapTipoNovedadReporte(opts.tipo),
+      fotos: fotosNov.length,
+    },
   });
   if (!opts.puedeCircular) {
     const audit = auditoriaCambioEstado({
