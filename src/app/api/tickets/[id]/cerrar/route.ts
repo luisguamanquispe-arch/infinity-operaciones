@@ -16,6 +16,10 @@ import { ordenServicioCerrada } from "@/lib/ticket-cerrado";
 import { registrarSiHistorial } from "@/lib/soporte-infraestructura/historial";
 import { registrarRevisionHistorial } from "@/lib/revision-reporte";
 import { FLUJO_TICKET, logFlujoTicket } from "@/lib/ticket-flujo-log";
+import {
+  assertMaterialesListosParaCierre,
+  InventarioCampoError,
+} from "@/lib/inventario-campo/servicio";
 
 export async function POST(
   request: Request,
@@ -34,6 +38,15 @@ export async function POST(
 
   if (!ticket || !tecnicoAsignadoAlTicket(ticket, session.tecnicoId)) {
     return NextResponse.json({ error: "No autorizado" }, { status: 403 });
+  }
+
+  try {
+    await assertMaterialesListosParaCierre(id);
+  } catch (err) {
+    if (err instanceof InventarioCampoError) {
+      return NextResponse.json({ error: err.message }, { status: err.status });
+    }
+    throw err;
   }
 
   if (esTicketInfraestructura(ticket.tipo) && !puedeCerrarSoporteInfra(ticket, session.tecnicoId)) {

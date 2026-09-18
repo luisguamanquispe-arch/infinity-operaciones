@@ -16,6 +16,10 @@ import { NovedadSoportePanel } from "@/components/tecnico/NovedadSoportePanel";
 import { EnviarReporteSoporte } from "@/components/tecnico/EnviarReporteSoporte";
 import { JustificacionTecnicaModal } from "@/components/tecnico/JustificacionTecnicaModal";
 import { ExpressOrdenPanel } from "@/components/tecnico/ExpressOrdenPanel";
+import {
+  MaterialesCampoTecnico,
+  useFlujoCampoActivo,
+} from "@/components/tecnico/MaterialesCampoTecnico";
 import { TIPO_LABELS, formatDateTime, formatDuration } from "@/lib/utils";
 import { fetchWithRetry } from "@/lib/compress-image";
 import { leerGpsActual } from "@/lib/gps-client";
@@ -260,6 +264,7 @@ export default function OrdenPage() {
   const [materiales, setMateriales] = useState<MaterialForm[]>([materialVacio()]);
   const [materialError, setMaterialError] = useState("");
   const [instalacionError, setInstalacionError] = useState("");
+  const flujoCampoActivo = useFlujoCampoActivo(id);
 
   const [instalacion, setInstalacion] = useState<InstalacionFormState>(instalacionFormVacio());
 
@@ -1148,12 +1153,21 @@ export default function OrdenPage() {
             </>
             )}
 
+            {/* Materiales de campo (flujo solicitud→entrega) */}
+            <MaterialesCampoTecnico ticketId={id} />
+
             {/* Materiales */}
             <section className="bg-white rounded-xl border p-4 space-y-3">
               <h3 className="font-semibold">
                 Material utilizado
                 {esExpress ? " (equipos: marca, modelo y serie)" : ""}
               </h3>
+              {flujoCampoActivo ? (
+                <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-2">
+                  Descuento libre bloqueado: esta OT tiene materiales de campo activos. Use la
+                  sección «Materiales de la OT» (entregado / utilizado / devuelto / dañado).
+                </p>
+              ) : (
               <p className="text-xs text-slate-500">
                 {esInfra
                   ? "Registre materiales usados. Equipos y fibras requieren serie/lote, modelo y marca."
@@ -1161,6 +1175,9 @@ export default function OrdenPage() {
                     ? "Si entrega equipos al cliente (Router, ONU, Bridge, Repetidor, etc.), registre marca, modelo y serie obligatorios."
                     : `Materiales: Router, ONU y Bridge (marca, modelo y serie); Fibra; Patch cord; Rosetas; Repetidores (marca, modelo y serie); Otros. Cable drop / fibra droop incluye ${FIBRA_DROP_LIMITE_M} m; el excedente se marca en rojo.`}
               </p>
+              )}
+              {!flujoCampoActivo && (
+                <>
               {materiales.map((m, i) => {
                 const nombreMat = nombreMaterial(m.inventarioId);
                 const invItem = data.inventario.find((x) => x.id === m.inventarioId);
@@ -1338,6 +1355,8 @@ export default function OrdenPage() {
               >
                 Guardar materiales / descontar inventario
               </button>
+                </>
+              )}
             </section>
 
             {/* Fotos final / evidencia express / firma / cierre */}

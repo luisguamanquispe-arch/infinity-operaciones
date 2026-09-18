@@ -28,6 +28,11 @@ import {
   solicitaCambioClienteEnBody,
 } from "@/lib/ticket-cliente-edit";
 import { novedadPendienteTicket, TIPO_NOVEDAD_LABELS } from "@/lib/novedad-ticket";
+import {
+  InventarioCampoError,
+  assertMaterialesListosParaCierre,
+  liberarReservasPendientesPorCancelacionOt,
+} from "@/lib/inventario-campo/servicio";
 import { TRABAJOS_EXPRESS } from "@/lib/soporte-express";
 import type { ModalidadSoporte, TrabajoExpress } from "@prisma/client";
 
@@ -407,6 +412,34 @@ export async function PATCH(
     !resultadoCliente
   ) {
     return NextResponse.json({ error: "Sin cambios" }, { status: 400 });
+  }
+
+  if (updateData.estado === "CANCELADO" && ticket.estado !== "CANCELADO") {
+    try {
+      await liberarReservasPendientesPorCancelacionOt({
+        ticketId: id,
+        performedById: session.id,
+      });
+    } catch (err) {
+      if (err instanceof InventarioCampoError) {
+        return NextResponse.json({ error: err.message }, { status: err.status });
+      }
+      throw err;
+    }
+  }
+
+  if (
+    (updateData.estado === "FINALIZADO" || updateData.estado === "CERRADO") &&
+    ticket.estado !== updateData.estado
+  ) {
+    try {
+      await assertMaterialesListosParaCierre(id);
+    } catch (err) {
+      if (err instanceof InventarioCampoError) {
+        return NextResponse.json({ error: err.message }, { status: err.status });
+      }
+      throw err;
+    }
   }
 
   if (Object.keys(updateData).length > 0) {

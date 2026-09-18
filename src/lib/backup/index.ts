@@ -1,4 +1,5 @@
 import { PARQUE_BACKUP_TABLES } from "@/lib/parque-automotor/backup-tablas";
+import { INVENTARIO_CAMPO_BACKUP_TABLES } from "@/lib/inventario-campo/backup-tablas";
 import { prisma } from "@/lib/prisma";
 
 export const BACKUP_FORMAT_VERSION = 1;
@@ -39,6 +40,7 @@ export const BACKUP_TABLE_ORDER = [
   "HdSugerenciaIa",
   "HdSesionAgente",
   ...PARQUE_BACKUP_TABLES,
+  ...INVENTARIO_CAMPO_BACKUP_TABLES,
 ] as const;
 
 export type BackupTableName = (typeof BACKUP_TABLE_ORDER)[number];
@@ -100,6 +102,19 @@ function delegate(name: BackupTableName): Delegate {
     DocumentoVehiculo: prisma.documentoVehiculo as unknown as Delegate,
     VehiculoAuditoria: prisma.vehiculoAuditoria as unknown as Delegate,
     UsoVehiculoTicket: prisma.usoVehiculoTicket as unknown as Delegate,
+    MaterialCategory: prisma.materialCategory as unknown as Delegate,
+    Warehouse: prisma.warehouse as unknown as Delegate,
+    WarehouseStock: prisma.warehouseStock as unknown as Delegate,
+    SerializedAsset: prisma.serializedAsset as unknown as Delegate,
+    SerializedAssetHistorial: prisma.serializedAssetHistorial as unknown as Delegate,
+    MaterialRequest: prisma.materialRequest as unknown as Delegate,
+    MaterialRequestItem: prisma.materialRequestItem as unknown as Delegate,
+    MaterialDelivery: prisma.materialDelivery as unknown as Delegate,
+    MaterialDeliveryItem: prisma.materialDeliveryItem as unknown as Delegate,
+    MaterialDamageReport: prisma.materialDamageReport as unknown as Delegate,
+    InventoryMovement: prisma.inventoryMovement as unknown as Delegate,
+    InventoryReconciliation: prisma.inventoryReconciliation as unknown as Delegate,
+    InventoryAuditLog: prisma.inventoryAuditLog as unknown as Delegate,
   };
   return map[name];
 }

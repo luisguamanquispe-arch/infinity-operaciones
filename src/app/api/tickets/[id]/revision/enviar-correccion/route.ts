@@ -15,6 +15,10 @@ import { registrarRevisionHistorial } from "@/lib/revision-reporte";
 import { notificarSupervisorCorreccion } from "@/lib/notificaciones-revision";
 import { registrarSiHistorial } from "@/lib/soporte-infraestructura/historial";
 import { enMayusculasGuardar } from "@/lib/mayusculas";
+import {
+  assertMaterialesListosParaCierre,
+  InventarioCampoError,
+} from "@/lib/inventario-campo/servicio";
 
 /** Técnico: reenvía reporte corregido → CORREGIDO. */
 export async function POST(
@@ -34,6 +38,15 @@ export async function POST(
 
   if (!ticket || !tecnicoAsignadoAlTicket(ticket, session.tecnicoId)) {
     return NextResponse.json({ error: "No autorizado" }, { status: 403 });
+  }
+
+  try {
+    await assertMaterialesListosParaCierre(id);
+  } catch (err) {
+    if (err instanceof InventarioCampoError) {
+      return NextResponse.json({ error: err.message }, { status: err.status });
+    }
+    throw err;
   }
 
   if (ticket.estadoRevision !== "DEVUELTO_CORRECCION") {

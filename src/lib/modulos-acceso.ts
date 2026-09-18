@@ -11,6 +11,8 @@ export function homePathPorRol(rol: Rol | string | null | undefined): string {
       return "/supervisor";
     case "ADMIN":
       return "/gerencia";
+    case "BODEGA":
+      return "/supervisor/inventario";
     default:
       return "/login";
   }
@@ -35,7 +37,8 @@ export type ModuloId =
   | "backup"
   | "eliminar_soportes"
   | "tecnico_home"
-  | "parque_automotor";
+  | "parque_automotor"
+  | "inventario_campo";
 
 export type NavContext =
   | "gerencia"
@@ -92,7 +95,7 @@ export type ModuloDef = {
   /** Orden dentro del menú (menor = primero). */
   order: number;
   /** CTA grande en home supervisor. */
-  homeIcon?: "plus" | "calendar" | "file" | "users" | "contact" | "bell" | "car";
+  homeIcon?: "plus" | "calendar" | "file" | "users" | "contact" | "bell" | "car" | "package";
 };
 
 /**
@@ -221,6 +224,17 @@ export const MODULOS: ModuloDef[] = [
     order: 150,
     homeIcon: "car",
   },
+  {
+    id: "inventario_campo",
+    href: "/supervisor/inventario",
+    label: "Inventario",
+    group: "campo",
+    tone: "teal",
+    roles: ["ADMIN", "SUPERVISOR", "BODEGA"],
+    contexts: ["home-tiles", "acciones"],
+    order: 155,
+    homeIcon: "package",
+  },
 ];
 
 /**
@@ -311,7 +325,12 @@ export function hubActivo(
 export function puedeUsarModuleSwitcher(
   rol: Rol | string | null | undefined
 ): boolean {
-  return rol === "ADMIN" || rol === "SUPERVISOR" || rol === "HELP_DESK";
+  return (
+    rol === "ADMIN" ||
+    rol === "SUPERVISOR" ||
+    rol === "HELP_DESK" ||
+    rol === "BODEGA"
+  );
 }
 
 /** Hrefs de hubs — un solo acceso por módulo de producto. */

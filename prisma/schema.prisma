@@ -13,6 +13,7 @@ enum Rol {
   ADMIN
   HELP_DESK
   CLIENTE
+  BODEGA
 }
 
 enum EstadoTecnico {
@@ -184,6 +185,13 @@ model Usuario {
   asignacionesVehiculo     AsignacionVehiculo[] @relation("AsignacionVehiculoPor")
   auditoriasVehiculo       VehiculoAuditoria[]
   firmasActaVehiculo       ActaVehiculoFirma[]
+  materialRequestsCreated  MaterialRequest[] @relation("MaterialRequestBy")
+  materialRequestsApproved MaterialRequest[] @relation("MaterialRequestApprovedBy")
+  materialDeliveries       MaterialDelivery[] @relation("MaterialDeliveryBy")
+  inventoryMovements       InventoryMovement[] @relation("InventoryMovementBy")
+  inventoryAudits          InventoryAuditLog[]
+  inventoryReconciliations InventoryReconciliation[] @relation("InventoryReconciliationBy")
+  damageReportsReviewed    MaterialDamageReport[] @relation("DamageReviewedBy")
 }
 
 model Tecnico {
@@ -211,6 +219,10 @@ model Tecnico {
   inspeccionesVehiculo    InspeccionVehiculo[]
   novedadesVehiculo       NovedadVehiculo[]
   usosVehiculoTicket      UsoVehiculoTicket[]
+  materialRequests        MaterialRequest[]
+  materialDeliveries      MaterialDelivery[]
+  serializedAssets        SerializedAsset[]
+  damageReports           MaterialDamageReport[]
 }
 
 model Cliente {
@@ -239,6 +251,7 @@ model Cliente {
   speedTests AppClienteSpeedTest[]
   srTickets SrTicket[]
   irAfectaciones IrClienteAfectado[]
+  serializedAssets SerializedAsset[]
 }
 
 /// Cuenta de la app INFINITY Connect vinculada a un Cliente CRM.
@@ -365,6 +378,12 @@ model Ticket {
   revisionesHistorial  RevisionHistorial[]
   justificacionesTecnicas JustificacionTecnica[]
   usosVehiculo            UsoVehiculoTicket[]
+  materialRequests        MaterialRequest[]
+  materialDeliveries      MaterialDelivery[]
+  inventoryMovements      InventoryMovement[]
+  inventoryReconciliations InventoryReconciliation[]
+  damageReports           MaterialDamageReport[]
+  serializedAssets        SerializedAsset[]
 
   @@index([tipo, estado])
   @@index([siTipoTrabajo])
@@ -552,15 +571,41 @@ model Firma {
 }
 
 model Inventario {
-  id         String          @id @default(cuid())
-  nombre     String          @unique
-  unidad     String          @default("unidad")
-  tipo       TipoInventario  @default(CONSUMIBLE)
-  stock      Float           @default(0)
-  stockMin   Float           @default(5)
-  createdAt  DateTime        @default(now())
-  materiales MaterialUtilizado[]
-  irMateriales IrMaterial[]
+  id               String          @id @default(cuid())
+  nombre           String          @unique
+  unidad           String          @default("unidad")
+  tipo             TipoInventario  @default(CONSUMIBLE)
+  stock            Float           @default(0)
+  stockMin         Float           @default(5)
+  /// Extensiones módulo inventario de campo (aditivas; stock legacy se mantiene)
+  code             String?
+  description      String?         @db.Text
+  categoryId       String?
+  brand            String?
+  model            String?
+  maximumStock     Float?
+  unitCost         Float           @default(0)
+  averageCost      Float           @default(0)
+  lastPurchaseCost Float           @default(0)
+  isSerialized     Boolean         @default(false)
+  requiresLot      Boolean         @default(false)
+  isActive         Boolean         @default(true)
+  unidadCampo      UnidadInventarioCampo @default(UNIDAD)
+  updatedAt        DateTime        @updatedAt
+  createdAt        DateTime        @default(now())
+  category         MaterialCategory? @relation(fields: [categoryId], references: [id])
+  materiales       MaterialUtilizado[]
+  irMateriales     IrMaterial[]
+  warehouseStocks  WarehouseStock[]
+  movements        InventoryMovement[]
+  serializedAssets SerializedAsset[]
+  requestItems     MaterialRequestItem[]
+  deliveryItems    MaterialDeliveryItem[]
+  damageReports    MaterialDamageReport[]
+
+  @@index([code])
+  @@index([categoryId])
+  @@index([isActive])
 }
 
 model MaterialUtilizado {
@@ -1574,3 +1619,352 @@ model UsoVehiculoTicket {
   @@index([ticketId])
   @@index([tecnicoId])
 }
+
+// ─── Inventario de campo (módulo profesional) ───────────────────────────────
+
+enum UnidadInventarioCampo {
+  UNIDAD
+  METRO
+  ROLLO
+  CAJA
+  PAQUETE
+  LITRO
+  KILOGRAMO
+  JUEGO
+}
+
+enum EstadoSolicitudMaterial {
+  DRAFT
+  REQUESTED
+  APPROVED
+  REJECTED
+  RESERVED
+  PREPARED
+  DELIVERED
+  IN_USE
+  PENDING_RECONCILIATION
+  RECONCILED
+  CANCELLED
+  CLOSED
+}
+
+enum TipoTrabajoMaterial {
+  DOMICILIARY_INSTALLATION
+  DOMICILIARY_REPAIR
+  INFRASTRUCTURE_INSTALLATION
+  INFRASTRUCTURE_MAINTENANCE
+  MIGRATION
+  OTHER
+}
+
+enum TipoMovimientoInventario {
+  PURCHASE
+  TRANSFER_IN
+  TRANSFER_OUT
+  RESERVATION
+  RESERVATION_RELEASE
+  DELIVERY
+  CONSUMPTION
+  RETURN
+  DAMAGE
+  LOSS
+  ADJUSTMENT_IN
+  ADJUSTMENT_OUT
+  INSTALLATION
+  RECOVERY
+  REVERSAL
+}
+
+enum EstadoActivoSerializado {
+  AVAILABLE
+  RESERVED
+  ASSIGNED
+  INSTALLED
+  RETURNED
+  DAMAGED
+  LOST
+  IN_REPAIR
+  RETIRED
+}
+
+enum EstadoDanoMaterial {
+  REPORTED
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+}
+
+enum PrioridadMaterial {
+  ALTA
+  MEDIA
+  BAJA
+}
+
+model MaterialCategory {
+  id          String       @id @default(cuid())
+  code        String       @unique
+  name        String
+  description String?
+  isActive    Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+  items       Inventario[]
+}
+
+model Warehouse {
+  id          String           @id @default(cuid())
+  code        String           @unique
+  name        String
+  description String?
+  isActive    Boolean          @default(true)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  stocks      WarehouseStock[]
+  movements   InventoryMovement[]
+  requests    MaterialRequest[]
+  deliveries  MaterialDelivery[]
+  serialized  SerializedAsset[]
+}
+
+model WarehouseStock {
+  id           String     @id @default(cuid())
+  warehouseId  String
+  inventarioId String
+  physicalQty  Float      @default(0)
+  reservedQty  Float      @default(0)
+  assignedQty  Float      @default(0)
+  updatedAt    DateTime   @updatedAt
+  warehouse    Warehouse  @relation(fields: [warehouseId], references: [id])
+  inventario   Inventario @relation(fields: [inventarioId], references: [id])
+
+  @@unique([warehouseId, inventarioId])
+  @@index([inventarioId])
+}
+
+model InventoryMovement {
+  id             String                  @id @default(cuid())
+  movementNumber String                  @unique
+  inventarioId   String
+  serialId       String?
+  warehouseId    String
+  movementType   TipoMovimientoInventario
+  quantity       Float
+  unitCost       Float                   @default(0)
+  totalCost      Float                   @default(0)
+  ticketId       String?
+  tecnicoId      String?
+  referenceType  String?
+  referenceId    String?
+  performedById  String?
+  notes          String?                 @db.Text
+  createdAt      DateTime                @default(now())
+  inventario     Inventario              @relation(fields: [inventarioId], references: [id])
+  warehouse      Warehouse               @relation(fields: [warehouseId], references: [id])
+  ticket         Ticket?                 @relation(fields: [ticketId], references: [id])
+  performedBy    Usuario?                @relation("InventoryMovementBy", fields: [performedById], references: [id])
+  serial         SerializedAsset?        @relation(fields: [serialId], references: [id])
+
+  @@index([inventarioId, createdAt])
+  @@index([warehouseId, createdAt])
+  @@index([ticketId])
+  @@index([movementType, createdAt])
+  @@index([referenceType, referenceId])
+}
+
+model SerializedAsset {
+  id                    String                  @id @default(cuid())
+  inventarioId          String
+  serialNumber          String
+  macAddress            String?
+  imei                  String?
+  status                EstadoActivoSerializado @default(AVAILABLE)
+  warehouseId           String?
+  assignedTechnicianId  String?
+  ticketId              String?
+  clienteId             String?
+  assignedAt            DateTime?
+  installedAt           DateTime?
+  returnedAt            DateTime?
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @updatedAt
+  inventario            Inventario              @relation(fields: [inventarioId], references: [id])
+  warehouse             Warehouse?              @relation(fields: [warehouseId], references: [id])
+  assignedTechnician    Tecnico?                @relation(fields: [assignedTechnicianId], references: [id])
+  ticket                Ticket?                 @relation(fields: [ticketId], references: [id])
+  cliente               Cliente?                @relation(fields: [clienteId], references: [id])
+  historial             SerializedAssetHistorial[]
+  movements             InventoryMovement[]
+  deliveryItems         MaterialDeliveryItem[]
+
+  @@unique([inventarioId, serialNumber])
+  @@unique([macAddress])
+  @@index([status])
+  @@index([ticketId])
+  @@index([assignedTechnicianId])
+}
+
+model SerializedAssetHistorial {
+  id        String                  @id @default(cuid())
+  assetId   String
+  fromStatus EstadoActivoSerializado?
+  toStatus  EstadoActivoSerializado
+  usuarioId String?
+  notes     String?
+  createdAt DateTime                @default(now())
+  asset     SerializedAsset         @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@index([assetId, createdAt])
+}
+
+model MaterialRequest {
+  id              String                   @id @default(cuid())
+  requestNumber   String                   @unique
+  ticketId        String
+  requestedById   String
+  tecnicoId       String
+  warehouseId     String
+  workType        TipoTrabajoMaterial      @default(OTHER)
+  priority        PrioridadMaterial        @default(MEDIA)
+  status          EstadoSolicitudMaterial  @default(DRAFT)
+  justification   String?                  @db.Text
+  requestedAt     DateTime?
+  approvedAt      DateTime?
+  approvedById    String?
+  rejectionReason String?                  @db.Text
+  createdAt       DateTime                 @default(now())
+  updatedAt       DateTime                 @updatedAt
+  ticket          Ticket                   @relation(fields: [ticketId], references: [id])
+  requestedBy     Usuario                  @relation("MaterialRequestBy", fields: [requestedById], references: [id])
+  approvedBy      Usuario?                 @relation("MaterialRequestApprovedBy", fields: [approvedById], references: [id])
+  tecnico         Tecnico                  @relation(fields: [tecnicoId], references: [id])
+  warehouse       Warehouse                @relation(fields: [warehouseId], references: [id])
+  items           MaterialRequestItem[]
+  deliveries      MaterialDelivery[]
+  reconciliations InventoryReconciliation[]
+
+  @@index([ticketId, createdAt])
+  @@index([tecnicoId, status])
+  @@index([status, createdAt])
+}
+
+model MaterialRequestItem {
+  id           String          @id @default(cuid())
+  requestId    String
+  inventarioId String
+  requestedQty Float
+  approvedQty  Float?
+  notes        String?
+  request      MaterialRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  inventario   Inventario      @relation(fields: [inventarioId], references: [id])
+
+  @@index([requestId])
+  @@index([inventarioId])
+}
+
+model MaterialDelivery {
+  id                String          @id @default(cuid())
+  deliveryNumber    String          @unique
+  requestId         String
+  ticketId          String
+  tecnicoId         String
+  warehouseId       String
+  deliveredById     String
+  deliveredAt       DateTime        @default(now())
+  confirmedAt       DateTime?
+  confirmationNotes String?         @db.Text
+  differenceReported Boolean        @default(false)
+  notes             String?         @db.Text
+  createdAt         DateTime        @default(now())
+  request           MaterialRequest @relation(fields: [requestId], references: [id])
+  ticket            Ticket          @relation(fields: [ticketId], references: [id])
+  tecnico           Tecnico         @relation(fields: [tecnicoId], references: [id])
+  warehouse         Warehouse       @relation(fields: [warehouseId], references: [id])
+  deliveredBy       Usuario         @relation("MaterialDeliveryBy", fields: [deliveredById], references: [id])
+  items             MaterialDeliveryItem[]
+  damageReports     MaterialDamageReport[]
+
+  @@index([ticketId, deliveredAt])
+  @@index([requestId])
+  @@index([tecnicoId])
+}
+
+model MaterialDeliveryItem {
+  id             String              @id @default(cuid())
+  deliveryId     String
+  inventarioId   String
+  deliveredQty   Float
+  usedQty        Float               @default(0)
+  returnedQty    Float               @default(0)
+  damagedQty     Float               @default(0)
+  lostQty        Float               @default(0)
+  lotNumber      String?
+  serialAssetId  String?
+  notes          String?
+  delivery       MaterialDelivery    @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+  inventario     Inventario          @relation(fields: [inventarioId], references: [id])
+  serialAsset    SerializedAsset?    @relation(fields: [serialAssetId], references: [id])
+
+  @@index([deliveryId])
+  @@index([inventarioId])
+}
+
+model MaterialDamageReport {
+  id           String             @id @default(cuid())
+  deliveryId   String?
+  ticketId     String
+  tecnicoId    String
+  inventarioId String
+  quantity     Float
+  reason       String
+  description  String?            @db.Text
+  photoUrl     String?
+  photoData    String?            @db.Text
+  status       EstadoDanoMaterial @default(REPORTED)
+  reviewedById String?
+  reviewedAt   DateTime?
+  createdAt    DateTime           @default(now())
+  delivery     MaterialDelivery?  @relation(fields: [deliveryId], references: [id])
+  ticket       Ticket             @relation(fields: [ticketId], references: [id])
+  tecnico      Tecnico            @relation(fields: [tecnicoId], references: [id])
+  inventario   Inventario         @relation(fields: [inventarioId], references: [id])
+  reviewedBy   Usuario?           @relation("DamageReviewedBy", fields: [reviewedById], references: [id])
+
+  @@index([ticketId, createdAt])
+  @@index([status])
+}
+
+model InventoryReconciliation {
+  id              String          @id @default(cuid())
+  requestId       String
+  ticketId        String
+  reconciledById  String
+  exceptionAuthorized Boolean     @default(false)
+  exceptionReason String?         @db.Text
+  totalCost       Float           @default(0)
+  notes           String?         @db.Text
+  createdAt       DateTime        @default(now())
+  request         MaterialRequest @relation(fields: [requestId], references: [id])
+  ticket          Ticket          @relation(fields: [ticketId], references: [id])
+  reconciledBy    Usuario         @relation("InventoryReconciliationBy", fields: [reconciledById], references: [id])
+
+  @@index([ticketId, createdAt])
+  @@index([requestId])
+}
+
+model InventoryAuditLog {
+  id            String   @id @default(cuid())
+  entidad       String
+  registroId    String
+  usuarioId     String?
+  accion        String
+  ticketId      String?
+  motivo        String?
+  valorAnterior String?  @db.Text
+  valorNuevo    String?  @db.Text
+  createdAt     DateTime @default(now())
+  usuario       Usuario? @relation(fields: [usuarioId], references: [id])
+
+  @@index([entidad, registroId])
+  @@index([ticketId, createdAt])
+  @@index([createdAt])
+}
+
