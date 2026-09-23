@@ -23,10 +23,6 @@ import { asegurarColaboracionOrden } from "@/lib/ticket-reporte";
 import { verificarTicketEditable } from "@/lib/ticket-cerrado";
 import type { TipoPatchCord } from "@prisma/client";
 import { TEXTO_ACEPTACION_SOPORTE } from "@/lib/aceptacion-soporte";
-import {
-  assertDescuentoLegacyPermitido,
-  InventarioCampoError,
-} from "@/lib/inventario-campo/servicio";
 
 export const maxDuration = 60;
 export const runtime = "nodejs";
@@ -188,15 +184,6 @@ export async function PUT(
     }
 
     if (body.materiales) {
-      try {
-        await assertDescuentoLegacyPermitido(id);
-      } catch (err) {
-        if (err instanceof InventarioCampoError) {
-          return NextResponse.json({ error: err.message }, { status: err.status });
-        }
-        throw err;
-      }
-
       const items = body.materiales as {
         inventarioId: string;
         cantidad: string | number;

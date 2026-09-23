@@ -7,7 +7,6 @@ import {
   Car,
   Contact,
   FileText,
-  Package,
   Plus,
   Users,
 } from "lucide-react";
@@ -79,8 +78,6 @@ function HomeIcon({ name }: { name?: NavItemResolved["homeIcon"] }) {
       return <Bell className={cls} />;
     case "car":
       return <Car className={cls} />;
-    case "package":
-      return <Package className={cls} />;
     case "plus":
     default:
       return <Plus className={cls} />;

@@ -142,16 +142,8 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL(dashboardPath(session.rol), request.url));
   }
 
-  // BODEGA solo opera Inventario de campo bajo /supervisor/inventario
-  if (pathname.startsWith("/supervisor")) {
-    const rolesSupervisor = ["SUPERVISOR", "ADMIN"];
-    const bodegaInventario =
-      session.rol === "BODEGA" &&
-      (pathname === "/supervisor/inventario" ||
-        pathname.startsWith("/supervisor/inventario/"));
-    if (!rolesSupervisor.includes(session.rol) && !bodegaInventario) {
-      return NextResponse.redirect(new URL("/login", request.url));
-    }
+  if (pathname.startsWith("/supervisor") && !["SUPERVISOR", "ADMIN"].includes(session.rol)) {
+    return NextResponse.redirect(new URL("/login", request.url));
   }
   if (pathname.startsWith("/reportes") && !["SUPERVISOR", "ADMIN"].includes(session.rol)) {
     return NextResponse.redirect(new URL("/login", request.url));

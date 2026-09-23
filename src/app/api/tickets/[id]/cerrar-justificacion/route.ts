@@ -14,10 +14,6 @@ import {
 import { esTicketInfraestructura } from "@/lib/ticket-infraestructura";
 import { registrarSiHistorial } from "@/lib/soporte-infraestructura/historial";
 import { enMayusculasGuardar } from "@/lib/mayusculas";
-import {
-  assertMaterialesListosParaCierre,
-  InventarioCampoError,
-} from "@/lib/inventario-campo/servicio";
 
 /**
  * Cierre por justificación técnica: no exige checklist/fotos/firma.
@@ -40,15 +36,6 @@ export async function POST(
 
   if (!ticket || !tecnicoAsignadoAlTicket(ticket, session.tecnicoId)) {
     return NextResponse.json({ error: "No autorizado" }, { status: 403 });
-  }
-
-  try {
-    await assertMaterialesListosParaCierre(id);
-  } catch (err) {
-    if (err instanceof InventarioCampoError) {
-      return NextResponse.json({ error: err.message }, { status: err.status });
-    }
-    throw err;
   }
 
   if (!puedeCerrarConJustificacion(ticket, session.tecnicoId)) {
