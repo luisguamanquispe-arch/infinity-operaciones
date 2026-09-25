@@ -18,7 +18,7 @@ ENV RENDER_LOW_MEMORY=1
 ENV GIT_SHA=$GIT_SHA
 RUN node scripts/prisma-run.cjs generate
 RUN npm run build
-# Runtime: solo dependencias de producción (incluye prisma para migrate deploy al arrancar)
+# Runtime: solo dependencias de producción. prisma migrate deploy no se ejecuta al arrancar.
 RUN npm prune --omit=dev
 
 FROM base AS runner

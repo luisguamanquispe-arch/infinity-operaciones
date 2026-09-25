@@ -54,13 +54,6 @@ runPrisma(root, ["generate"], { NODE_OPTIONS: "--max-old-space-size=128" });
 
 runNextBuild(heapBuild);
 
-if (process.env.DATABASE_URL) {
-  console.log("[build] prisma migrate deploy (CLI directo)...");
-  runPrisma(root, ["migrate", "deploy"], { NODE_OPTIONS: "--max-old-space-size=128" });
-} else {
-  console.warn("[build] DATABASE_URL ausente — migraciones omitidas.");
-}
-
 if (lowMemory) {
   run("npm prune --omit=dev", { NODE_OPTIONS: "--max-old-space-size=128" });
   run("rm -rf node_modules/prisma node_modules/.bin/prisma node_modules/.bin/prisma.cmd 2>/dev/null; true", {

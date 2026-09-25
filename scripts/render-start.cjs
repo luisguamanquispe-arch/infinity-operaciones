@@ -1,7 +1,6 @@
 const { spawn, spawnSync } = require("child_process");
 const fs = require("fs");
 const path = require("path");
-const { migrateDeploy } = require("./migrate-deploy.cjs");
 
 const root = path.join(__dirname, "..");
 const hostname = "0.0.0.0";
@@ -30,7 +29,7 @@ if (!process.env.JWT_SECRET) {
   console.warn("[startup] ADVERTENCIA: JWT_SECRET no configurada.");
 }
 
-migrateDeploy(root);
+console.log("[startup] Sin migraciones automáticas. prisma migrate deploy queda como operación manual.");
 
 console.log("[startup] Asegurando enum LEIDO (semáforo)...");
 const ensure = spawnSync(process.execPath, [path.join(__dirname, "ensure-leido-enum.cjs")], {
