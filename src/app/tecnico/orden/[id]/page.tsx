@@ -72,6 +72,12 @@ import {
   FOTOS_EXPRESS,
   trabajoExpressTexto,
 } from "@/lib/soporte-express";
+import {
+  erroresUsoEnCierre,
+  MARCA_SIN_EQUIPOS,
+  MENSAJE_INSTALACION_FRONT,
+  regimenExpress,
+} from "@/lib/equipos-materiales-ot";
 
 interface MaterialForm {
   inventarioId: string;
@@ -80,6 +86,7 @@ interface MaterialForm {
   modelo: string;
   marca: string;
   tipoPatchCord: TipoPatchCord | "";
+  clase: "EQUIPO" | "MATERIAL";
 }
 
 function materialVacio(): MaterialForm {
@@ -90,6 +97,7 @@ function materialVacio(): MaterialForm {
     modelo: "",
     marca: "",
     tipoPatchCord: "",
+    clase: "MATERIAL",
   };
 }
 
@@ -258,6 +266,7 @@ export default function OrdenPage() {
   });
 
   const [materiales, setMateriales] = useState<MaterialForm[]>([materialVacio()]);
+  const [sinEquipos, setSinEquipos] = useState(false);
   const [materialError, setMaterialError] = useState("");
   const [instalacionError, setInstalacionError] = useState("");
 
@@ -305,9 +314,11 @@ export default function OrdenPage() {
       const parts = splitResumenExpress(d.orden.resumenTrabajo ?? "");
       setResumenTrabajo(parts.trabajo);
       setObservacionesExpress(parts.obs);
+      setSinEquipos((d.orden.resumenTrabajo ?? "").toUpperCase().includes(MARCA_SIN_EQUIPOS));
     } else {
       setResumenTrabajo(d.orden.resumenTrabajo ?? "");
       setObservacionesExpress("");
+      setSinEquipos(false);
     }
     setDiagnosticoInfra(d.ticket.diagnosticoInfra ?? "");
     setTrabajoRealizadoInfra(d.ticket.trabajoRealizadoInfra ?? "");
@@ -323,6 +334,11 @@ export default function OrdenPage() {
             modelo: m.modelo ?? "",
             marca: m.marca ?? "",
             tipoPatchCord: m.tipoPatchCord ?? "",
+            clase:
+              tipoInventarioEfectivo(m.inventario.tipo, m.inventario.nombre) === "EQUIPO" ||
+              materialEsEquipoActivo(m.inventario.nombre)
+                ? "EQUIPO"
+                : "MATERIAL",
           })
         )
       );
@@ -490,10 +506,10 @@ export default function OrdenPage() {
     refrescar();
   }
 
-  async function guardarMateriales() {
+  async function guardarMateriales(): Promise<boolean> {
     setMaterialError("");
     const validos = materiales.filter((m) => m.inventarioId && m.cantidad);
-    if (validos.length === 0) return;
+    if (validos.length === 0) return true;
 
     const res = await fetch(`/api/tickets/${id}/medicion`, {
       method: "PUT",
@@ -503,9 +519,10 @@ export default function OrdenPage() {
     const result = await res.json();
     if (!res.ok) {
       setMaterialError(result.error || "No se pudo guardar el material");
-      return;
+      return false;
     }
     refrescar();
+    return true;
   }
 
   function nombreMaterial(inventarioId: string): string {
@@ -568,7 +585,11 @@ export default function OrdenPage() {
 
   function resumenParaCierre(): string {
     if (data && esSoporteExpress(data.ticket)) {
-      return buildResumenExpress(resumenTrabajo, observacionesExpress);
+      let obs = observacionesExpress;
+      if (sinEquipos && !obs.toUpperCase().includes(MARCA_SIN_EQUIPOS)) {
+        obs = `${MARCA_SIN_EQUIPOS}\n${obs}`.trim();
+      }
+      return buildResumenExpress(resumenTrabajo, obs);
     }
     return resumenTrabajo;
   }
@@ -606,6 +627,46 @@ export default function OrdenPage() {
     }
     setCerrando(true);
     setError("");
+    if (data && !esTicketInfraestructura(data.ticket.tipo)) {
+      const lineas = materiales
+        .filter((m) => m.inventarioId)
+        .map((m) => {
+          const inv = data.inventario.find((i) => i.id === m.inventarioId);
+          return {
+            cantidad: m.cantidad,
+            serie: m.serie,
+            modelo: m.modelo,
+            marca: m.marca,
+            tipoPatchCord: m.tipoPatchCord || null,
+            inventario: inv
+              ? { nombre: inv.nombre, tipo: inv.tipo, unidad: inv.unidad }
+              : { nombre: "" },
+          };
+        });
+      const erroresUso = erroresUsoEnCierre({
+        esInstalacion: esTicketInstalacion(data.ticket.tipo),
+        esExpress: esSoporteExpress(data.ticket),
+        trabajoExpress: data.ticket.trabajoExpress,
+        resumenTrabajo: resumenParaCierre(),
+        materiales: lineas,
+      });
+      if (erroresUso.length) {
+        setError(
+          esTicketInstalacion(data.ticket.tipo) && lineas.length === 0
+            ? MENSAJE_INSTALACION_FRONT
+            : erroresUso.join(" ")
+        );
+        setCerrando(false);
+        return;
+      }
+      if (lineas.length > 0) {
+        const guardado = await guardarMateriales();
+        if (!guardado) {
+          setCerrando(false);
+          return;
+        }
+      }
+    }
     if (data && esTicketInfraestructura(data.ticket.tipo)) {
       const res = await fetch(`/api/tickets/${id}/cerrar`, {
         method: "POST",
@@ -1150,16 +1211,15 @@ export default function OrdenPage() {
 
             {/* Materiales */}
             <section className="bg-white rounded-xl border p-4 space-y-3">
-              <h3 className="font-semibold">
-                Material utilizado
-                {esExpress ? " (equipos: marca, modelo y serie)" : ""}
-              </h3>
+              <h3 className="font-semibold">Equipos y materiales utilizados</h3>
               <p className="text-xs text-slate-500">
-                {esInfra
-                  ? "Registre materiales usados. Equipos y fibras requieren serie/lote, modelo y marca."
+                {esInstalacion
+                  ? "La instalación nueva exige al menos un equipo o material antes de finalizar."
                   : esExpress
-                    ? "Si entrega equipos al cliente (Router, ONU, Bridge, Repetidor, etc.), registre marca, modelo y serie obligatorios."
-                    : `Materiales: Router, ONU y Bridge (marca, modelo y serie); Fibra; Patch cord; Rosetas; Repetidores (marca, modelo y serie); Otros. Cable drop / fibra droop incluye ${FIBRA_DROP_LIMITE_M} m; el excedente se marca en rojo.`}
+                    ? "Registre el equipo o material utilizado. Si no usó ninguno, declárelo y explique el motivo."
+                    : esInfra
+                      ? "Registre materiales usados. Equipos y fibras requieren serie/lote, modelo y marca."
+                      : `Materiales: Router, ONU y Bridge (marca, modelo y serie); Fibra; Patch cord; Rosetas; Repetidores (marca, modelo y serie); Otros. Cable drop / fibra droop incluye ${FIBRA_DROP_LIMITE_M} m; el excedente se marca en rojo.`}
               </p>
               {materiales.map((m, i) => {
                 const nombreMat = nombreMaterial(m.inventarioId);
@@ -1172,7 +1232,19 @@ export default function OrdenPage() {
                   !esInfra && nombreMat
                     ? calcularExcedenteMaterial(nombreMat, m.cantidad, false)
                     : 0;
+                const esFibra = Boolean(nombreMat && materialEsCableOFibra(nombreMat));
                 const esFibraDrop = !esInfra && esFibraDropCliente(nombreMat);
+                const gruposVisibles = inventarioGruposCliente
+                  .map((g) => ({
+                    ...g,
+                    items: g.items.filter((inv) => {
+                      const esEq =
+                        tipoInventarioEfectivo(inv.tipo, inv.nombre) === "EQUIPO" ||
+                        materialEsEquipoActivo(inv.nombre);
+                      return m.clase === "EQUIPO" ? esEq : !esEq;
+                    }),
+                  }))
+                  .filter((g) => g.items.length > 0);
 
                 return (
                   <div key={i} className="space-y-2 border border-slate-100 rounded-lg p-3">
@@ -1192,7 +1264,7 @@ export default function OrdenPage() {
                       >
                         <option value="">Seleccionar material</option>
                         {!esInfra
-                          ? inventarioGruposCliente.map((g) => (
+                          ? gruposVisibles.map((g) => (
                               <optgroup key={g.grupo} label={g.label}>
                                 {g.items.map((inv) => (
                                   <option key={inv.id} value={inv.id}>
@@ -1203,8 +1275,8 @@ export default function OrdenPage() {
                             ))
                           : (
                             <>
-                              {inventarioEquipos.length > 0 && (
-                                <optgroup label="Equipos (ONU / router / bridge)">
+                              {m.clase === "EQUIPO" && inventarioEquipos.length > 0 && (
+                                <optgroup label="Equipos">
                                   {inventarioEquipos.map((inv) => (
                                     <option key={inv.id} value={inv.id}>
                                       {inv.nombre} (stock: {inv.stock} {inv.unidad})
@@ -1212,7 +1284,7 @@ export default function OrdenPage() {
                                   ))}
                                 </optgroup>
                               )}
-                              {inventarioCables.length > 0 && (
+                              {m.clase === "MATERIAL" && inventarioCables.length > 0 && (
                                 <optgroup label="Cable y fibra">
                                   {inventarioCables.map((inv) => (
                                     <option key={inv.id} value={inv.id}>
@@ -1221,7 +1293,7 @@ export default function OrdenPage() {
                                   ))}
                                 </optgroup>
                               )}
-                              {inventarioOtros.length > 0 && (
+                              {m.clase === "MATERIAL" && inventarioOtros.length > 0 && (
                                 <optgroup label="Otros materiales">
                                   {inventarioOtros.map((inv) => (
                                     <option key={inv.id} value={inv.id}>
@@ -1237,7 +1309,7 @@ export default function OrdenPage() {
                         type="number"
                         step="any"
                         min="0"
-                        placeholder={invItem?.unidad === "m" ? "Metros" : "Cant."}
+                        placeholder={esFibra || invItem?.unidad === "m" ? "Metros" : "Cant."}
                         value={m.cantidad}
                         onChange={(e) => actualizarMaterial(i, { cantidad: e.target.value })}
                         className={`w-24 px-3 py-2 border rounded-lg text-sm ${
@@ -1247,6 +1319,12 @@ export default function OrdenPage() {
                         }`}
                       />
                     </div>
+
+                    {esFibra && m.cantidad && (
+                      <p className="text-xs text-slate-600">
+                        Cantidad utilizada: {m.cantidad} metros
+                      </p>
+                    )}
 
                     {esFibraDrop && m.cantidad && (
                       <p
@@ -1300,6 +1378,17 @@ export default function OrdenPage() {
                       </>
                     )}
 
+                    {m.clase === "MATERIAL" && !requiereDetalle && !esPatchcord && (
+                      <input
+                        type="text"
+                        placeholder="Tipo / presentación *"
+                        value={m.modelo}
+                        onChange={(e) => actualizarMaterial(i, { modelo: e.target.value })}
+                        className="w-full px-3 py-2 border rounded-lg text-sm"
+                        autoComplete="off"
+                      />
+                    )}
+
                     {esPatchcord && (
                       <select
                         value={m.tipoPatchCord}
@@ -1321,13 +1410,39 @@ export default function OrdenPage() {
                   </div>
                 );
               })}
-              <button
-                type="button"
-                onClick={() => setMateriales([...materiales, materialVacio()])}
-                className="text-sm text-infinity-600"
-              >
-                + Agregar material
-              </button>
+              <div className="flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setMateriales([...materiales, { ...materialVacio(), clase: "EQUIPO" }])
+                  }
+                  className="text-sm text-infinity-600 font-medium"
+                >
+                  + Agregar equipo
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setMateriales([...materiales, { ...materialVacio(), clase: "MATERIAL" }])
+                  }
+                  className="text-sm text-infinity-600 font-medium"
+                >
+                  + Agregar material
+                </button>
+              </div>
+              {esExpress && regimenExpress(ticket.trabajoExpress) === "OPCIONAL" && (
+                <label className="flex items-start gap-2 text-sm text-slate-700">
+                  <input
+                    type="checkbox"
+                    className="mt-1"
+                    checked={sinEquipos}
+                    onChange={(e) => setSinEquipos(e.target.checked)}
+                  />
+                  <span>
+                    SIN EQUIPOS NI MATERIALES UTILIZADOS. La observación del trabajo es obligatoria.
+                  </span>
+                </label>
+              )}
               {materialError && (
                 <div className="bg-red-50 text-red-700 text-sm p-3 rounded-lg">{materialError}</div>
               )}
@@ -1584,7 +1699,7 @@ export default function OrdenPage() {
 
                 {orden.materiales.length > 0 && (
                   <section className="bg-white rounded-xl border p-4 space-y-2">
-                    <h3 className="font-semibold">Material utilizado</h3>
+                    <h3 className="font-semibold">Equipos y materiales utilizados</h3>
                     {orden.materiales.map((m, i) => (
                       <div key={i} className="text-sm border-b border-slate-100 last:border-0 py-2">
                         <p className="font-medium">

@@ -136,10 +136,14 @@ export async function generarPdfHistorialSoportes(
     }
 
     const mats = materialesParaReporte(full?.orden?.materiales ?? []);
-    if (mats.length) {
-      doc.fontSize(11).fillColor("#0f172a").text("Materiales y equipos", { underline: true });
+    const sinUso = (full?.orden?.resumenTrabajo ?? "").toUpperCase().includes("SIN EQUIPOS NI MATERIALES UTILIZADOS");
+    if (mats.length || sinUso) {
+      doc.fontSize(11).fillColor("#0f172a").text("Equipos y materiales utilizados", { underline: true });
       doc.moveDown(0.2);
       doc.fontSize(10).fillColor("#334155");
+      if (sinUso && mats.length === 0) {
+        doc.text("SIN EQUIPOS NI MATERIALES UTILIZADOS");
+      }
       for (const m of mats) {
         const extra = [m.marca, m.modelo, m.serie].filter(Boolean).join(" · ");
         doc.text(`• ${m.inventario.nombre}: ${m.cantidad} ${m.inventario.unidad}${extra ? ` (${extra})` : ""}`);

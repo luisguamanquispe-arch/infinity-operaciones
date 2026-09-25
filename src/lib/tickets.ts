@@ -1,5 +1,5 @@
 import { prisma } from "./prisma";
-import type { TipoFoto, TipoTrabajo } from "@prisma/client";
+import type { TipoFoto, TipoTrabajo, TrabajoExpress } from "@prisma/client";
 import { FOTOS_OBLIGATORIAS_DEFAULT } from "./fotos-ticket";
 import { FOTOS_OBLIGATORIAS_INFRA } from "./ticket-infraestructura";
 import {
@@ -13,10 +13,7 @@ import {
   FOTOS_OBLIGATORIAS_EXPRESS,
   FOTO_LABELS_EXPRESS,
 } from "./soporte-express";
-import {
-  materialEsEquipoActivo,
-  tipoInventarioEfectivo,
-} from "./material-detalle";
+import { erroresUsoEnCierre, type LineaUsoOt } from "./equipos-materiales-ot";
 export async function getOrCreateOrden(ticketId: string) {
   const fotoLite = {
     select: { id: true, tipo: true, url: true, lat: true, lng: true },
@@ -104,17 +101,13 @@ export function validarCierreOrden(
     nombreRedWifi?: string | null;
     claveRedWifi?: string | null;
     resumenTrabajo?: string | null;
-    materiales?: {
-      serie?: string | null;
-      modelo?: string | null;
-      marca?: string | null;
-      inventario?: { nombre: string; tipo?: string } | null;
-    }[];
+    materiales?: LineaUsoOt[];
   },
   options?: {
     esInfraestructura?: boolean;
     esInstalacion?: boolean;
     esExpress?: boolean;
+    trabajoExpress?: TrabajoExpress | null;
   }
 ): { valido: boolean; errores: string[] } {
   const errores: string[] = [];
@@ -136,21 +129,14 @@ export function validarCierreOrden(
         );
       }
     }
-    for (const m of orden.materiales ?? []) {
-      const nombre = m.inventario?.nombre ?? "";
-      const tipoInv = tipoInventarioEfectivo(
-        (m.inventario?.tipo as "CONSUMIBLE" | "PATCHCORD" | "EQUIPO" | undefined) ??
-          "CONSUMIBLE",
-        nombre
-      );
-      const esEquipo = tipoInv === "EQUIPO" || materialEsEquipoActivo(nombre);
-      if (!esEquipo) continue;
-      if (!m.serie?.trim() || !m.modelo?.trim() || !m.marca?.trim()) {
-        errores.push(
-          `Equipo ${nombre || "entregado"}: indique marca, modelo y serie`
-        );
-      }
-    }
+    errores.push(
+      ...erroresUsoEnCierre({
+        esExpress: true,
+        trabajoExpress: options?.trabajoExpress,
+        resumenTrabajo: orden.resumenTrabajo,
+        materiales: orden.materiales,
+      })
+    );
     return { valido: errores.length === 0, errores };
   }
 
@@ -196,6 +182,13 @@ export function validarCierreOrden(
         claveRedWifi: orden.claveRedWifi,
       };
       errores.push(...validarDatosInstalacion(datosInstalacion));
+      errores.push(
+        ...erroresUsoEnCierre({
+          esInstalacion: true,
+          resumenTrabajo: orden.resumenTrabajo,
+          materiales: orden.materiales,
+        })
+      );
     }
 
     if (!orden.servicioOk) errores.push("Checklist: Servicio funcionando");

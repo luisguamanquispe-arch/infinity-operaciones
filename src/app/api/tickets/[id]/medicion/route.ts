@@ -12,7 +12,10 @@ import {
   guardarDetalleMaterial,
 } from "@/lib/material-detalle";
 import { calcularExcedenteMaterial } from "@/lib/fibra-excedente";
+import { erroresLineaUso } from "@/lib/equipos-materiales-ot";
 import { esTicketInfraestructura } from "@/lib/ticket-infraestructura";
+import { esTicketInstalacion } from "@/lib/ticket-instalacion";
+import { esSoporteExpress } from "@/lib/soporte-express";
 import {
   normalizarDatosInstalacion,
   datosInstalacionParaGuardar,
@@ -208,9 +211,32 @@ export async function PUT(
           return NextResponse.json({ error: "Material de inventario no encontrado" }, { status: 400 });
         }
         const tipo = tipoInventarioEfectivo(inv.tipo, inv.nombre);
+        const cantidad = parseFloat(String(m.cantidad));
+        if (!Number.isFinite(cantidad) || cantidad <= 0) {
+          return NextResponse.json(
+            { error: `${inv.nombre}: la cantidad debe ser mayor que 0` },
+            { status: 400 }
+          );
+        }
         const errDetalle = validarMaterialDetalle(tipo, m, inv.nombre);
         if (errDetalle) {
           return NextResponse.json({ error: `${inv.nombre}: ${errDetalle}` }, { status: 400 });
+        }
+        if (esTicketInstalacion(ticket.tipo) || esSoporteExpress(ticket)) {
+          const erroresLinea = erroresLineaUso({
+            cantidad,
+            serie: m.serie,
+            modelo: m.modelo,
+            marca: m.marca,
+            tipoPatchCord: m.tipoPatchCord,
+            inventario: { nombre: inv.nombre, tipo: inv.tipo, unidad: inv.unidad },
+          });
+          if (erroresLinea.length) {
+            return NextResponse.json(
+              { error: `${inv.nombre}: ${erroresLinea[0]}` },
+              { status: 400 }
+            );
+          }
         }
       }
 

@@ -120,11 +120,12 @@ export async function POST(
     esInfraestructura: esTicketInfraestructura(ticket.tipo),
     esInstalacion: esTicketInstalacion(ticket.tipo),
     esExpress: esSoporteExpress(ticket),
+    trabajoExpress: ticket.trabajoExpress,
   });
 
   if (!validacion.valido) {
     return NextResponse.json(
-      { error: "Validación fallida", errores: validacion.errores },
+      { error: validacion.errores[0] || "Validación fallida", errores: validacion.errores },
       { status: 400 }
     );
   }

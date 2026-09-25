@@ -237,7 +237,7 @@ export function guardarDetalleMaterial(
   const requiere = materialRequiereDetalle(tipo, nombre);
   return {
     serie: requiere && material.serie?.trim() ? material.serie.trim().toUpperCase() : null,
-    modelo: requiere && material.modelo?.trim() ? material.modelo.trim().toUpperCase() : null,
+    modelo: material.modelo?.trim() ? material.modelo.trim().toUpperCase() : null,
     marca: requiere && material.marca?.trim() ? material.marca.trim().toUpperCase() : null,
     tipoPatchCord:
       materialEsPatchcord(tipo, nombre) && material.tipoPatchCord
