@@ -17,6 +17,8 @@ async function main() {
   await prisma.ordenServicio.deleteMany();
   await prisma.ubicacionGps.deleteMany();
   await prisma.ticket.deleteMany();
+  await prisma.satisfactionFollowUp.deleteMany();
+  await prisma.customerSatisfactionSurvey.deleteMany();
   await prisma.evaluacionCliente.deleteMany();
   await prisma.tecnico.deleteMany();
   await prisma.usuario.deleteMany();

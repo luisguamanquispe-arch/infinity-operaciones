@@ -13,6 +13,8 @@ const publicPaths = [
   "/api/help-desk/webhook/whatsapp",
   "/api/cliente/auth/login",
   "/api/cliente/auth/refresh",
+  "/satisfaccion",
+  "/api/satisfaccion/public",
 ];
 
 const ROLES_HELP_DESK = ["ADMIN", "SUPERVISOR", "HELP_DESK"];

@@ -17,6 +17,8 @@ async function limpiarDatos() {
   await prisma.medicion.deleteMany();
   await prisma.cronometro.deleteMany();
   await prisma.ordenServicio.deleteMany();
+  await prisma.satisfactionFollowUp.deleteMany();
+  await prisma.customerSatisfactionSurvey.deleteMany();
   await prisma.evaluacionCliente.deleteMany();
   const tickets = await prisma.ticket.deleteMany();
 

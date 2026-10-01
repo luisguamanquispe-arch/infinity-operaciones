@@ -27,6 +27,7 @@ export type ModuloId =
   | "calendario"
   | "novedades"
   | "no_atendidos"
+  | "satisfaccion"
   | "clientes"
   | "reportes"
   | "tecnicos"
@@ -208,6 +209,17 @@ export const MODULOS: ModuloDef[] = [
     roles: ["ADMIN", "SUPERVISOR"],
     contexts: ["home-tiles", "acciones"],
     order: 145,
+    homeIcon: "bell",
+  },
+  {
+    id: "satisfaccion",
+    href: "/supervisor/satisfaccion",
+    label: "Satisfacción",
+    group: "campo",
+    tone: "sky",
+    roles: ["ADMIN", "SUPERVISOR"],
+    contexts: ["home-tiles", "acciones"],
+    order: 148,
     homeIcon: "bell",
   },
   {

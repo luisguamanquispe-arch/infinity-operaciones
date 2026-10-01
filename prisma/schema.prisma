@@ -184,6 +184,7 @@ model Usuario {
   asignacionesVehiculo     AsignacionVehiculo[] @relation("AsignacionVehiculoPor")
   auditoriasVehiculo       VehiculoAuditoria[]
   firmasActaVehiculo       ActaVehiculoFirma[]
+  seguimientosSatisfaccion SatisfactionFollowUp[]
 }
 
 model Tecnico {
@@ -211,6 +212,7 @@ model Tecnico {
   inspeccionesVehiculo    InspeccionVehiculo[]
   novedadesVehiculo       NovedadVehiculo[]
   usosVehiculoTicket      UsoVehiculoTicket[]
+  encuestasSatisfaccion   CustomerSatisfactionSurvey[]
 }
 
 model Cliente {
@@ -239,6 +241,7 @@ model Cliente {
   speedTests AppClienteSpeedTest[]
   srTickets SrTicket[]
   irAfectaciones IrClienteAfectado[]
+  encuestasSatisfaccion CustomerSatisfactionSurvey[]
 }
 
 /// Cuenta de la app INFINITY Connect vinculada a un Cliente CRM.
@@ -365,6 +368,7 @@ model Ticket {
   revisionesHistorial  RevisionHistorial[]
   justificacionesTecnicas JustificacionTecnica[]
   usosVehiculo            UsoVehiculoTicket[]
+  encuestaSatisfaccion    CustomerSatisfactionSurvey?
 
   @@index([tipo, estado])
   @@index([siTipoTrabajo])
@@ -577,12 +581,111 @@ model MaterialUtilizado {
   inventario    Inventario     @relation(fields: [inventarioId], references: [id])
 }
 
+/// Legado: calificación suelta por código de ticket. No es la encuesta pública.
 model EvaluacionCliente {
   id          String   @id @default(cuid())
   ticketCodigo String
   calificacion Int
   comentario  String?
   createdAt   DateTime @default(now())
+}
+
+enum EstadoEncuestaSatisfaccion {
+  PENDING
+  SENT
+  OPENED
+  ANSWERED
+  EXPIRED
+  CANCELLED
+}
+
+enum SolucionEncuesta {
+  COMPLETAMENTE
+  PARCIALMENTE
+  NO
+}
+
+enum CanalEncuesta {
+  WHATSAPP
+  SMS
+  EMAIL
+}
+
+enum EstadoSeguimientoSatisfaccion {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CANCELLED
+}
+
+/// Clasificación futura de comentarios. No se asigna de forma automática.
+enum CategoriaComentarioSatisfaccion {
+  ATENCION
+  TIEMPO_ESPERA
+  SOLUCION
+  TECNICO
+  INSTALACION
+  EQUIPAMIENTO
+  COMUNICACION
+  OTRO
+}
+
+model CustomerSatisfactionSurvey {
+  id             String                      @id @default(cuid())
+  ticketId       String                      @unique
+  clienteId      String
+  tecnicoId      String?
+  token          String                      @unique
+  tipoServicio   String
+  zona           String?
+  ratingGeneral  Int?
+  ratingTecnico  Int?
+  solucionado    SolucionEncuesta?
+  comentario     String?                     @db.VarChar(1000)
+  categoria      CategoriaComentarioSatisfaccion?
+  status         EstadoEncuestaSatisfaccion  @default(PENDING)
+  channel        CanalEncuesta?
+  deliveryStatus String?
+  sentAt         DateTime?
+  openedAt       DateTime?
+  answeredAt     DateTime?
+  ipHash         String?
+  userAgent      String?                     @db.VarChar(180)
+  createdAt      DateTime                    @default(now())
+  updatedAt      DateTime                    @updatedAt
+  ticket         Ticket                      @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  cliente        Cliente                     @relation(fields: [clienteId], references: [id])
+  tecnico        Tecnico?                    @relation(fields: [tecnicoId], references: [id], onDelete: SetNull)
+  seguimientos   SatisfactionFollowUp[]
+
+  @@index([clienteId])
+  @@index([tecnicoId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([answeredAt])
+  @@index([tipoServicio])
+  @@index([zona])
+}
+
+model SatisfactionFollowUp {
+  id            String                         @id @default(cuid())
+  surveyId      String
+  responsableId String?
+  motivo        String                         @db.VarChar(500)
+  accion        String?                        @db.VarChar(1000)
+  contacto      String?                        @db.VarChar(300)
+  resultado     String?                        @db.VarChar(1000)
+  observaciones String?                        @db.VarChar(1000)
+  status        EstadoSeguimientoSatisfaccion  @default(OPEN)
+  createdAt     DateTime                       @default(now())
+  updatedAt     DateTime                       @updatedAt
+  resolvedAt    DateTime?
+  survey        CustomerSatisfactionSurvey     @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+  responsable   Usuario?                       @relation(fields: [responsableId], references: [id], onDelete: SetNull)
+
+  @@index([surveyId])
+  @@index([status])
+  @@index([createdAt])
 }
 
 model EventoTicket {

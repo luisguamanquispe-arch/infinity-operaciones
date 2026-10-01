@@ -11,6 +11,7 @@ import { enviarWhatsApp } from "@/lib/tickets";
 import { esTicketInfraestructura } from "@/lib/ticket-infraestructura";
 import { registrarSiHistorial } from "@/lib/soporte-infraestructura/historial";
 import { FLUJO_TICKET, logFlujoTicket } from "@/lib/ticket-flujo-log";
+import { onTicketClosed } from "@/lib/satisfaccion/servicio";
 
 /** Supervisor/Admin: aprueba el reporte → CERRADO + APROBADO (cierre oficial). */
 export async function POST(
@@ -138,6 +139,15 @@ export async function POST(
     tecnicoId: ticket.tecnicoId ?? undefined,
     resultado: "historial_ok",
   });
+
+  try {
+    await onTicketClosed(id);
+  } catch (error) {
+    console.error(
+      "[satisfaccion] la OT quedó cerrada; la encuesta no se pudo preparar",
+      error instanceof Error ? error.message : "error"
+    );
+  }
 
   return NextResponse.json({ ok: true, estadoRevision: "APROBADO", codigo: ticket.codigo });
 }
