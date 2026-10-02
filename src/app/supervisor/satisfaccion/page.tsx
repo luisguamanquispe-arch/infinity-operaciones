@@ -6,6 +6,18 @@ import { AppHeader } from "@/components/AppHeader";
 import { StatCard } from "@/components/StatCard";
 import { TIPOS_SERVICIO_ENCUESTA } from "@/lib/satisfaccion/constantes";
 
+type EncuestaEnlace = {
+  id: string;
+  status: string;
+  deliveryStatus: string | null;
+  tipoServicio: string;
+  zona: string | null;
+  createdAt: string;
+  cliente: { nombre: string };
+  tecnico: { usuario: { nombre: string } } | null;
+  ticket: { codigo: string };
+};
+
 type Dashboard = {
   kpis: {
     csat: number | null;
@@ -68,6 +80,11 @@ export default function SatisfaccionPage() {
   });
   const [data, setData] = useState<Dashboard | null>(null);
   const [error, setError] = useState("");
+  const [encuestas, setEncuestas] = useState<EncuestaEnlace[]>([]);
+  const [soloPendientes, setSoloPendientes] = useState(true);
+  const [codigo, setCodigo] = useState("");
+  const [enlace, setEnlace] = useState<Record<string, string>>({});
+  const [copiado, setCopiado] = useState("");
 
   function query() {
     const params = new URLSearchParams();
@@ -75,6 +92,37 @@ export default function SatisfaccionPage() {
       if (valor) params.set(clave, valor);
     }
     return params.toString();
+  }
+
+  useEffect(() => {
+    const params = new URLSearchParams({ pageSize: "30" });
+    if (soloPendientes) params.set("status", "PENDING");
+    const ot = codigo.trim();
+    if (ot) params.set("codigo", ot);
+    fetch(`/api/satisfaccion?${params.toString()}`)
+      .then(async (res) => {
+        if (!res.ok) throw new Error("No se pudieron cargar los enlaces");
+        const lista = await res.json();
+        setEncuestas(lista.filas);
+      })
+      .catch((err: Error) => setError(err.message));
+  }, [soloPendientes, codigo]);
+
+  async function copiarEnlace(id: string) {
+    const res = await fetch(`/api/satisfaccion/${id}/enlace`);
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setError(body.error || "No se pudo obtener el enlace");
+      return;
+    }
+    setEnlace((actual) => ({ ...actual, [id]: body.url }));
+    try {
+      await navigator.clipboard.writeText(body.url);
+      setCopiado(id);
+    } catch {
+      setCopiado("");
+      setError("El enlace está visible. Cópielo desde el campo.");
+    }
   }
 
   useEffect(() => {
@@ -137,6 +185,90 @@ export default function SatisfaccionPage() {
           <Campo label="Solucionado" value={filtros.solucionado} onChange={(v) => setFiltros({ ...filtros, solucionado: v })} />
         </form>
         {error && <p className="text-sm text-red-700">{error}</p>}
+        <section className="rounded-xl border border-slate-200 bg-white p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-semibold">Enlace para el cliente</h2>
+              <p className="mt-1 text-xs text-slate-500">
+                El enlace no se envía por WhatsApp. Cópielo y entréguelo al cliente.
+              </p>
+            </div>
+            <label className="text-xs text-slate-600">
+              Buscar OT
+              <input
+                className="mt-1 block w-36 rounded-lg border px-2 py-2 text-sm"
+                placeholder="ST-1219"
+                value={codigo}
+                onChange={(event) => setCodigo(event.target.value)}
+              />
+            </label>
+            <label className="flex items-center gap-2 text-sm text-slate-700">
+              <input
+                type="checkbox"
+                checked={soloPendientes}
+                onChange={(event) => setSoloPendientes(event.target.checked)}
+              />
+              Solo pendientes
+            </label>
+          </div>
+          <div className="mt-3 overflow-x-auto">
+            <table className="w-full min-w-[760px] text-left text-sm">
+              <thead>
+                <tr className="border-b text-xs uppercase text-slate-500">
+                  {["OT", "Cliente", "Zona", "Servicio", "Estado", "Enlace"].map((col) => (
+                    <th key={col} className="py-2 pr-3 font-medium">
+                      {col}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {encuestas.length === 0 && (
+                  <tr>
+                    <td className="py-3 text-slate-500" colSpan={6}>
+                      No hay encuestas para mostrar.
+                    </td>
+                  </tr>
+                )}
+                {encuestas.map((fila) => {
+                  const puedeCopiar = fila.status === "PENDING" || fila.status === "SENT" || fila.status === "OPENED";
+                  return (
+                    <tr key={fila.id} className="border-b border-slate-100 align-top">
+                      <td className="py-2 pr-3">{fila.ticket.codigo}</td>
+                      <td className="py-2 pr-3">{fila.cliente.nombre}</td>
+                      <td className="py-2 pr-3">{fila.zona || "—"}</td>
+                      <td className="py-2 pr-3">{fila.tipoServicio}</td>
+                      <td className="py-2 pr-3">{etiquetaEstado(fila.status)}</td>
+                      <td className="py-2 pr-3">
+                        {puedeCopiar ? (
+                          <div className="flex flex-col gap-2">
+                            <button
+                              type="button"
+                              className="w-fit rounded-lg bg-infinity-700 px-3 py-1.5 text-xs font-medium text-white"
+                              onClick={() => copiarEnlace(fila.id)}
+                            >
+                              {copiado === fila.id ? "Enlace copiado" : "Copiar enlace"}
+                            </button>
+                            {enlace[fila.id] && (
+                              <input
+                                readOnly
+                                className="w-full min-w-[16rem] rounded border px-2 py-1 text-xs"
+                                value={enlace[fila.id]}
+                                onFocus={(event) => event.currentTarget.select()}
+                              />
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-slate-400">Sin enlace</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </section>
         {data && (
           <>
             <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -241,6 +373,18 @@ export default function SatisfaccionPage() {
 
 function pct(valor: number | null) {
   return valor == null ? "s/d" : `${valor}%`;
+}
+
+function etiquetaEstado(status: string) {
+  const etiquetas: Record<string, string> = {
+    PENDING: "Pendiente de envío",
+    SENT: "Enviada",
+    OPENED: "Abierta",
+    ANSWERED: "Respondida",
+    EXPIRED: "Vencida",
+    CANCELLED: "Cancelada",
+  };
+  return etiquetas[status] || status;
 }
 
 function Campo({

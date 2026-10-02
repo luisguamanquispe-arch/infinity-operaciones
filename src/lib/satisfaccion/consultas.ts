@@ -15,6 +15,7 @@ export type FiltrosEncuesta = {
   status?: string;
   rating?: number;
   solucionado?: string;
+  codigo?: string;
 };
 
 export function whereEncuesta(f: FiltrosEncuesta): Prisma.CustomerSatisfactionSurveyWhereInput {
@@ -32,6 +33,7 @@ export function whereEncuesta(f: FiltrosEncuesta): Prisma.CustomerSatisfactionSu
   if (f.solucionado) {
     where.solucionado = f.solucionado as Prisma.CustomerSatisfactionSurveyWhereInput["solucionado"];
   }
+  if (f.codigo) where.ticket = { codigo: { contains: f.codigo, mode: "insensitive" } };
   return where;
 }
 

@@ -35,6 +35,7 @@ export function filtrosDesdeUrl(url: URL): FiltrosEncuesta {
   const zona = texto(url, "zona");
   const status = texto(url, "status");
   const solucionado = texto(url, "solucionado");
+  const codigo = texto(url, "codigo")?.toUpperCase();
   const ratingRaw = url.searchParams.get("rating");
   const rating = ratingRaw ? Number(ratingRaw) : undefined;
   return {
@@ -47,6 +48,7 @@ export function filtrosDesdeUrl(url: URL): FiltrosEncuesta {
     solucionado:
       solucionado && (SOLUCIONES as readonly string[]).includes(solucionado) ? solucionado : undefined,
     rating: rating && rating >= 1 && rating <= 5 ? rating : undefined,
+    codigo,
   };
 }
 

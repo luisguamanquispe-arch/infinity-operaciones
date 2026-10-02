@@ -109,10 +109,9 @@ export async function createSatisfactionSurvey(ticketId: string): Promise<
   }
 }
 
+/** Crea la encuesta al aprobar la OT. El enlace se entrega a mano desde el módulo. */
 export async function onTicketClosed(ticketId: string): Promise<void> {
-  const creada = await createSatisfactionSurvey(ticketId);
-  if (!creada.ok || !creada.creada) return;
-  await intentarEnvio(creada.surveyId);
+  await createSatisfactionSurvey(ticketId);
 }
 
 export async function intentarEnvio(
