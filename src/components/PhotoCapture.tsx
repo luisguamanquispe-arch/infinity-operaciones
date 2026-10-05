@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Camera, Check, AlertCircle, Trash2, RefreshCw } from "lucide-react";
+import { Camera, Check, AlertCircle, Trash2, Image as GaleriaIcon } from "lucide-react";
 import { FOTO_LABELS } from "@/lib/utils";
 import { compressImageFile, fetchWithRetry } from "@/lib/compress-image";
 
@@ -23,14 +23,20 @@ export function PhotoCapture({
   readOnly = false,
   label,
 }: PhotoCaptureProps) {
-  const inputRef = useRef<HTMLInputElement>(null);
+  const camaraRef = useRef<HTMLInputElement>(null);
+  const galeriaRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState("");
 
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
+    e.target.value = "";
     if (!file) return;
+    if (file.type && !file.type.startsWith("image/")) {
+      setError("Elija una foto del celular (JPG o PNG).");
+      return;
+    }
 
     setLoading(true);
     setError("");
@@ -77,7 +83,8 @@ export function PhotoCapture({
       setError("No se pudo procesar la foto. Verifique conexión e intente otra vez.");
     } finally {
       setLoading(false);
-      if (inputRef.current) inputRef.current.value = "";
+      if (camaraRef.current) camaraRef.current.value = "";
+      if (galeriaRef.current) galeriaRef.current.value = "";
     }
   }
 
@@ -86,7 +93,7 @@ export function PhotoCapture({
       setError("No se puede eliminar: falta el id de la foto. Actualice la pantalla.");
       return;
     }
-    if (!confirm("¿Eliminar esta foto? Podrá capturar otra.")) return;
+    if (!confirm("¿Eliminar esta foto? Podrá tomar otra o elegir una guardada.")) return;
 
     setDeleting(true);
     setError("");
@@ -111,7 +118,7 @@ export function PhotoCapture({
 
   return (
     <div className="p-3 bg-slate-50 rounded-lg border space-y-2">
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
           {existing ? (
             <Check className="w-4 h-4 text-emerald-600 shrink-0" />
@@ -124,7 +131,7 @@ export function PhotoCapture({
         {!existing && readOnly ? (
           <span className="text-xs text-slate-400 shrink-0">Pendiente</span>
         ) : (
-          <div className="flex items-center gap-1.5 shrink-0">
+          <div className="flex flex-wrap items-center gap-1.5">
             {existing && (
               <a
                 href={existing.imagenSrc || existing.url}
@@ -139,29 +146,37 @@ export function PhotoCapture({
             {!readOnly && (
               <>
                 <input
-                  ref={inputRef}
+                  ref={camaraRef}
                   type="file"
                   accept="image/*"
                   capture="environment"
                   className="hidden"
                   onChange={handleFile}
                 />
+                <input
+                  ref={galeriaRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleFile}
+                />
                 <button
                   type="button"
-                  onClick={() => inputRef.current?.click()}
+                  onClick={() => camaraRef.current?.click()}
                   disabled={busy}
                   className="inline-flex items-center gap-1 text-xs px-2.5 py-1.5 bg-infinity-600 text-white rounded-lg disabled:opacity-50"
                 >
-                  {loading ? (
-                    "Subiendo…"
-                  ) : existing ? (
-                    <>
-                      <RefreshCw className="w-3 h-3" />
-                      Cambiar
-                    </>
-                  ) : (
-                    "Capturar"
-                  )}
+                  <Camera className="w-3 h-3" />
+                  {loading ? "Subiendo…" : "Cámara"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => galeriaRef.current?.click()}
+                  disabled={busy}
+                  className="inline-flex items-center gap-1 text-xs px-2.5 py-1.5 border border-infinity-200 text-infinity-800 bg-white rounded-lg disabled:opacity-50"
+                >
+                  <GaleriaIcon className="w-3 h-3" />
+                  Galería
                 </button>
                 {existing?.id && (
                   <button
