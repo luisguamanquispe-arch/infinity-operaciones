@@ -1,0 +1,27 @@
+name: Keep Render awake
+
+on:
+  schedule:
+    # Cada 5 minutos. Render free se duerme a los 15 y entonces muestra su pantalla negra.
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Despertar infinity-operaciones-b3ij
+        run: |
+          set -euo pipefail
+          url="https://infinity-operaciones-b3ij.onrender.com/api/health"
+          for i in 1 2 3 4 5 6 7 8 9 10 11 12; do
+            body="$(curl -fsS --max-time 30 "$url" || true)"
+            if printf '%s' "$body" | grep -q '"service":"infinity-operaciones"' && printf '%s' "$body" | grep -q '"ok":true'; then
+              echo "Servidor listo en el intento $i"
+              exit 0
+            fi
+            echo "Aún no responde ($i). Esperando…"
+            sleep 8
+          done
+          echo "::error::El servicio no confirmó /api/health"
+          exit 1

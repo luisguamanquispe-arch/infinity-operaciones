@@ -8,7 +8,7 @@
     />
     <meta name="theme-color" content="#1e40af" />
     <meta name="background-color" content="#1e40af" />
-    <meta name="color-scheme" content="dark" />
+      <meta name="color-scheme" content="light" />
     <title>Infinity Técnicos</title>
     <link rel="icon" href="brand/logo-infinity.png" />
     <script src="config.js"></script>
@@ -75,6 +75,18 @@
         animation: spin 0.8s ease-in-out infinite;
         margin-top: 28px;
       }
+      #retry {
+        display: none;
+        margin-top: 22px;
+        border: 0;
+        border-radius: 12px;
+        background: #fff;
+        color: #1e3a8a;
+        font: inherit;
+        font-weight: 650;
+        padding: 12px 18px;
+        cursor: pointer;
+      }
       @keyframes spin {
         to {
           transform: rotate(360deg);
@@ -95,7 +107,8 @@
       <div class="role">Técnicos</div>
     </div>
     <p id="msg">Preparando conexión…</p>
-    <div class="spinner" aria-hidden="true"></div>
+    <div class="spinner" id="spinner" aria-hidden="true"></div>
+    <button id="retry" type="button">Reintentar</button>
     <script>
       (function () {
         var server =
@@ -105,8 +118,11 @@
           );
         var loginUrl = server + "/login?app=tecnico";
         var msg = document.getElementById("msg");
+        var spinner = document.getElementById("spinner");
+        var retry = document.getElementById("retry");
         var tries = 0;
-        var maxTries = 18;
+        var maxTries = 45;
+        var esperando = false;
 
         function sleep(ms) {
           return new Promise(function (resolve) {
@@ -125,7 +141,8 @@
             credentials: "omit",
           })
             .then(function (r) {
-              if (!r.ok) return false;
+              var tipo = r.headers.get("content-type") || "";
+              if (!r.ok || tipo.indexOf("application/json") === -1) return false;
               return r.json().then(function (d) {
                 return d && d.ok === true && d.service === "infinity-operaciones";
               });
@@ -149,6 +166,9 @@
         }
 
         async function waitForServer() {
+          if (esperando) return;
+          esperando = true;
+          tries = 0;
           while (tries < maxTries) {
             tries++;
             if (tries === 1) {
@@ -173,8 +193,19 @@
             }
             await sleep(tries < 4 ? 1200 : 1800);
           }
-          setMsg("Abriendo aplicación…");
-          go();
+          esperando = false;
+          if (spinner) spinner.style.display = "none";
+          if (retry) retry.style.display = "block";
+          setMsg("El servidor sigue iniciando. Quédese en esta pantalla y pulse Reintentar.");
+        }
+
+        if (retry) {
+          retry.addEventListener("click", function () {
+            if (esperando) return;
+            if (spinner) spinner.style.display = "block";
+            retry.style.display = "none";
+            waitForServer();
+          });
         }
 
         waitForServer();

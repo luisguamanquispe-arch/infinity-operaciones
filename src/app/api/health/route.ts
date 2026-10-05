@@ -84,9 +84,21 @@ export async function GET() {
       ts: Date.now(),
     },
     {
-      headers: {
-        "Cache-Control": "no-store",
-      },
+      headers: corsSalud(),
     }
   );
+}
+
+/** La app y el programa leen este JSON desde su pantalla local antes de abrir Render. */
+export function OPTIONS() {
+  return new NextResponse(null, { status: 204, headers: corsSalud() });
+}
+
+function corsSalud(): HeadersInit {
+  return {
+    "Cache-Control": "no-store",
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type",
+  };
 }
