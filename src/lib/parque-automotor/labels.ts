@@ -3,12 +3,63 @@ import type {
   EstadoNovedadVehiculo,
   EstadoVehiculo,
   GravedadNovedadVehiculo,
+  OrigenKmVehiculo,
   ResultadoInspeccionVehiculo,
   TipoDocumentoVehiculo,
+  TipoLecturaKmVehiculo,
   TipoMantenimientoVehiculo,
   TipoNovedadVehiculo,
   TipoVehiculo,
 } from "@prisma/client";
+
+export const TIPO_LECTURA_KM_LABELS: Record<TipoLecturaKmVehiculo, string> = {
+  REAL: "Lectura real",
+  ESTIMADA: "Lectura estimada",
+};
+
+export const ORIGEN_KM_LABELS: Record<OrigenKmVehiculo, string> = {
+  INSPECCION: "Inspección",
+  COMBUSTIBLE: "Combustible",
+  ASIGNACION: "Asignación",
+  MANUAL: "Manual",
+  MANTENIMIENTO: "Mantenimiento",
+  NOVEDAD: "Novedad",
+};
+
+export const TIPOS_REPORTE_PARQUE = [
+  "flota",
+  "combustible",
+  "kilometraje",
+  "mantenimiento",
+  "novedades",
+  "costos",
+  "asignaciones",
+  "inspecciones",
+] as const;
+
+export type TipoReporteParque = (typeof TIPOS_REPORTE_PARQUE)[number];
+
+export const TITULO_REPORTE_PARQUE: Record<TipoReporteParque, string> = {
+  flota: "Resumen de flota",
+  combustible: "Combustible y gastos de carga",
+  kilometraje: "Historial de kilometraje",
+  mantenimiento: "Mantenimientos",
+  novedades: "Novedades",
+  costos: "Costos por vehículo",
+  asignaciones: "Asignaciones",
+  inspecciones: "Inspecciones",
+};
+
+export const SUBTITULO_REPORTE_PARQUE: Record<TipoReporteParque, string> = {
+  flota: "Indicadores operativos del parque automotor",
+  combustible: "Cargas registradas en galones e importes. El km de cada carga no sustituye al odómetro.",
+  kilometraje: "Lecturas del odómetro. La fecha histórica es el día del kilometraje; la fecha de registro es cuándo se grabó.",
+  mantenimiento: "Intervenciones preventivas y correctivas con costos y próximo servicio registrados",
+  novedades: "Novedades reportadas y su estado de atención",
+  costos: "Totales de combustible y mantenimiento según registros activos",
+  asignaciones: "Entrega y recepción de vehículos a técnicos",
+  inspecciones: "Resultados de inspecciones de unidad",
+};
 
 export const ESTADO_VEHICULO_LABELS: Record<EstadoVehiculo, string> = {
   DISPONIBLE: "Disponible",

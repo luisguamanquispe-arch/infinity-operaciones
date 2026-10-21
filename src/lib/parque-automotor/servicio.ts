@@ -9,6 +9,7 @@ import type {
   TipoActaVehiculo,
   TipoDocumentoVehiculo,
   TipoFirmaActaVehiculo,
+  TipoLecturaKmVehiculo,
   TipoMantenimientoVehiculo,
   TipoNovedadVehiculo,
   TipoVehiculo,
@@ -45,6 +46,14 @@ import {
   placaValida,
   resultadoInspeccionDesdeChecklist,
   validarKmNoDescendente,
+  aplicarRegularizacionEnMemoria,
+  diaCalendarioEc,
+  diasFaltantes,
+  fechaHistoricaDesdeDia,
+  validarRangoRegularizacion,
+  vecinosPorDia,
+  type ItemRegularizacionKm,
+  type LecturaVecina,
 } from "./reglas";
 
 export class ParqueError extends Error {
@@ -215,6 +224,8 @@ export async function crearVehiculo(
         vehiculoId: v.id,
         kilometraje: km,
         origen: "ASIGNACION",
+        fecha: new Date(),
+        tipoLectura: "REAL",
         observacion: "Kilometraje inicial",
       },
     });
@@ -310,7 +321,7 @@ export async function hojaDeVida(id: string) {
       },
       lecturasKm: {
         where: { estadoRegistro: "ACTIVO" },
-        orderBy: { createdAt: "desc" },
+        orderBy: [{ fecha: "desc" }, { createdAt: "desc" }],
         take: 50,
         include: { tecnico: { include: { usuario: { select: { nombre: true } } } } },
       },
@@ -434,8 +445,11 @@ function serializarEvidenciaYTimeline(v: {
   lecturasKm: Array<{
     id: string;
     createdAt: Date;
+    fecha: Date;
     kilometraje: number;
     origen: string;
+    tipoLectura: string;
+    fuente: string | null;
     observacion: string | null;
     tecnico: { usuario: { nombre: string } } | null;
   }>;
@@ -579,10 +593,10 @@ function serializarEvidenciaYTimeline(v: {
   for (const l of v.lecturasKm) {
     timeline.push({
       id: `km-${l.id}`,
-      fecha: l.createdAt,
+      fecha: l.fecha ?? l.createdAt,
       tipo: "KM",
       titulo: "Kilometraje",
-      descripcion: `${l.kilometraje} km (${l.origen})`,
+      descripcion: `${l.kilometraje} km (${l.origen}${l.tipoLectura === "ESTIMADA" ? ", estimada" : ""})`,
       tecnicoNombre: l.tecnico?.usuario.nombre ?? null,
       kilometraje: l.kilometraje,
       registroId: l.id,
@@ -820,6 +834,8 @@ export async function registrarKm(opts: {
           tecnicoId: opts.tecnicoId ?? null,
           kilometraje: opts.kilometraje,
           origen: opts.origen,
+          fecha: new Date(),
+          tipoLectura: "REAL",
           observacion: opts.observacion ?? null,
         },
       });
@@ -1660,6 +1676,187 @@ export async function anularRegistro(opts: {
     motivo: opts.motivo,
   });
   return rec;
+}
+
+function vecinasDeLecturas(
+  rows: { id: string; fecha: Date; createdAt: Date; kilometraje: number }[]
+): LecturaVecina[] {
+  return rows.map((r) => ({
+    id: r.id,
+    dia: diaCalendarioEc(r.fecha ?? r.createdAt),
+    kilometraje: r.kilometraje,
+  }));
+}
+
+export async function consultarRegularizacionKm(opts: {
+  vehiculoId: string;
+  desde: string;
+  hasta: string;
+}) {
+  const rango = validarRangoRegularizacion(opts.desde, opts.hasta);
+  if (!rango.ok) throw new ParqueError(rango.error, 400);
+  const vehiculo = await prisma.vehiculo.findUnique({
+    where: { id: opts.vehiculoId },
+    select: {
+      id: true,
+      placa: true,
+      marca: true,
+      modelo: true,
+      kilometrajeActual: true,
+    },
+  });
+  if (!vehiculo) throw new ParqueError("Vehículo no encontrado.", 404);
+  const [lecturas, correcciones] = await Promise.all([
+    prisma.lecturaKilometraje.findMany({
+      where: { vehiculoId: opts.vehiculoId, estadoRegistro: "ACTIVO" },
+      orderBy: [{ fecha: "asc" }, { kilometraje: "asc" }],
+      include: {
+        tecnico: { include: { usuario: { select: { nombre: true } } } },
+      },
+    }),
+    prisma.vehiculoAuditoria.findMany({
+      where: {
+        vehiculoId: opts.vehiculoId,
+        entidad: "LecturaKilometraje",
+        accion: { in: ["KM", "KM_REGULARIZACION", "ANULADO"] },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 50,
+      include: { usuario: { select: { nombre: true } } },
+    }),
+  ]);
+  const vecinas = vecinasDeLecturas(lecturas);
+  const faltantes = diasFaltantes(
+    rango.desde,
+    rango.hasta,
+    vecinas.map((l) => l.dia)
+  ).map((dia) => {
+    const { anterior, posterior } = vecinosPorDia(vecinas, dia);
+    const diferencia =
+      anterior && posterior ? posterior.kilometraje - anterior.kilometraje : null;
+    return { dia, anterior, posterior, diferencia };
+  });
+  const historial = lecturas.map((l) => ({
+    id: l.id,
+    fecha: l.fecha,
+    createdAt: l.createdAt,
+    kilometraje: l.kilometraje,
+    origen: l.origen,
+    tipoLectura: l.tipoLectura,
+    fuente: l.fuente,
+    observacion: l.observacion,
+    estadoRegistro: l.estadoRegistro,
+    tecnicoNombre: l.tecnico?.usuario.nombre ?? null,
+  }));
+  return {
+    vehiculo,
+    desde: rango.desde,
+    hasta: rango.hasta,
+    historial,
+    faltantes,
+    correcciones: correcciones.map((c) => ({
+      id: c.id,
+      accion: c.accion,
+      motivo: c.motivo,
+      valorAnterior: c.valorAnterior,
+      valorNuevo: c.valorNuevo,
+      createdAt: c.createdAt,
+      usuarioNombre: c.usuario?.nombre ?? null,
+    })),
+  };
+}
+
+export async function regularizarKilometrajeHistorico(opts: {
+  vehiculoId: string;
+  usuarioId: string;
+  items: ItemRegularizacionKm[];
+}) {
+  return conLockVehiculo(opts.vehiculoId, async (tx) => {
+    const vehiculo = await tx.vehiculo.findUnique({
+      where: { id: opts.vehiculoId },
+    });
+    if (!vehiculo) throw new ParqueError("Vehículo no encontrado.", 404);
+    const existentes = await tx.lecturaKilometraje.findMany({
+      where: { vehiculoId: opts.vehiculoId, estadoRegistro: "ACTIVO" },
+      select: { id: true, fecha: true, createdAt: true, kilometraje: true },
+    });
+    const plan = aplicarRegularizacionEnMemoria(
+      {
+        kilometrajeActual: vehiculo.kilometrajeActual,
+        lecturas: vecinasDeLecturas(existentes),
+      },
+      opts.items
+    );
+    if (!plan.ok) {
+      throw new ParqueError(
+        plan.duplicado
+          ? `${plan.error} Registro original: ${plan.duplicado.kilometraje} km el ${plan.duplicado.dia}.`
+          : plan.error,
+        plan.duplicado ? 409 : 400
+      );
+    }
+    const creadas: Array<{
+      id: string;
+      kilometraje: number;
+      fecha: Date;
+      tipoLectura: TipoLecturaKmVehiculo;
+      fuente: string | null;
+      observacion: string | null;
+    }> = [];
+    for (const item of plan.aplicadas) {
+      const rec = await tx.lecturaKilometraje.create({
+        data: {
+          vehiculoId: opts.vehiculoId,
+          kilometraje: item.kilometraje,
+          origen: "MANUAL",
+          fecha: fechaHistoricaDesdeDia(item.dia),
+          tipoLectura: item.tipoLectura as TipoLecturaKmVehiculo,
+          fuente: item.fuente?.trim() || null,
+          observacion: item.justificacion.trim(),
+        },
+      });
+      creadas.push(rec);
+    }
+    if (plan.actualizoKilometrajeActual) {
+      if (plan.kilometrajeActual < vehiculo.kilometrajeActual) {
+        throw new ParqueError(KM_INFERIOR_MSG, 409);
+      }
+      const updated = await tx.vehiculo.updateMany({
+        where: {
+          id: opts.vehiculoId,
+          kilometrajeActual: { lte: plan.kilometrajeActual },
+        },
+        data: { kilometrajeActual: plan.kilometrajeActual },
+      });
+      if (updated.count === 0) {
+        throw new ParqueError(KM_INFERIOR_MSG, 409);
+      }
+    }
+    for (const rec of creadas) {
+      await registrarAuditoriaVehiculo({
+        tx,
+        vehiculoId: opts.vehiculoId,
+        entidad: "LecturaKilometraje",
+        registroId: rec.id,
+        usuarioId: opts.usuarioId,
+        accion: "KM_REGULARIZACION",
+        motivo: rec.observacion,
+        valorAnterior: null,
+        valorNuevo: {
+          km: rec.kilometraje,
+          fechaHistorica: diaCalendarioEc(rec.fecha),
+          tipoLectura: rec.tipoLectura,
+          fuente: rec.fuente,
+        },
+      });
+    }
+    return {
+      lecturas: creadas,
+      kilometrajeActual: plan.kilometrajeActual,
+      actualizoKilometrajeActual: plan.actualizoKilometrajeActual,
+      inconsistencia: plan.inconsistencia,
+    };
+  });
 }
 
 export async function dashboardParque(now = new Date()) {

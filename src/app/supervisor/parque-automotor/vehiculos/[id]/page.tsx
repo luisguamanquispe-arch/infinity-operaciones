@@ -63,7 +63,15 @@ type Ficha = {
     tecnicoNombre?: string | null;
     kilometraje?: number;
   }[];
-  lecturasKm: { id: string; kilometraje: number; createdAt: string; origen: string; tecnicoNombre?: string | null }[];
+  lecturasKm: {
+    id: string;
+    kilometraje: number;
+    createdAt: string;
+    fecha?: string;
+    origen: string;
+    tipoLectura?: string;
+    tecnicoNombre?: string | null;
+  }[];
   mantenimientos: { id: string; fecha: string; tipo: string; costo: number; descripcion: string; fotos?: { id: string; url: string }[] }[];
   novedades: {
     id: string;
@@ -627,7 +635,8 @@ function KmForm({
       <ul className="text-sm">
         {historial.map((h) => (
           <li key={h.id}>
-            {new Date(h.createdAt).toLocaleString("es-EC")} · {h.kilometraje} km · {h.origen}
+            {new Date(h.fecha || h.createdAt).toLocaleString("es-EC")} · {h.kilometraje} km · {h.origen}
+            {h.tipoLectura === "ESTIMADA" ? " · estimada" : ""}
             {h.tecnicoNombre ? ` · ${h.tecnicoNombre}` : ""}
           </li>
         ))}

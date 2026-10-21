@@ -1337,6 +1337,11 @@ enum OrigenKmVehiculo {
   NOVEDAD
 }
 
+enum TipoLecturaKmVehiculo {
+  REAL
+  ESTIMADA
+}
+
 enum EstadoRegistroVehiculo {
   ACTIVO
   ANULADO
@@ -1473,6 +1478,10 @@ model LecturaKilometraje {
   tecnicoId      String?
   kilometraje    Int
   origen         OrigenKmVehiculo
+  /** Día del odómetro (histórico). Distinto de createdAt, que es cuándo se grabó. */
+  fecha          DateTime               @default(now())
+  tipoLectura    TipoLecturaKmVehiculo  @default(REAL)
+  fuente         String?
   observacion    String?
   estadoRegistro EstadoRegistroVehiculo @default(ACTIVO)
   createdAt      DateTime               @default(now())
@@ -1480,6 +1489,7 @@ model LecturaKilometraje {
   tecnico        Tecnico?               @relation(fields: [tecnicoId], references: [id])
 
   @@index([vehiculoId, createdAt])
+  @@index([vehiculoId, fecha])
   @@index([vehiculoId, kilometraje])
   @@index([tecnicoId])
   @@index([estadoRegistro])

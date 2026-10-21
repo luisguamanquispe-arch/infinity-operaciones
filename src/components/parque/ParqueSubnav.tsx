@@ -7,6 +7,7 @@ const LINKS = [
   { href: "/supervisor/parque-automotor", label: "Resumen" },
   { href: "/supervisor/parque-automotor/vehiculos", label: "Vehículos" },
   { href: "/supervisor/parque-automotor/asignaciones", label: "Asignaciones" },
+  { href: "/supervisor/parque-automotor/kilometraje", label: "Kilometraje" },
   { href: "/supervisor/parque-automotor/combustible", label: "Combustible" },
   { href: "/supervisor/parque-automotor/mantenimiento", label: "Mantenimiento" },
   { href: "/supervisor/parque-automotor/novedades", label: "Novedades" },

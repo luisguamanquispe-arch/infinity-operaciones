@@ -2,23 +2,14 @@ import { NextResponse } from "next/server";
 import { requireOpsVehiculo } from "@/lib/parque-automotor/auth";
 import { parqueFail } from "@/lib/parque-automotor/http";
 import { generarPdfReporteParque } from "@/lib/parque-automotor/pdf";
-
-const TIPOS = [
-  "combustible",
-  "kilometraje",
-  "mantenimiento",
-  "novedades",
-  "costos",
-  "asignaciones",
-  "inspecciones",
-] as const;
+import { TIPOS_REPORTE_PARQUE, type TipoReporteParque } from "@/lib/parque-automotor/labels";
 
 export async function GET(request: Request) {
   const auth = await requireOpsVehiculo();
   if (!auth.ok) return auth.response;
   const { searchParams } = new URL(request.url);
-  const tipo = searchParams.get("tipo") as (typeof TIPOS)[number] | null;
-  if (!tipo || !TIPOS.includes(tipo)) {
+  const tipo = searchParams.get("tipo") as TipoReporteParque | null;
+  if (!tipo || !TIPOS_REPORTE_PARQUE.includes(tipo)) {
     return NextResponse.json({ error: "Tipo de reporte inválido." }, { status: 400 });
   }
   try {

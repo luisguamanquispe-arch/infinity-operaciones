@@ -336,3 +336,359 @@ export function mensajeAlertaMant(opts: {
   }
   return `${nombre}: próximo mantenimiento en ${opts.restanteKm} km.`;
 }
+
+export const JUSTIFICACION_REGULARIZACION_MIN = 10;
+
+export const MSG_DUPLICADO_DIA =
+  "Ya existe una lectura activa para este vehículo en esa fecha.";
+
+export const MSG_KM_ROMPERIA_POSTERIOR =
+  "El kilometraje propuesto es mayor que una lectura posterior y rompería la secuencia.";
+
+export const MSG_ESTIMADA_SIN_JUSTIFICACION =
+  "La lectura estimada requiere una justificación.";
+
+export const MSG_SIN_JUSTIFICACION =
+  "Indique la justificación de la regularización.";
+
+export const MSG_RANGO_FECHAS = "El período histórico no es válido.";
+
+export type TipoLecturaKm = "REAL" | "ESTIMADA";
+
+export type LecturaVecina = {
+  id?: string;
+  dia: string;
+  kilometraje: number;
+};
+
+const DIA_ISO = /^\d{4}-\d{2}-\d{2}$/;
+const OFFSET_EC_MS = 5 * 60 * 60 * 1000;
+
+export function diaCalendarioEc(fecha: Date): string {
+  return new Date(fecha.getTime() - OFFSET_EC_MS).toISOString().slice(0, 10);
+}
+
+export function parseDiaCalendario(dia: string | null | undefined): string | null {
+  const raw = (dia ?? "").trim();
+  if (!DIA_ISO.test(raw)) return null;
+  const [y, m, d] = raw.split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
+  if (dt.getUTCFullYear() !== y || dt.getUTCMonth() !== m - 1 || dt.getUTCDate() !== d) {
+    return null;
+  }
+  return raw;
+}
+
+export function fechaHistoricaDesdeDia(dia: string): Date {
+  const parsed = parseDiaCalendario(dia);
+  if (!parsed) throw new Error(MSG_RANGO_FECHAS);
+  const [y, m, d] = parsed.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
+}
+
+export function validarRangoRegularizacion(
+  desde: string,
+  hasta: string,
+  hoy = diaCalendarioEc(new Date())
+): { ok: true; desde: string; hasta: string } | { ok: false; error: string } {
+  const d = parseDiaCalendario(desde);
+  const h = parseDiaCalendario(hasta);
+  if (!d || !h || d > h) return { ok: false, error: MSG_RANGO_FECHAS };
+  if (d > hoy || h > hoy) {
+    return { ok: false, error: "No se puede regularizar una fecha posterior a hoy." };
+  }
+  return { ok: true, desde: d, hasta: h };
+}
+
+export function enumerarDias(desde: string, hasta: string): string[] {
+  const d = parseDiaCalendario(desde);
+  const h = parseDiaCalendario(hasta);
+  if (!d || !h || d > h) return [];
+  const dias: string[] = [];
+  let cursor = fechaHistoricaDesdeDia(d);
+  const fin = fechaHistoricaDesdeDia(h);
+  while (cursor.getTime() <= fin.getTime()) {
+    dias.push(cursor.toISOString().slice(0, 10));
+    cursor = new Date(cursor.getTime() + 24 * 60 * 60 * 1000);
+  }
+  return dias;
+}
+
+export function diasFaltantes(
+  desde: string,
+  hasta: string,
+  diasConLectura: string[]
+): string[] {
+  const cubiertos = new Set(diasConLectura);
+  return enumerarDias(desde, hasta).filter((dia) => !cubiertos.has(dia));
+}
+
+export function vecinosPorDia(
+  lecturas: LecturaVecina[],
+  dia: string
+): {
+  anterior: LecturaVecina | null;
+  posterior: LecturaVecina | null;
+  duplicado: LecturaVecina | null;
+} {
+  const ordenadas = [...lecturas].sort((a, b) =>
+    a.dia === b.dia ? a.kilometraje - b.kilometraje : a.dia.localeCompare(b.dia)
+  );
+  const duplicado = ordenadas.find((l) => l.dia === dia) ?? null;
+  const anteriores = ordenadas.filter((l) => l.dia < dia);
+  const posteriores = ordenadas.filter((l) => l.dia > dia);
+  return {
+    duplicado,
+    anterior: anteriores.length ? anteriores[anteriores.length - 1] : null,
+    posterior: posteriores[0] ?? null,
+  };
+}
+
+export function validarJustificacionRegularizacion(opts: {
+  tipoLectura: TipoLecturaKm;
+  justificacion: string | null | undefined;
+}): { ok: true } | { ok: false; error: string } {
+  const texto = (opts.justificacion ?? "").trim();
+  if (opts.tipoLectura === "ESTIMADA" && texto.length < JUSTIFICACION_REGULARIZACION_MIN) {
+    return { ok: false, error: MSG_ESTIMADA_SIN_JUSTIFICACION };
+  }
+  if (texto.length < JUSTIFICACION_REGULARIZACION_MIN) {
+    return { ok: false, error: MSG_SIN_JUSTIFICACION };
+  }
+  return { ok: true };
+}
+
+export type ItemRegularizacionKm = {
+  dia: string;
+  kilometraje: number;
+  tipoLectura: TipoLecturaKm;
+  justificacion: string;
+  fuente?: string | null;
+};
+
+export function validarItemRegularizacion(
+  item: ItemRegularizacionKm,
+  lecturas: LecturaVecina[],
+  hoy = diaCalendarioEc(new Date())
+):
+  | {
+      ok: true;
+      dia: string;
+      anterior: LecturaVecina | null;
+      posterior: LecturaVecina | null;
+    }
+  | { ok: false; error: string; duplicado?: LecturaVecina } {
+  const dia = parseDiaCalendario(item.dia);
+  if (!dia || dia > hoy) return { ok: false, error: MSG_RANGO_FECHAS };
+  const km = validarKmNoDescendente(null, item.kilometraje);
+  if (!km.ok) return km;
+  if (item.tipoLectura !== "REAL" && item.tipoLectura !== "ESTIMADA") {
+    return { ok: false, error: "Tipo de lectura inválido." };
+  }
+  const just = validarJustificacionRegularizacion(item);
+  if (!just.ok) return just;
+  const { anterior, posterior, duplicado } = vecinosPorDia(lecturas, dia);
+  if (duplicado) {
+    return { ok: false, error: MSG_DUPLICADO_DIA, duplicado };
+  }
+  if (anterior && item.kilometraje < anterior.kilometraje) {
+    return { ok: false, error: KM_INFERIOR_MSG };
+  }
+  if (posterior && item.kilometraje > posterior.kilometraje) {
+    return { ok: false, error: MSG_KM_ROMPERIA_POSTERIOR };
+  }
+  return { ok: true, dia, anterior, posterior };
+}
+
+export type InconsistenciaKm = {
+  kilometrajeActual: number;
+  ultimaHistorica: LecturaVecina | null;
+  mensaje: string;
+};
+
+function ordenarLecturasKm(lecturas: LecturaVecina[]): LecturaVecina[] {
+  return [...lecturas].sort((a, b) =>
+    a.dia === b.dia ? a.kilometraje - b.kilometraje : a.dia.localeCompare(b.dia)
+  );
+}
+
+function ultimaPorFecha(lecturas: LecturaVecina[]): LecturaVecina | null {
+  const ordenadas = ordenarLecturasKm(lecturas);
+  return ordenadas[ordenadas.length - 1] ?? null;
+}
+
+/**
+ * Aplica varias regularizaciones en memoria (todo o nada).
+ * No baja kilometrajeActual. Solo lo sube si una lectura NUEVA queda
+ * como la de fecha histórica más reciente y su km es mayor al actual.
+ * No corrige en silencio un desfase previo entre odómetro e historial.
+ */
+export function aplicarRegularizacionEnMemoria(
+  estado: { kilometrajeActual: number; lecturas: LecturaVecina[] },
+  items: ItemRegularizacionKm[],
+  hoy = diaCalendarioEc(new Date())
+):
+  | {
+      ok: true;
+      lecturas: LecturaVecina[];
+      kilometrajeActual: number;
+      aplicadas: ItemRegularizacionKm[];
+      actualizoKilometrajeActual: boolean;
+      inconsistencia: InconsistenciaKm | null;
+    }
+  | { ok: false; error: string; duplicado?: LecturaVecina } {
+  if (items.length === 0) {
+    return { ok: false, error: "No hay fechas para regularizar." };
+  }
+  const lecturas = [...estado.lecturas];
+  const aplicadas: ItemRegularizacionKm[] = [];
+  const ordenados = [...items].sort((a, b) => a.dia.localeCompare(b.dia));
+  for (const item of ordenados) {
+    const v = validarItemRegularizacion(item, lecturas, hoy);
+    if (!v.ok) return v;
+    lecturas.push({ dia: v.dia, kilometraje: item.kilometraje });
+    aplicadas.push({ ...item, dia: v.dia });
+  }
+
+  const ultimaExistente = ultimaPorFecha(estado.lecturas);
+  const ultimaNueva = ultimaPorFecha(
+    aplicadas.map((a) => ({ dia: a.dia, kilometraje: a.kilometraje }))
+  );
+  const maxDiaExistente = ultimaExistente?.dia ?? "";
+  const nuevaEsLaMasReciente =
+    !!ultimaNueva && (!maxDiaExistente || ultimaNueva.dia >= maxDiaExistente);
+
+  let kilometrajeActual = estado.kilometrajeActual;
+  let actualizoKilometrajeActual = false;
+  let inconsistencia: InconsistenciaKm | null = null;
+
+  if (
+    ultimaExistente &&
+    ultimaExistente.kilometraje !== estado.kilometrajeActual
+  ) {
+    inconsistencia = {
+      kilometrajeActual: estado.kilometrajeActual,
+      ultimaHistorica: ultimaExistente,
+      mensaje:
+        "El kilometraje actual no coincide con la última lectura histórica. Se conservó el valor actual.",
+    };
+  }
+
+  if (nuevaEsLaMasReciente && ultimaNueva) {
+    if (ultimaNueva.kilometraje > estado.kilometrajeActual) {
+      kilometrajeActual = ultimaNueva.kilometraje;
+      actualizoKilometrajeActual = true;
+      inconsistencia = null;
+    } else if (ultimaNueva.kilometraje === estado.kilometrajeActual) {
+      inconsistencia = null;
+    } else {
+      inconsistencia = {
+        kilometrajeActual: estado.kilometrajeActual,
+        ultimaHistorica: ultimaNueva,
+        mensaje:
+          "La lectura nueva más reciente es inferior al kilometraje actual. No se modificó el odómetro.",
+      };
+    }
+  }
+
+  return {
+    ok: true,
+    lecturas,
+    kilometrajeActual,
+    aplicadas,
+    actualizoKilometrajeActual,
+    inconsistencia,
+  };
+}
+
+export type PasoPersistenciaKm = "lectura" | "kmActual" | "auditoria";
+
+export type AuditoriaRegularizacionMemoria = {
+  accion: "KM_REGULARIZACION";
+  registroId: string;
+  usuarioId: string;
+  motivo: string;
+  valorNuevo: {
+    km: number;
+    fechaHistorica: string;
+    tipoLectura: TipoLecturaKm;
+    fuente: string | null;
+  };
+};
+
+/**
+ * Contrato atómico en memoria: lecturas + km actual + auditorías, o nada.
+ * No sustituye una transacción PostgreSQL.
+ */
+export function ejecutarLoteRegularizacionAtomico(
+  estado: {
+    kilometrajeActual: number;
+    lecturas: LecturaVecina[];
+    auditorias: AuditoriaRegularizacionMemoria[];
+  },
+  items: ItemRegularizacionKm[],
+  opts: { usuarioId: string; fallarEn?: PasoPersistenciaKm; hoy?: string }
+):
+  | {
+      ok: true;
+      kilometrajeActual: number;
+      lecturas: LecturaVecina[];
+      auditorias: AuditoriaRegularizacionMemoria[];
+      actualizoKilometrajeActual: boolean;
+      inconsistencia: InconsistenciaKm | null;
+    }
+  | {
+      ok: false;
+      error: string;
+      kilometrajeActual: number;
+      lecturas: LecturaVecina[];
+      auditorias: AuditoriaRegularizacionMemoria[];
+    } {
+  const original = {
+    kilometrajeActual: estado.kilometrajeActual,
+    lecturas: [...estado.lecturas],
+    auditorias: [...estado.auditorias],
+  };
+  const plan = aplicarRegularizacionEnMemoria(
+    { kilometrajeActual: estado.kilometrajeActual, lecturas: estado.lecturas },
+    items,
+    opts.hoy
+  );
+  if (!plan.ok) {
+    return { ...original, ok: false, error: plan.error };
+  }
+  if (opts.fallarEn === "lectura") {
+    return { ...original, ok: false, error: "Fallo al insertar una lectura." };
+  }
+  const nuevas = plan.aplicadas.map((item, i) => ({
+    id: `nueva-${i}`,
+    dia: item.dia,
+    kilometraje: item.kilometraje,
+  }));
+  if (opts.fallarEn === "kmActual") {
+    return { ...original, ok: false, error: "Fallo al actualizar el kilometraje actual." };
+  }
+  const auditorias: AuditoriaRegularizacionMemoria[] = plan.aplicadas.map((item, i) => ({
+    accion: "KM_REGULARIZACION",
+    registroId: nuevas[i].id!,
+    usuarioId: opts.usuarioId,
+    motivo: item.justificacion,
+    valorNuevo: {
+      km: item.kilometraje,
+      fechaHistorica: item.dia,
+      tipoLectura: item.tipoLectura,
+      fuente: item.fuente ?? null,
+    },
+  }));
+  if (opts.fallarEn === "auditoria") {
+    return { ...original, ok: false, error: "Fallo al insertar la auditoría." };
+  }
+  return {
+    ok: true,
+    kilometrajeActual: plan.kilometrajeActual,
+    lecturas: [...estado.lecturas, ...nuevas],
+    auditorias: [...estado.auditorias, ...auditorias],
+    actualizoKilometrajeActual: plan.actualizoKilometrajeActual,
+    inconsistencia: plan.inconsistencia,
+  };
+}

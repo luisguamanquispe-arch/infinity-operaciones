@@ -1,4 +1,7 @@
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+
+type ClienteAuditoria = Prisma.TransactionClient | typeof prisma;
 
 export async function registrarAuditoriaVehiculo(opts: {
   vehiculoId?: string | null;
@@ -9,8 +12,10 @@ export async function registrarAuditoriaVehiculo(opts: {
   motivo?: string | null;
   valorAnterior?: unknown;
   valorNuevo?: unknown;
+  tx?: ClienteAuditoria;
 }) {
-  await prisma.vehiculoAuditoria.create({
+  const db = opts.tx ?? prisma;
+  await db.vehiculoAuditoria.create({
     data: {
       vehiculoId: opts.vehiculoId ?? null,
       entidad: opts.entidad,
