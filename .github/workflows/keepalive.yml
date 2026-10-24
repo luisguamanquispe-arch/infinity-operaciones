@@ -1,3 +1,7 @@
+# Keepalive + motor de recordatorios.
+# Frecuencia: cada 5 minutos (cron de GitHub Actions sobre la rama default `main`).
+# Limitación: el servicio Render free se duerme; si /api/health no responde,
+# este job falla y no evalúa recordatorios. No duplica el workflow docker.yml.
 name: Keep Render awake
 
 on:
@@ -25,3 +29,27 @@ jobs:
           done
           echo "::error::El servicio no confirmó /api/health"
           exit 1
+
+      - name: Evaluar recordatorios de técnicos
+        env:
+          RECORDATORIO_CRON_SECRET: ${{ secrets.RECORDATORIO_CRON_SECRET }}
+          BACKUP_CRON_SECRET: ${{ secrets.BACKUP_CRON_SECRET }}
+        run: |
+          set -euo pipefail
+          secret="${RECORDATORIO_CRON_SECRET:-}"
+          if [ -z "$secret" ]; then secret="${BACKUP_CRON_SECRET:-}"; fi
+          if [ -z "$secret" ]; then
+            echo "::warning::Sin RECORDATORIO_CRON_SECRET ni BACKUP_CRON_SECRET en GitHub Secrets; el motor no se ejecutó."
+            exit 0
+          fi
+          body="$(mktemp)"
+          code="$(curl -sS -o "$body" -w "%{http_code}" --max-time 60 \
+            -X POST -H "Authorization: Bearer ${secret}" \
+            "https://infinity-operaciones-b3ij.onrender.com/api/recordatorios/cron")"
+          echo "HTTP ${code}"
+          if [ "${code}" != "200" ]; then
+            echo "::error::POST /api/recordatorios/cron devolvió HTTP ${code} (la campana interna no depende de este paso)."
+            head -c 300 "$body" || true
+            echo ""
+            exit 1
+          fi

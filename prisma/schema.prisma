@@ -213,6 +213,8 @@ model Tecnico {
   novedadesVehiculo       NovedadVehiculo[]
   usosVehiculoTicket      UsoVehiculoTicket[]
   encuestasSatisfaccion   CustomerSatisfactionSurvey[]
+  notificacionesTarea     NotificacionTecnico[]
+  pushSubscriptions       TecnicoPushSubscription[]
 }
 
 model Cliente {
@@ -369,6 +371,7 @@ model Ticket {
   justificacionesTecnicas JustificacionTecnica[]
   usosVehiculo            UsoVehiculoTicket[]
   encuestaSatisfaccion    CustomerSatisfactionSurvey?
+  notificacionesTarea     NotificacionTecnico[]
 
   @@index([tipo, estado])
   @@index([siTipoTrabajo])
@@ -451,6 +454,93 @@ model TicketTecnico {
   tecnico    Tecnico  @relation(fields: [tecnicoId], references: [id], onDelete: Cascade)
 
   @@id([ticketId, tecnicoId])
+}
+
+enum TipoNotificacionTecnico {
+  ASIGNACION
+  PREVIO_VENCIMIENTO
+  VENCIMIENTO
+  VENCIDO_REPETICION
+}
+
+enum CanalNotificacionTecnico {
+  INTERNO
+  PUSH
+}
+
+enum EstadoEntregaNotificacion {
+  PENDIENTE
+  ENVIADO
+  FALLIDO
+  OMITIDO
+}
+
+/// Configuración única (id = default) de recordatorios de órdenes.
+model RecordatorioTareaConfig {
+  id                  String   @id @default("default")
+  activo              Boolean  @default(true)
+  minutosAnticipacion Int      @default(30)
+  minutosRepeticion   Int      @default(60)
+  maxRepeticiones     Int      @default(8)
+  internoHabilitado   Boolean  @default(true)
+  pushHabilitado      Boolean  @default(true)
+  respetarHorario     Boolean  @default(true)
+  horaInicio          Int      @default(7)
+  horaFin             Int      @default(21)
+  updatedAt           DateTime @updatedAt
+}
+
+model NotificacionTecnico {
+  id            String                   @id @default(cuid())
+  tecnicoId     String
+  ticketId      String?
+  tipo          TipoNotificacionTecnico
+  titulo        String
+  cuerpo        String
+  claveIdem     String                   @unique
+  leida         Boolean                  @default(false)
+  leidaEn       DateTime?
+  prioridad     Prioridad?
+  codigoTicket  String?
+  vencimientoEn DateTime?
+  createdAt     DateTime                 @default(now())
+  tecnico       Tecnico                  @relation(fields: [tecnicoId], references: [id], onDelete: Cascade)
+  ticket        Ticket?                  @relation(fields: [ticketId], references: [id], onDelete: SetNull)
+  entregas      NotificacionTecnicoEntrega[]
+
+  @@index([tecnicoId, leida, createdAt])
+  @@index([ticketId, createdAt])
+  @@index([tipo, createdAt])
+}
+
+model NotificacionTecnicoEntrega {
+  id             String                     @id @default(cuid())
+  notificacionId String
+  canal          CanalNotificacionTecnico
+  estado         EstadoEntregaNotificacion
+  intentos       Int                        @default(0)
+  ultimoError    String?
+  enviadoEn      DateTime?
+  createdAt      DateTime                   @default(now())
+  notificacion   NotificacionTecnico        @relation(fields: [notificacionId], references: [id], onDelete: Cascade)
+
+  @@index([notificacionId, canal])
+  @@index([estado, createdAt])
+}
+
+model TecnicoPushSubscription {
+  id        String   @id @default(cuid())
+  tecnicoId String
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  userAgent String?
+  activo    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  tecnico   Tecnico  @relation(fields: [tecnicoId], references: [id], onDelete: Cascade)
+
+  @@index([tecnicoId, activo])
 }
 
 model OrdenServicio {

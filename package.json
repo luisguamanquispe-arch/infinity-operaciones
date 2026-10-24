@@ -28,6 +28,8 @@
     "test:cliente-app": "node --test scripts/test-cliente-app.mjs",
     "test:historial-soportes": "tsx --test src/lib/historial-soportes.test.ts src/lib/ticket-flujo-visibilidad.test.ts",
     "test:parque-automotor": "tsx --test src/lib/parque-automotor/reglas.test.ts",
+    "test:recordatorios": "tsx --test src/lib/recordatorios/reglas.test.ts src/lib/recordatorios/lock.test.ts src/lib/recordatorios/suscripcion.test.ts",
+    "test:recordatorios:itest": "tsx scripts/recordatorios.integration.ts",
     "test:equipos-materiales": "tsx --test src/lib/equipos-materiales-ot.test.ts",
     "test:satisfaccion": "tsx --test src/lib/satisfaccion/reglas.test.ts"
   },
@@ -49,6 +51,7 @@
     "react-leaflet": "^5.0.0",
     "signature_pad": "^5.0.7",
     "tailwind-merge": "^3.3.0",
+    "web-push": "^3.6.7",
     "xlsx": "^0.18.5",
     "zod": "^3.25.56"
   },

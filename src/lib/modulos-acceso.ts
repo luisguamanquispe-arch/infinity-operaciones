@@ -36,7 +36,9 @@ export type ModuloId =
   | "backup"
   | "eliminar_soportes"
   | "tecnico_home"
-  | "parque_automotor";
+  | "parque_automotor"
+  | "recordatorios"
+  | "recordatorios_config";
 
 export type NavContext =
   | "gerencia"
@@ -221,6 +223,27 @@ export const MODULOS: ModuloDef[] = [
     contexts: ["home-tiles", "acciones"],
     order: 148,
     homeIcon: "bell",
+  },
+  {
+    id: "recordatorios",
+    href: "/supervisor/recordatorios",
+    label: "Recordatorios",
+    group: "campo",
+    tone: "amber",
+    roles: ["ADMIN", "SUPERVISOR"],
+    contexts: ["home-tiles", "acciones"],
+    order: 146,
+    homeIcon: "bell",
+  },
+  {
+    id: "recordatorios_config",
+    href: "/gerencia/recordatorios",
+    label: "Avisos a técnicos",
+    group: "admin",
+    tone: "amber",
+    roles: ["ADMIN"],
+    contexts: ["gerencia"],
+    order: 45,
   },
   {
     id: "parque_automotor",

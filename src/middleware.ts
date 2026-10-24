@@ -10,6 +10,8 @@ const publicPaths = [
   "/api/setup",
   "/api/health",
   "/api/backup/cron",
+  "/api/recordatorios/cron",
+  "/sw.js",
   "/api/help-desk/webhook/whatsapp",
   "/api/cliente/auth/login",
   "/api/cliente/auth/refresh",

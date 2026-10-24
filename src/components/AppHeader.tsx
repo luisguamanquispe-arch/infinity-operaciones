@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import { LogOut } from "lucide-react";
+import { TecnicoNotificacionesCampana } from "@/components/tecnico/TecnicoNotificacionesCampana";
 import type { Rol } from "@prisma/client";
 import { BrandLogo } from "@/components/BrandLogo";
 import { ModuleSwitcher } from "@/components/ModuleSwitcher";
@@ -114,15 +115,18 @@ export function AppHeader({ title, subtitle, modules }: AppHeaderProps) {
               )}
             </div>
           </div>
-          <button
-            type="button"
-            onClick={logout}
-            className="p-2 rounded-lg hover:bg-white/10 transition shrink-0"
-            title="Cerrar sesión"
-            aria-label="Cerrar sesión"
-          >
-            <LogOut className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-1 shrink-0">
+            {pathname.startsWith("/tecnico") && <TecnicoNotificacionesCampana />}
+            <button
+              type="button"
+              onClick={logout}
+              className="p-2 rounded-lg hover:bg-white/10 transition"
+              title="Cerrar sesión"
+              aria-label="Cerrar sesión"
+            >
+              <LogOut className="w-5 h-5" />
+            </button>
+          </div>
         </div>
       </div>
       {showSwitcher && rol && (

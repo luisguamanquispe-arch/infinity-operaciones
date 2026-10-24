@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
 import { notificarTecnicoAsignacion } from "@/lib/notificaciones-tecnico";
+import { notificarAsignacionInmediata } from "@/lib/recordatorios/persistir";
 import { esTicketNoAtendido, whereTicketActivoEnLista } from "@/lib/ticket-antiguedad";
 import { FLUJO_TICKET, logFlujoTicket } from "@/lib/ticket-flujo-log";
 import {
@@ -176,6 +177,14 @@ export async function notificarTecnicosNuevos(
       ...ticket,
       tecnico: { telefono: tecnico.telefono, usuario: tecnico.usuario },
     });
+  }
+  try {
+    await notificarAsignacionInmediata({ ticketId: ticket.id, tecnicoIds: agregados });
+  } catch (err) {
+    console.error(
+      "[recordatorios] asignacion",
+      err instanceof Error ? err.message.slice(0, 180) : "error"
+    );
   }
 }
 
