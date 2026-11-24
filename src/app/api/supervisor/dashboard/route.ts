@@ -40,8 +40,16 @@ export async function GET() {
     }),
     prisma.ticket.findMany({
       where: abiertosWhere,
-      include: ticketIncludeTecnicos,
-      orderBy: { prioridad: "asc" },
+      include: {
+        ...ticketIncludeTecnicos,
+        eventos: {
+          orderBy: { createdAt: "desc" },
+          take: 1,
+          select: { accion: true, createdAt: true },
+        },
+      },
+      // Prioridad enum: ALTA < MEDIA < BAJA → asc = mayor prioridad primero.
+      orderBy: [{ prioridad: "asc" }, { updatedAt: "desc" }, { id: "asc" }],
       take: 20,
     }),
     obtenerSiKpis(),
@@ -103,6 +111,8 @@ export async function GET() {
     })),
     tickets: ticketsRecientes.map((t) => {
       const tipoNovedad = novedadPorTicket.get(t.id);
+      const motivoTexto = (t.motivo || t.descripcion || "").trim();
+      const ultimoEvento = t.eventos[0] ?? null;
       return {
         id: t.id,
         codigo: t.codigo,
@@ -110,6 +120,13 @@ export async function GET() {
         estado: t.estado,
         createdAt: t.createdAt.toISOString(),
         programadoEn: t.programadoEn?.toISOString() ?? null,
+        motivo: motivoTexto || null,
+        ultimaActividad: ultimoEvento
+          ? {
+              descripcion: ultimoEvento.accion.replace(/_/g, " "),
+              fecha: ultimoEvento.createdAt.toISOString(),
+            }
+          : null,
         cliente: t.cliente,
         tecnicosLabel: nombresTecnicosTicket(t),
         novedadPendiente: Boolean(tipoNovedad),

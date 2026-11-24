@@ -11,7 +11,7 @@ import { SemaforoTiempo } from "@/components/SemaforoTiempo";
 import { GitShaBadge } from "@/components/GitShaBadge";
 import { SupervisorHomeTiles } from "@/components/ModuleQuickNav";
 import { SystemDateTimeBar } from "@/components/SystemDateTimeBar";
-import { ESTADO_TECNICO_LABELS, PRIORIDAD_LABELS } from "@/lib/utils";
+import { ESTADO_TECNICO_LABELS, PRIORIDAD_LABELS, formatDateTime } from "@/lib/utils";
 import { fetchJson } from "@/lib/fetch-json-client";
 import { faseSemaforoTiempo, diasDesdeReferencia } from "@/lib/ticket-antiguedad";
 
@@ -53,6 +53,8 @@ interface DashboardData {
     estado: string;
     createdAt?: string;
     programadoEn?: string | null;
+    motivo?: string | null;
+    ultimaActividad?: { descripcion: string; fecha: string } | null;
     cliente: { nombre: string; sector: string };
     tecnicosLabel: string;
     novedadPendiente?: boolean;
@@ -346,10 +348,12 @@ export default function SupervisorDashboard() {
                 <tr>
                   <th className="text-left p-3">Ticket</th>
                   <th className="text-left p-3">Cliente</th>
+                  <th className="text-left p-3">Motivo del ticket</th>
                   <th className="text-left p-3 hidden sm:table-cell">Técnicos</th>
                   <th className="text-left p-3">Prioridad</th>
                   <th className="text-left p-3">Estado</th>
                   <th className="text-left p-3">Tiempo</th>
+                  <th className="text-left p-3 hidden md:table-cell">Última actividad</th>
                   <th className="text-left p-3"></th>
                 </tr>
               </thead>
@@ -382,15 +386,61 @@ export default function SupervisorDashboard() {
                       </div>
                     </td>
                     <td className="p-3">{t.cliente.nombre}</td>
+                    <td className="p-3 max-w-[14rem] sm:max-w-[18rem] min-w-0">
+                      {t.motivo ? (
+                        <span
+                          className="block min-w-0 truncate text-slate-700"
+                          title={t.motivo}
+                        >
+                          {t.motivo}
+                        </span>
+                      ) : (
+                        <span className="text-slate-400">Sin motivo especificado</span>
+                      )}
+                    </td>
                     <td className="p-3 hidden sm:table-cell text-xs leading-snug">
                       {t.tecnicosLabel}
                     </td>
-                    <td className="p-3">{PRIORIDAD_LABELS[t.prioridad]}</td>
+                    <td className="p-3">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span
+                          className={
+                            t.prioridad === "ALTA"
+                              ? "text-red-700 font-semibold"
+                              : undefined
+                          }
+                        >
+                          {PRIORIDAD_LABELS[t.prioridad]}
+                        </span>
+                        {t.prioridad === "ALTA" && (
+                          <span className="text-[10px] font-semibold tracking-wide px-1.5 py-0.5 rounded-full bg-red-100 text-red-800 border border-red-200 whitespace-nowrap">
+                            ALTA
+                          </span>
+                        )}
+                      </div>
+                    </td>
                     <td className="p-3">
                       <TicketSemaforo estado={t.estado} />
                     </td>
                     <td className="p-3">
                       <SemaforoTiempo fase={faseT} dias={diasT} />
+                    </td>
+                    <td className="p-3 hidden md:table-cell max-w-[12rem] min-w-0">
+                      {t.ultimaActividad ? (
+                        <div
+                          className="min-w-0"
+                          title={`${t.ultimaActividad.descripcion} · ${formatDateTime(t.ultimaActividad.fecha)}`}
+                        >
+                          <p className="truncate text-slate-700 capitalize">
+                            {t.ultimaActividad.descripcion.toLowerCase()}
+                          </p>
+                          <p className="text-[11px] text-slate-400 truncate">
+                            {formatDateTime(t.ultimaActividad.fecha)}
+                          </p>
+                        </div>
+                      ) : (
+                        <span className="text-slate-400">Sin actividad registrada</span>
+                      )}
                     </td>
                     <td className="p-3">
                       <div className="flex flex-wrap items-center gap-2">
