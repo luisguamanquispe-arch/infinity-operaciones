@@ -127,7 +127,10 @@ export async function GET() {
               fecha: ultimoEvento.createdAt.toISOString(),
             }
           : null,
-        cliente: t.cliente,
+        cliente: {
+          nombre: t.cliente.nombre,
+          sector: (t.cliente.sector || "").trim() || null,
+        },
         tecnicosLabel: nombresTecnicosTicket(t),
         novedadPendiente: Boolean(tipoNovedad),
         novedadLabel: tipoNovedad ? TIPO_NOVEDAD_LABELS[tipoNovedad] : null,

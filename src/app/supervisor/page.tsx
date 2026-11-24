@@ -55,7 +55,7 @@ interface DashboardData {
     programadoEn?: string | null;
     motivo?: string | null;
     ultimaActividad?: { descripcion: string; fecha: string } | null;
-    cliente: { nombre: string; sector: string };
+    cliente: { nombre: string; sector: string | null };
     tecnicosLabel: string;
     novedadPendiente?: boolean;
     novedadLabel?: string | null;
@@ -385,7 +385,28 @@ export default function SupervisorDashboard() {
                         <span className="font-semibold text-infinity-600">{t.codigo}</span>
                       </div>
                     </td>
-                    <td className="p-3">{t.cliente.nombre}</td>
+                    <td className="p-3 max-w-[10rem] sm:max-w-[14rem] min-w-0">
+                      <div className="min-w-0">
+                        <p
+                          className="truncate text-slate-800 font-medium"
+                          title={t.cliente.nombre}
+                        >
+                          {t.cliente.nombre}
+                        </p>
+                        <p
+                          className="text-[11px] text-slate-400 truncate"
+                          title={
+                            t.cliente.sector
+                              ? `Sector: ${t.cliente.sector}`
+                              : "Sector no especificado"
+                          }
+                        >
+                          {t.cliente.sector
+                            ? `Sector: ${t.cliente.sector}`
+                            : "Sector no especificado"}
+                        </p>
+                      </div>
+                    </td>
                     <td className="p-3 max-w-[14rem] sm:max-w-[18rem] min-w-0">
                       {t.motivo ? (
                         <span
