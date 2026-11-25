@@ -15,6 +15,11 @@ import {
   TRABAJOS_EXPRESS,
 } from "@/lib/soporte-express";
 import type { ModalidadSoporte, TrabajoExpress } from "@prisma/client";
+import {
+  MotivoTecnicoForm,
+  type MotivoTecnicoFormState,
+} from "@/components/MotivoTecnicoForm";
+import { validarMotivoEstructurado, validarClienteSituacion } from "@/lib/motivo-tecnico/validacion";
 
 interface Tecnico {
   id: string;
@@ -35,13 +40,24 @@ export default function NuevoTicketPage() {
   const [ticket, setTicket] = useState({
     tipo: "SOPORTE",
     prioridad: "MEDIA",
-    motivo: "",
-    descripcion: "",
     tecnicoIds: [] as string[],
     programadoEn: "",
     modalidadSoporte: "COMPLETO" as ModalidadSoporte,
     trabajoExpress: "" as TrabajoExpress | "",
     trabajoExpressOtro: "",
+  });
+
+  const [motivoForm, setMotivoForm] = useState<MotivoTecnicoFormState>({
+    motivoCategoria: "",
+    motivoCategoriaOtro: "",
+    motivoProblema: "",
+    motivoProblemaOtro: "",
+    motivoDetalle: "",
+    motivoImpacto: "",
+    motivoObservaciones: "",
+    clienteSituacion: "",
+    clienteRiesgoBajaMotivo: "",
+    prioridad: "MEDIA",
   });
 
   const esSoporte = ticket.tipo === "SOPORTE";
@@ -71,9 +87,39 @@ export default function NuevoTicketPage() {
       setError("Indique el detalle del trabajo (Otro)");
       return;
     }
+    const motivoCheck = validarMotivoEstructurado({
+      categoria: motivoForm.motivoCategoria,
+      categoriaOtro: motivoForm.motivoCategoriaOtro,
+      problema: motivoForm.motivoProblema,
+      problemaOtro: motivoForm.motivoProblemaOtro,
+      detalle: motivoForm.motivoDetalle,
+      impacto: motivoForm.motivoImpacto,
+      observaciones: motivoForm.motivoObservaciones,
+    });
+    if (!motivoCheck.ok) {
+      setError(motivoCheck.error);
+      return;
+    }
+    const sitCheck = validarClienteSituacion(motivoForm.clienteSituacion);
+    if (!sitCheck.ok) {
+      setError(sitCheck.error);
+      return;
+    }
+    if (
+      motivoForm.clienteSituacion === "INTENCION_CANCELAR" &&
+      motivoForm.clienteRiesgoBajaMotivo.trim().length < 8
+    ) {
+      setError("Indique el motivo de la inconformidad / intención de cancelar");
+      return;
+    }
     setLoading(true);
     setError("");
     setExito("");
+
+    const prioridad =
+      motivoForm.clienteSituacion === "INTENCION_CANCELAR"
+        ? "ALTA"
+        : motivoForm.prioridad || ticket.prioridad;
 
     const res = await fetch("/api/tickets", {
       method: "POST",
@@ -81,12 +127,19 @@ export default function NuevoTicketPage() {
       body: JSON.stringify({
         clienteId: cliente.id,
         tipo: ticket.tipo,
-        prioridad: ticket.prioridad,
-        motivo: ticket.motivo,
-        descripcion: ticket.descripcion,
+        prioridad,
         tecnicoIds: ticket.tecnicoIds,
         programadoEn: ticket.programadoEn || null,
         modalidadSoporte: esSoporte ? ticket.modalidadSoporte : "COMPLETO",
+        motivoCategoria: motivoForm.motivoCategoria,
+        motivoCategoriaOtro: motivoForm.motivoCategoriaOtro || null,
+        motivoProblema: motivoForm.motivoProblema,
+        motivoProblemaOtro: motivoForm.motivoProblemaOtro || null,
+        motivoDetalle: motivoForm.motivoDetalle,
+        motivoImpacto: motivoForm.motivoImpacto,
+        motivoObservaciones: motivoForm.motivoObservaciones || null,
+        clienteSituacion: motivoForm.clienteSituacion,
+        clienteRiesgoBajaMotivo: motivoForm.clienteRiesgoBajaMotivo || null,
         ...(esExpress
           ? {
               trabajoExpress: ticket.trabajoExpress,
@@ -175,14 +228,18 @@ export default function NuevoTicketPage() {
               <div>
                 <label className="text-xs text-slate-500">Prioridad *</label>
                 <select
-                  value={ticket.prioridad}
-                  onChange={(e) => setTicket({ ...ticket, prioridad: e.target.value })}
+                  value={motivoForm.prioridad}
+                  onChange={(e) => {
+                    setMotivoForm({ ...motivoForm, prioridad: e.target.value });
+                    setTicket({ ...ticket, prioridad: e.target.value });
+                  }}
                   className="w-full px-3 py-2 border rounded-lg text-sm mt-0.5"
                   required
+                  disabled={motivoForm.clienteSituacion === "INTENCION_CANCELAR"}
                 >
-                  <option value="ALTA">Alta (SLA 4h)</option>
-                  <option value="MEDIA">Media (SLA 8h)</option>
-                  <option value="BAJA">Baja (SLA 24h)</option>
+                  <option value="ALTA">Alta — interrupción total / urgente / riesgo de baja</option>
+                  <option value="MEDIA">Media — afecta parcialmente el servicio</option>
+                  <option value="BAJA">Baja — inconveniente menor</option>
                 </select>
               </div>
             </div>
@@ -264,28 +321,15 @@ export default function NuevoTicketPage() {
               </div>
             )}
 
-            <div>
-              <label className="text-xs text-slate-500">Motivo *</label>
-              <input
-                type="text"
-                required
-                placeholder="Ej: Sin servicio, luz roja en ONU"
-                value={ticket.motivo}
-                onChange={(e) => setTicket({ ...ticket, motivo: e.target.value })}
-                className={`w-full px-3 py-2 border rounded-lg text-sm mt-0.5 ${inputMayusculasClass}`}
-              />
-            </div>
-
-            <div>
-              <label className="text-xs text-slate-500">Descripción del problema</label>
-              <textarea
-                rows={3}
-                placeholder="Detalle reportado por el cliente..."
-                value={ticket.descripcion}
-                onChange={(e) => setTicket({ ...ticket, descripcion: e.target.value })}
-                className={`w-full px-3 py-2 border rounded-lg text-sm mt-0.5 resize-none ${inputMayusculasClass}`}
-              />
-            </div>
+            <MotivoTecnicoForm
+              value={motivoForm}
+              onChange={(next) => {
+                setMotivoForm(next);
+                if (next.prioridad !== ticket.prioridad) {
+                  setTicket({ ...ticket, prioridad: next.prioridad });
+                }
+              }}
+            />
           </section>
 
           <section className="bg-white rounded-xl border p-4 space-y-3">

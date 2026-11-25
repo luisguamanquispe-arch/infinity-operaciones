@@ -6,6 +6,7 @@ import { nombresTecnicosTicket, ticketIncludeTecnicos } from "@/lib/ticket-tecni
 import { whereTicketActivoEnLista, whereTicketNoAtendido } from "@/lib/ticket-antiguedad";
 import { TIPO_NOVEDAD_LABELS } from "@/lib/novedad-ticket";
 import { obtenerSiKpis } from "@/lib/soporte-infraestructura/stats";
+import { alertaRiesgoBajaActiva } from "@/lib/motivo-tecnico/riesgo-baja";
 
 export async function GET() {
   const session = await getFullSession();
@@ -21,8 +22,16 @@ export async function GET() {
   const abiertosWhere = whereTicketActivoEnLista(undefined, now);
   const noAtendidosWhere = whereTicketNoAtendido(undefined, now);
 
-  const [abiertos, cerrados, vencidos, noAtendidos, tecnicos, ticketsRecientes, soporteInfra] =
-    await Promise.all([
+  const [
+    abiertos,
+    cerrados,
+    vencidos,
+    noAtendidos,
+    tecnicos,
+    ticketsRecientes,
+    soporteInfra,
+    riesgoBajaRows,
+  ] = await Promise.all([
     prisma.ticket.count({
       where: abiertosWhere,
     }),
@@ -53,6 +62,19 @@ export async function GET() {
       take: 20,
     }),
     obtenerSiKpis(),
+    prisma.ticket.findMany({
+      where: {
+        clienteRiesgoBaja: true,
+        clienteRiesgoBajaResueltoEn: null,
+      },
+      include: {
+        ...ticketIncludeTecnicos,
+        cliente: { select: { nombre: true, sector: true } },
+        clienteRiesgoBajaActivadoPor: { select: { nombre: true } },
+      },
+      orderBy: [{ prioridad: "asc" }, { createdAt: "asc" }],
+      take: 30,
+    }),
   ]);
 
   const ordenesCerradas = await prisma.ordenServicio.findMany({
@@ -99,7 +121,40 @@ export async function GET() {
       noAtendidos,
       tiempoPromedioMin: tiempoPromedio,
       primeraVisitaPct: primeraVisita,
+      riesgoBaja: riesgoBajaRows.filter((t) =>
+        alertaRiesgoBajaActiva({
+          clienteRiesgoBaja: t.clienteRiesgoBaja,
+          clienteRiesgoBajaResueltoEn: t.clienteRiesgoBajaResueltoEn,
+        })
+      ).length,
     },
+    riesgoBaja: riesgoBajaRows
+      .filter((t) =>
+        alertaRiesgoBajaActiva({
+          clienteRiesgoBaja: t.clienteRiesgoBaja,
+          clienteRiesgoBajaResueltoEn: t.clienteRiesgoBajaResueltoEn,
+        })
+      )
+      .map((t) => ({
+        id: t.id,
+        codigo: t.codigo,
+        prioridad: t.prioridad,
+        estado: t.estado,
+        motivo: t.motivo,
+        createdAt: t.createdAt.toISOString(),
+        minutosDesdeCreacion: Math.max(
+          0,
+          Math.floor((now.getTime() - t.createdAt.getTime()) / 60_000)
+        ),
+        cliente: {
+          nombre: t.cliente.nombre,
+          sector: (t.cliente.sector || "").trim() || null,
+        },
+        tecnicosLabel: nombresTecnicosTicket(t),
+        clienteRiesgoBajaMotivo: t.clienteRiesgoBajaMotivo,
+        clienteRiesgoBajaActivadoEn: t.clienteRiesgoBajaActivadoEn?.toISOString() ?? null,
+        activadoPorNombre: t.clienteRiesgoBajaActivadoPor?.nombre ?? null,
+      })),
     soporteInfra,
     tecnicos: tecnicos.map((t) => ({
       id: t.id,
@@ -118,6 +173,10 @@ export async function GET() {
         codigo: t.codigo,
         prioridad: t.prioridad,
         estado: t.estado,
+        clienteRiesgoBaja: alertaRiesgoBajaActiva({
+          clienteRiesgoBaja: t.clienteRiesgoBaja,
+          clienteRiesgoBajaResueltoEn: t.clienteRiesgoBajaResueltoEn,
+        }),
         createdAt: t.createdAt.toISOString(),
         programadoEn: t.programadoEn?.toISOString() ?? null,
         motivo: motivoTexto || null,

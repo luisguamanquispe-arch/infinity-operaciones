@@ -112,6 +112,20 @@ enum EstadoRevision {
   APROBADO
 }
 
+/// Situación del cliente al crear/editar un ticket (agente explícito, no inferida).
+enum ClienteSituacionTicket {
+  CONFORME
+  INCONFORME
+  MOLESTO_FALTA_ATENCION
+  INTENCION_CANCELAR
+}
+
+enum ResultadoGestionRiesgoBaja {
+  CONTACTO_REALIZADO
+  RECUPERADO
+  CONTINUA_RIESGO
+}
+
 /// Motivos de cierre por justificación técnica (trabajo no ejecutado / factores externos).
 enum MotivoJustificacionTecnica {
   CLIENTE_AUSENTE
@@ -185,6 +199,9 @@ model Usuario {
   auditoriasVehiculo       VehiculoAuditoria[]
   firmasActaVehiculo       ActaVehiculoFirma[]
   seguimientosSatisfaccion SatisfactionFollowUp[]
+  ticketsRiesgoBajaActivados Ticket[] @relation("TicketRiesgoBajaActivadoPor")
+  ticketsRiesgoBajaResueltos Ticket[] @relation("TicketRiesgoBajaResueltoPor")
+  gestionesRiesgoBaja        TicketGestionRiesgoBaja[]
 }
 
 model Tecnico {
@@ -329,6 +346,22 @@ model Ticket {
   estado               EstadoTicket           @default(PENDIENTE)
   motivo               String?
   descripcion          String?
+  /// Motivo técnico estructurado (tickets cliente). Null en tickets legados / INFRA.
+  motivoCategoria      String?
+  motivoCategoriaOtro  String?
+  motivoProblema       String?
+  motivoProblemaOtro   String?
+  motivoDetalle        String?                @db.Text
+  motivoImpacto        String?
+  motivoObservaciones  String?                @db.Text
+  clienteSituacion     ClienteSituacionTicket?
+  /// Alerta explícita: cliente manifiesta intención de cancelar.
+  clienteRiesgoBaja    Boolean                @default(false)
+  clienteRiesgoBajaMotivo String?             @db.Text
+  clienteRiesgoBajaActivadoEn DateTime?
+  clienteRiesgoBajaActivadoPorId String?
+  clienteRiesgoBajaResueltoEn DateTime?
+  clienteRiesgoBajaResueltoPorId String?
   motivoInfraestructura MotivoInfraestructura?
   nodoAfectado         String?
   zonaInfra            String?
@@ -372,12 +405,31 @@ model Ticket {
   usosVehiculo            UsoVehiculoTicket[]
   encuestaSatisfaccion    CustomerSatisfactionSurvey?
   notificacionesTarea     NotificacionTecnico[]
+  gestionesRiesgoBaja     TicketGestionRiesgoBaja[]
+  clienteRiesgoBajaActivadoPor Usuario? @relation("TicketRiesgoBajaActivadoPor", fields: [clienteRiesgoBajaActivadoPorId], references: [id], onDelete: SetNull)
+  clienteRiesgoBajaResueltoPor Usuario? @relation("TicketRiesgoBajaResueltoPor", fields: [clienteRiesgoBajaResueltoPorId], references: [id], onDelete: SetNull)
 
   @@index([tipo, estado])
   @@index([siTipoTrabajo])
   @@index([estadoRevision])
   @@index([modalidadSoporte])
   @@index([clienteId, createdAt])
+  @@index([clienteRiesgoBaja, clienteRiesgoBajaResueltoEn])
+}
+
+/// Gestión documentada de clientes en riesgo de baja (no cierra el contrato).
+model TicketGestionRiesgoBaja {
+  id             String                     @id @default(cuid())
+  ticketId       String
+  usuarioId      String?
+  usuarioNombre  String
+  resultado      ResultadoGestionRiesgoBaja
+  observaciones  String?                    @db.Text
+  createdAt      DateTime                   @default(now())
+  ticket         Ticket                     @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  usuario        Usuario?                   @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
+
+  @@index([ticketId, createdAt])
 }
 
 /// Cierre con justificación técnica (trabajo no ejecutado); requiere aprobación del supervisor.

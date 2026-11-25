@@ -15,7 +15,7 @@ import {
 import { AsignacionIncompletaError } from "@/lib/ticket-asignacion";
 import { fotoImagenSrcRapida } from "@/lib/foto-image";
 import { firmaImagenSrcRapida } from "@/lib/firma-image";
-import { normalizarTextoTicket, enMayusculasGuardar } from "@/lib/mayusculas";
+import { enMayusculasGuardar } from "@/lib/mayusculas";
 import { infoReporteOrden } from "@/lib/ticket-reporte";
 import {
   estadoTicketEfectivo,
@@ -30,6 +30,12 @@ import {
 import { novedadPendienteTicket, TIPO_NOVEDAD_LABELS } from "@/lib/novedad-ticket";
 import { TRABAJOS_EXPRESS } from "@/lib/soporte-express";
 import type { ModalidadSoporte, TrabajoExpress } from "@prisma/client";
+import {
+  bodyIntentaMutarRiesgo,
+  resolverMotivoEnPatch,
+  validarPrioridadConRiesgoActivo,
+} from "@/lib/motivo-tecnico/reglas-patch";
+import { ACCION_PRIORIDAD_CAMBIADA } from "@/lib/motivo-tecnico/riesgo-baja";
 
 export async function GET(
   _request: Request,
@@ -263,7 +269,17 @@ export async function PATCH(
   }
 
   const { id } = await params;
-  const body = await request.json();
+  const body = (await request.json()) as Record<string, unknown>;
+
+  if (bodyIntentaMutarRiesgo(body)) {
+    return NextResponse.json(
+      {
+        error:
+          "Los campos de riesgo de baja no se pueden modificar por esta vía. Use creación o gestión documentada.",
+      },
+      { status: 400 }
+    );
+  }
 
   const editable = await verificarTicketEditable(id);
   if (!editable.ok) {
@@ -306,25 +322,64 @@ export async function PATCH(
     }
   }
 
-  if (body.tipo && TIPOS_VALIDOS.includes(body.tipo)) updateData.tipo = body.tipo;
-  if (body.prioridad && PRIORIDADES_VALIDAS.includes(body.prioridad)) {
-    updateData.prioridad = body.prioridad;
-    const slaHoras = slaHorasPorPrioridad(body.prioridad);
-    updateData.slaHoras = slaHoras;
-    updateData.slaVenceEn = new Date(ticket.createdAt.getTime() + slaHoras * 60 * 60 * 1000);
+  if (typeof body.tipo === "string" && TIPOS_VALIDOS.includes(body.tipo)) {
+    updateData.tipo = body.tipo;
   }
-  if (body.estado && ESTADOS_VALIDOS.includes(body.estado)) updateData.estado = body.estado;
-  if (body.motivo !== undefined || body.descripcion !== undefined) {
-    Object.assign(
-      updateData,
-      normalizarTextoTicket({
-        ...(body.motivo !== undefined ? { motivo: body.motivo || null } : {}),
-        ...(body.descripcion !== undefined ? { descripcion: body.descripcion || null } : {}),
-      })
+  const prioridadAnterior = ticket.prioridad;
+  if (typeof body.prioridad === "string" && PRIORIDADES_VALIDAS.includes(body.prioridad)) {
+    const prioCheck = validarPrioridadConRiesgoActivo({
+      ticket: {
+        clienteRiesgoBaja: ticket.clienteRiesgoBaja,
+        clienteRiesgoBajaResueltoEn: ticket.clienteRiesgoBajaResueltoEn,
+        prioridad: ticket.prioridad,
+      },
+      prioridadNueva: body.prioridad,
+    });
+    if (!prioCheck.ok) {
+      return NextResponse.json({ error: prioCheck.error }, { status: 400 });
+    }
+    if (prioCheck.prioridad && prioCheck.prioridad !== ticket.prioridad) {
+      updateData.prioridad = prioCheck.prioridad;
+      const slaHoras = slaHorasPorPrioridad(prioCheck.prioridad);
+      updateData.slaHoras = slaHoras;
+      updateData.slaVenceEn = new Date(
+        ticket.createdAt.getTime() + slaHoras * 60 * 60 * 1000
+      );
+    }
+  }
+  if (typeof body.estado === "string" && ESTADOS_VALIDOS.includes(body.estado)) {
+    updateData.estado = body.estado;
+  }
+
+  const motivoPatch = resolverMotivoEnPatch(
+    {
+      motivo: ticket.motivo,
+      descripcion: ticket.descripcion,
+      motivoCategoria: ticket.motivoCategoria,
+      motivoCategoriaOtro: ticket.motivoCategoriaOtro,
+      motivoProblema: ticket.motivoProblema,
+      motivoProblemaOtro: ticket.motivoProblemaOtro,
+      motivoDetalle: ticket.motivoDetalle,
+      motivoImpacto: ticket.motivoImpacto,
+      motivoObservaciones: ticket.motivoObservaciones,
+      clienteRiesgoBaja: ticket.clienteRiesgoBaja,
+      clienteRiesgoBajaResueltoEn: ticket.clienteRiesgoBajaResueltoEn,
+      prioridad: ticket.prioridad,
+    },
+    body
+  );
+  if (!motivoPatch.ok) {
+    return NextResponse.json(
+      { error: motivoPatch.error, faltantes: motivoPatch.faltantes },
+      { status: 400 }
     );
   }
+  Object.assign(updateData, motivoPatch.update);
+
   if (body.programadoEn !== undefined) {
-    updateData.programadoEn = body.programadoEn ? parseProgramadoEn(body.programadoEn) : null;
+    updateData.programadoEn = body.programadoEn
+      ? parseProgramadoEn(String(body.programadoEn))
+      : null;
   }
 
   // Modalidad Soporte Completo / Express (solo aplica a tipo SOPORTE).
@@ -432,6 +487,24 @@ export async function PATCH(
 
   if (!updated) {
     return NextResponse.json({ error: "Ticket no encontrado" }, { status: 404 });
+  }
+
+  if (
+    typeof updateData.prioridad === "string" &&
+    updateData.prioridad !== prioridadAnterior
+  ) {
+    await prisma.eventoTicket.create({
+      data: {
+        ticketId: id,
+        usuarioId: session.id,
+        accion: ACCION_PRIORIDAD_CAMBIADA,
+        metadata: JSON.stringify({
+          de: prioridadAnterior,
+          a: updateData.prioridad,
+          motivo: "edicion_manual",
+        }),
+      },
+    });
   }
 
   await prisma.eventoTicket.create({

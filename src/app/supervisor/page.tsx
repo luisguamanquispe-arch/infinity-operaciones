@@ -20,6 +20,21 @@ const MapInner = dynamic(() => import("@/components/MapInner"), {
   loading: () => <div className="h-64 bg-slate-100 animate-pulse rounded-xl" />,
 });
 
+interface RiesgoBajaDash {
+  id: string;
+  codigo: string;
+  prioridad: string;
+  estado: string;
+  motivo: string | null;
+  createdAt: string;
+  minutosDesdeCreacion: number;
+  cliente: { nombre: string; sector: string | null };
+  tecnicosLabel: string;
+  clienteRiesgoBajaMotivo: string | null;
+  clienteRiesgoBajaActivadoEn: string | null;
+  activadoPorNombre: string | null;
+}
+
 interface DashboardData {
   kpis: {
     abiertos: number;
@@ -28,7 +43,9 @@ interface DashboardData {
     noAtendidos?: number;
     tiempoPromedioMin: number;
     primeraVisitaPct: number;
+    riesgoBaja?: number;
   };
+  riesgoBaja?: RiesgoBajaDash[];
   soporteInfra?: {
     pendientes: number;
     asignadas: number;
@@ -51,6 +68,7 @@ interface DashboardData {
     codigo: string;
     prioridad: string;
     estado: string;
+    clienteRiesgoBaja?: boolean;
     createdAt?: string;
     programadoEn?: string | null;
     motivo?: string | null;
@@ -60,6 +78,13 @@ interface DashboardData {
     novedadPendiente?: boolean;
     novedadLabel?: string | null;
   }[];
+}
+
+function formatMinutosTranscurridos(min: number): string {
+  if (min < 60) return `${min} min`;
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  return m ? `${h}h ${m}min` : `${h}h`;
 }
 
 export default function SupervisorDashboard() {
@@ -215,6 +240,14 @@ export default function SupervisorDashboard() {
               icon={AlertTriangle}
             />
           </Link>
+          <a href="#riesgo-baja" className="block">
+            <StatCard
+              label="Riesgo de baja"
+              value={data.kpis.riesgoBaja ?? data.riesgoBaja?.length ?? 0}
+              color="red"
+              icon={AlertTriangle}
+            />
+          </a>
           <StatCard
             label="Tiempo prom."
             value={`${data.kpis.tiempoPromedioMin}m`}
@@ -241,6 +274,85 @@ export default function SupervisorDashboard() {
             <p className="text-xs text-slate-500 mt-2">
               Abrir módulo desde la barra superior → Infraestructura
             </p>
+          </section>
+        )}
+
+        {(data.riesgoBaja?.length ?? 0) > 0 && (
+          <section id="riesgo-baja">
+            <h2 className="font-semibold mb-1 flex items-center gap-2 text-red-900">
+              <AlertTriangle className="w-5 h-5 text-red-700" />
+              Clientes en riesgo de baja
+            </h2>
+            <p className="text-xs text-slate-500 mb-3">
+              Intención de cancelar registrada por el agente. Prioridad ALTA. Gestione desde
+              Editar ticket.
+            </p>
+            <div className="bg-red-50 border border-red-200 rounded-xl overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm min-w-[44rem]">
+                  <thead className="bg-red-100/80">
+                    <tr>
+                      <th className="text-left p-3">Ticket</th>
+                      <th className="text-left p-3">Cliente</th>
+                      <th className="text-left p-3">Motivo técnico</th>
+                      <th className="text-left p-3 hidden sm:table-cell">Técnico</th>
+                      <th className="text-left p-3">Tiempo</th>
+                      <th className="text-left p-3">Prioridad</th>
+                      <th className="text-left p-3 hidden md:table-cell">Alerta por</th>
+                      <th className="text-left p-3"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.riesgoBaja!.map((r) => (
+                      <tr key={r.id} className="border-t border-red-100">
+                        <td className="p-3">
+                          <span className="font-semibold text-red-800">{r.codigo}</span>
+                          <span className="ml-1 text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-red-200 text-red-900">
+                            Riesgo baja
+                          </span>
+                        </td>
+                        <td className="p-3 max-w-[10rem] min-w-0">
+                          <p className="truncate font-medium">{r.cliente.nombre}</p>
+                          <p className="text-[11px] text-slate-500 truncate">
+                            {r.cliente.sector
+                              ? `Sector: ${r.cliente.sector}`
+                              : "Sector no especificado"}
+                          </p>
+                        </td>
+                        <td className="p-3 max-w-[14rem] min-w-0">
+                          <span className="block truncate text-slate-700" title={r.motivo || ""}>
+                            {r.motivo || "—"}
+                          </span>
+                        </td>
+                        <td className="p-3 hidden sm:table-cell text-xs">{r.tecnicosLabel}</td>
+                        <td className="p-3 whitespace-nowrap">
+                          {formatMinutosTranscurridos(r.minutosDesdeCreacion)}
+                        </td>
+                        <td className="p-3 text-red-800 font-semibold">
+                          {PRIORIDAD_LABELS[r.prioridad] || r.prioridad}
+                        </td>
+                        <td className="p-3 hidden md:table-cell text-xs">
+                          {r.activadoPorNombre || "—"}
+                          {r.clienteRiesgoBajaActivadoEn && (
+                            <p className="text-[11px] text-slate-500">
+                              {formatDateTime(r.clienteRiesgoBajaActivadoEn)}
+                            </p>
+                          )}
+                        </td>
+                        <td className="p-3">
+                          <Link
+                            href={`/supervisor/tickets/${r.id}/editar`}
+                            className="text-xs font-medium text-red-800 hover:underline whitespace-nowrap"
+                          >
+                            Gestionar →
+                          </Link>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </section>
         )}
 
@@ -436,6 +548,11 @@ export default function SupervisorDashboard() {
                         {t.prioridad === "ALTA" && (
                           <span className="text-[10px] font-semibold tracking-wide px-1.5 py-0.5 rounded-full bg-red-100 text-red-800 border border-red-200 whitespace-nowrap">
                             ALTA
+                          </span>
+                        )}
+                        {t.clienteRiesgoBaja && (
+                          <span className="text-[10px] font-bold tracking-wide px-1.5 py-0.5 rounded bg-red-600 text-white whitespace-nowrap">
+                            Riesgo baja
                           </span>
                         )}
                       </div>

@@ -30,6 +30,12 @@ import type {
 } from "@prisma/client";
 import { TRABAJOS_EXPRESS } from "@/lib/soporte-express";
 import { FLUJO_TICKET, logFlujoTicket } from "@/lib/ticket-flujo-log";
+import {
+  esIntencionCancelar,
+  validarClienteSituacion,
+  validarMotivoEstructurado,
+} from "@/lib/motivo-tecnico/validacion";
+import { activarRiesgoBaja } from "@/lib/motivo-tecnico/riesgo-baja";
 
 const TIPOS_VALIDOS: TipoTrabajo[] = [
   "INSTALACION",
@@ -324,54 +330,124 @@ export async function POST(request: Request) {
       trabajoExpress === "OTRO" ? enMayusculasGuardar(otro) : null;
   }
 
-  const slaHoras = slaHorasPorPrioridad(prio);
+  const motivoVal = validarMotivoEstructurado({
+    categoria: (body as { motivoCategoria?: string }).motivoCategoria,
+    categoriaOtro: (body as { motivoCategoriaOtro?: string }).motivoCategoriaOtro,
+    problema: (body as { motivoProblema?: string }).motivoProblema,
+    problemaOtro: (body as { motivoProblemaOtro?: string }).motivoProblemaOtro,
+    detalle: (body as { motivoDetalle?: string }).motivoDetalle,
+    impacto: (body as { motivoImpacto?: string }).motivoImpacto,
+    observaciones: (body as { motivoObservaciones?: string }).motivoObservaciones,
+  });
+  if (!motivoVal.ok) {
+    return NextResponse.json(
+      { error: motivoVal.error, faltantes: motivoVal.faltantes },
+      { status: 400 }
+    );
+  }
+
+  const situacionVal = validarClienteSituacion(
+    (body as { clienteSituacion?: string }).clienteSituacion
+  );
+  if (!situacionVal.ok) {
+    return NextResponse.json({ error: situacionVal.error }, { status: 400 });
+  }
+
+  const riesgoBaja = esIntencionCancelar(situacionVal.situacion);
+  const motivoRiesgoRaw = String(
+    (body as { clienteRiesgoBajaMotivo?: string }).clienteRiesgoBajaMotivo || ""
+  ).trim();
+  if (riesgoBaja && motivoRiesgoRaw.length < 8) {
+    return NextResponse.json(
+      {
+        error:
+          "Indique el motivo de la inconformidad cuando el cliente manifiesta intención de cancelar",
+      },
+      { status: 400 }
+    );
+  }
+  const prioridadFinal: Prioridad = riesgoBaja ? "ALTA" : prio;
+
+  const slaHoras = slaHorasPorPrioridad(prioridadFinal);
   const slaVenceEn = new Date(Date.now() + slaHoras * 60 * 60 * 1000);
   const codigo = await generarCodigoTicket(tipo);
+  const motivoGenerado = enMayusculasGuardar(motivoVal.motivoGenerado);
   const datosTicket = normalizarTextoTicket({
-    motivo: motivo || null,
-    descripcion: descripcion || null,
+    motivo: motivoGenerado,
+    descripcion: descripcion || motivoVal.detalle,
   });
 
-  const ticket = await prisma.ticket.create({
-    data: {
-      codigo,
-      clienteId: cliente.id,
-      tecnicoId: tecnicoIds[0] ?? null,
-      tipo,
-      modalidadSoporte,
-      trabajoExpress,
-      trabajoExpressOtro,
-      prioridad: prio,
-      estado: "PENDIENTE",
-      ...datosTicket,
-      slaHoras,
-      slaVenceEn,
-      programadoEn: parseProgramadoEn(programadoEn),
-      ...(tecnicoIds.length
-        ? {
-            tecnicos: {
-              create: tecnicoIds.map((id) => ({ tecnicoId: id })),
-            },
-          }
-        : {}),
-    },
-    include: ticketIncludeTecnicos,
-  });
-
-  await prisma.eventoTicket.create({
-    data: {
-      ticketId: ticket.id,
-      usuarioId: session.id,
-      accion: "TICKET_CREADO",
-      metadata: JSON.stringify({
+  // Creación + TICKET_CREADO + activación de riesgo/alerta en una sola transacción
+  // (si INTENCION_CANCELAR falla a mitad, no queda ticket huérfano sin alerta).
+  const ticket = await prisma.$transaction(async (tx) => {
+    const created = await tx.ticket.create({
+      data: {
         codigo,
+        clienteId: cliente.id,
+        tecnicoId: tecnicoIds[0] ?? null,
         tipo,
-        prioridad,
-        tecnicoIds,
         modalidadSoporte,
         trabajoExpress,
-      }),
-    },
+        trabajoExpressOtro,
+        prioridad: prioridadFinal,
+        estado: "PENDIENTE",
+        ...datosTicket,
+        motivoCategoria: motivoVal.categoria,
+        motivoCategoriaOtro: motivoVal.categoriaOtro
+          ? enMayusculasGuardar(motivoVal.categoriaOtro)
+          : null,
+        motivoProblema: motivoVal.problema,
+        motivoProblemaOtro: motivoVal.problemaOtro
+          ? enMayusculasGuardar(motivoVal.problemaOtro)
+          : null,
+        motivoDetalle: enMayusculasGuardar(motivoVal.detalle),
+        motivoImpacto: motivoVal.impacto,
+        motivoObservaciones: motivoVal.observaciones
+          ? enMayusculasGuardar(motivoVal.observaciones)
+          : null,
+        clienteSituacion: situacionVal.situacion,
+        slaHoras,
+        slaVenceEn,
+        programadoEn: parseProgramadoEn(programadoEn),
+        ...(tecnicoIds.length
+          ? {
+              tecnicos: {
+                create: tecnicoIds.map((tid) => ({ tecnicoId: tid })),
+              },
+            }
+          : {}),
+      },
+      include: ticketIncludeTecnicos,
+    });
+
+    await tx.eventoTicket.create({
+      data: {
+        ticketId: created.id,
+        usuarioId: session.id,
+        accion: "TICKET_CREADO",
+        metadata: JSON.stringify({
+          codigo,
+          tipo,
+          prioridad: prioridadFinal,
+          tecnicoIds,
+          modalidadSoporte,
+          trabajoExpress,
+          motivoCategoria: motivoVal.categoria,
+          clienteSituacion: situacionVal.situacion,
+        }),
+      },
+    });
+
+    if (riesgoBaja) {
+      await activarRiesgoBaja({
+        ticketId: created.id,
+        usuarioId: session.id,
+        motivoInconformidad: enMayusculasGuardar(motivoRiesgoRaw),
+        db: tx,
+      });
+    }
+
+    return created;
   });
 
   if (tecnicoIds.length) {
@@ -395,5 +471,10 @@ export async function POST(request: Request) {
     resultado: "creado",
   });
 
-  return NextResponse.json({ ticket }, { status: 201 });
+  const ticketFresh = await prisma.ticket.findUnique({
+    where: { id: ticket.id },
+    include: ticketIncludeTecnicos,
+  });
+
+  return NextResponse.json({ ticket: ticketFresh ?? ticket }, { status: 201 });
 }

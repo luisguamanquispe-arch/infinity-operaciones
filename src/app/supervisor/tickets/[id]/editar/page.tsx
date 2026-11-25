@@ -15,6 +15,13 @@ import {
   TRABAJOS_EXPRESS,
 } from "@/lib/soporte-express";
 import type { ModalidadSoporte, TrabajoExpress } from "@prisma/client";
+import { RESULTADOS_GESTION_RIESGO } from "@/lib/motivo-tecnico/catalogo";
+import {
+  MotivoTecnicoForm,
+  type MotivoTecnicoFormState,
+} from "@/components/MotivoTecnicoForm";
+import { validarMotivoEstructurado } from "@/lib/motivo-tecnico/validacion";
+import { validarObservacionesRecuperacion } from "@/lib/motivo-tecnico/reglas-patch";
 
 interface Tecnico {
   id: string;
@@ -45,6 +52,20 @@ export default function EditarTicketPage() {
   const [editable, setEditable] = useState(true);
 
   const clienteInicial = useRef({ id: "", nombre: "" });
+  const motivoLegacyInicial = useRef({ motivo: "", descripcion: "" });
+  const [tieneMotivoEstructurado, setTieneMotivoEstructurado] = useState(false);
+  const [motivoForm, setMotivoForm] = useState<MotivoTecnicoFormState>({
+    motivoCategoria: "",
+    motivoCategoriaOtro: "",
+    motivoProblema: "",
+    motivoProblemaOtro: "",
+    motivoDetalle: "",
+    motivoImpacto: "",
+    motivoObservaciones: "",
+    clienteSituacion: "",
+    clienteRiesgoBajaMotivo: "",
+    prioridad: "MEDIA",
+  });
 
   const [clienteId, setClienteId] = useState("");
   const [clienteNombre, setClienteNombre] = useState("");
@@ -68,6 +89,23 @@ export default function EditarTicketPage() {
     trabajoExpressOtro: "",
   });
 
+  const [riesgoBaja, setRiesgoBaja] = useState(false);
+  const [riesgoResuelto, setRiesgoResuelto] = useState(false);
+  const [riesgoMotivo, setRiesgoMotivo] = useState("");
+  const [riesgoActivadoEn, setRiesgoActivadoEn] = useState<string | null>(null);
+  const [gestionResultado, setGestionResultado] = useState("CONTACTO_REALIZADO");
+  const [gestionObs, setGestionObs] = useState("");
+  const [gestiones, setGestiones] = useState<
+    Array<{
+      id: string;
+      resultado: string;
+      observaciones: string | null;
+      usuarioNombre: string;
+      createdAt: string;
+    }>
+  >([]);
+  const [guardandoGestion, setGuardandoGestion] = useState(false);
+
   useEffect(() => {
     Promise.all([
       fetch(`/api/tickets/${id}`).then((r) => r.json()),
@@ -87,6 +125,34 @@ export default function EditarTicketPage() {
       setClienteCedula(t.cliente.cedula);
       setClienteTelefono(t.cliente.telefono);
       setClienteSector(t.cliente.sector);
+      setRiesgoBaja(!!t.clienteRiesgoBaja);
+      setRiesgoResuelto(!!t.clienteRiesgoBajaResueltoEn);
+      setRiesgoMotivo(t.clienteRiesgoBajaMotivo || "");
+      setRiesgoActivadoEn(t.clienteRiesgoBajaActivadoEn || null);
+      if (t.clienteRiesgoBaja) {
+        fetch(`/api/tickets/${id}/riesgo-baja/gestion`, { cache: "no-store" })
+          .then((r) => r.json())
+          .then((d) => setGestiones(d.gestiones || []))
+          .catch(() => {});
+      }
+      const estructurado = Boolean(t.motivoCategoria);
+      setTieneMotivoEstructurado(estructurado);
+      motivoLegacyInicial.current = {
+        motivo: t.motivo || "",
+        descripcion: t.descripcion || "",
+      };
+      setMotivoForm({
+        motivoCategoria: t.motivoCategoria || "",
+        motivoCategoriaOtro: t.motivoCategoriaOtro || "",
+        motivoProblema: t.motivoProblema || "",
+        motivoProblemaOtro: t.motivoProblemaOtro || "",
+        motivoDetalle: t.motivoDetalle || "",
+        motivoImpacto: t.motivoImpacto || "",
+        motivoObservaciones: t.motivoObservaciones || "",
+        clienteSituacion: t.clienteSituacion || "",
+        clienteRiesgoBajaMotivo: t.clienteRiesgoBajaMotivo || "",
+        prioridad: t.prioridad || "MEDIA",
+      });
       setForm({
         tipo: t.tipo,
         prioridad: t.prioridad,
@@ -155,16 +221,35 @@ export default function EditarTicketPage() {
       return;
     }
 
+    if (tieneMotivoEstructurado) {
+      const motivoCheck = validarMotivoEstructurado({
+        categoria: motivoForm.motivoCategoria,
+        categoriaOtro: motivoForm.motivoCategoriaOtro,
+        problema: motivoForm.motivoProblema,
+        problemaOtro: motivoForm.motivoProblemaOtro,
+        detalle: motivoForm.motivoDetalle,
+        impacto: motivoForm.motivoImpacto,
+        observaciones: motivoForm.motivoObservaciones,
+      });
+      if (!motivoCheck.ok) {
+        setError(motivoCheck.error);
+        return;
+      }
+    }
+
+    if (riesgoBaja && !riesgoResuelto && form.prioridad !== "ALTA") {
+      setError("Con riesgo de baja activo la prioridad debe permanecer en ALTA");
+      return;
+    }
+
     setGuardando(true);
     setError("");
     setExito("");
 
     const payload: Record<string, unknown> = {
       tipo: form.tipo,
-      prioridad: form.prioridad,
+      prioridad: riesgoBaja && !riesgoResuelto ? "ALTA" : form.prioridad,
       estado: form.estado,
-      motivo: form.motivo,
-      descripcion: form.descripcion,
       tecnicoIds: form.tecnicoIds,
       programadoEn: form.programadoEn || null,
       modalidadSoporte: esSoporteSubmit ? form.modalidadSoporte : "COMPLETO",
@@ -174,6 +259,25 @@ export default function EditarTicketPage() {
           ? form.trabajoExpressOtro
           : null,
     };
+
+    if (tieneMotivoEstructurado) {
+      payload.motivoCategoria = motivoForm.motivoCategoria;
+      payload.motivoCategoriaOtro = motivoForm.motivoCategoriaOtro || null;
+      payload.motivoProblema = motivoForm.motivoProblema;
+      payload.motivoProblemaOtro = motivoForm.motivoProblemaOtro || null;
+      payload.motivoDetalle = motivoForm.motivoDetalle;
+      payload.motivoImpacto = motivoForm.motivoImpacto;
+      payload.motivoObservaciones = motivoForm.motivoObservaciones || null;
+      payload.descripcion = form.descripcion;
+    } else {
+      // Legacy: solo enviar motivo/descripcion si el usuario los cambió.
+      if (form.motivo !== motivoLegacyInicial.current.motivo) {
+        payload.motivo = form.motivo;
+      }
+      if (form.descripcion !== motivoLegacyInicial.current.descripcion) {
+        payload.descripcion = form.descripcion;
+      }
+    }
 
     const tieneClienteEditableSubmit = form.tipo !== "INFRAESTRUCTURA";
 
@@ -248,6 +352,105 @@ export default function EditarTicketPage() {
           <div className="bg-amber-50 text-amber-900 border border-amber-200 p-3 rounded-xl text-sm">
             La orden de servicio está cerrada. Este ticket no se puede modificar.
           </div>
+        )}
+
+        {riesgoBaja && (
+          <section className="bg-red-50 border border-red-200 rounded-xl p-4 space-y-3">
+            <h2 className="font-semibold text-red-900 text-sm">
+              Cliente en riesgo de baja
+              {riesgoResuelto ? " (recuperado)" : " — alerta activa"}
+            </h2>
+            {riesgoMotivo && (
+              <p className="text-sm text-red-900">
+                <span className="text-red-700">Inconformidad:</span> {riesgoMotivo}
+              </p>
+            )}
+            {riesgoActivadoEn && (
+              <p className="text-xs text-red-800">Activado: {riesgoActivadoEn}</p>
+            )}
+            {!riesgoResuelto && (
+              <div className="space-y-2 bg-white/70 rounded-lg p-3 border border-red-100">
+                <p className="text-xs text-slate-600">
+                  Registrar gestión documentada. Solo «Cliente recuperado» cierra la alerta.
+                </p>
+                <select
+                  className="w-full border rounded-lg px-2 py-1.5 text-sm"
+                  value={gestionResultado}
+                  onChange={(e) => setGestionResultado(e.target.value)}
+                >
+                  {RESULTADOS_GESTION_RIESGO.map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.label}
+                    </option>
+                  ))}
+                </select>
+                <textarea
+                  className={`w-full border rounded-lg px-2 py-1.5 text-sm min-h-[3rem] ${inputMayusculasClass}`}
+                  placeholder={
+                    gestionResultado === "RECUPERADO"
+                      ? "Observaciones obligatorias del resultado de recuperación"
+                      : "Observaciones de la gestión"
+                  }
+                  value={gestionObs}
+                  onChange={(e) => setGestionObs(e.target.value)}
+                  required={gestionResultado === "RECUPERADO"}
+                />
+                <button
+                  type="button"
+                  disabled={guardandoGestion}
+                  onClick={async () => {
+                    if (gestionResultado === "RECUPERADO") {
+                      const obs = validarObservacionesRecuperacion(gestionObs);
+                      if (!obs.ok) {
+                        setError(obs.error);
+                        return;
+                      }
+                    }
+                    setGuardandoGestion(true);
+                    setError("");
+                    const res = await fetch(`/api/tickets/${id}/riesgo-baja/gestion`, {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        resultado: gestionResultado,
+                        observaciones: gestionObs,
+                      }),
+                    });
+                    const data = await res.json().catch(() => ({}));
+                    setGuardandoGestion(false);
+                    if (!res.ok) {
+                      setError(data.error || "No se pudo registrar la gestión");
+                      return;
+                    }
+                    setExito(
+                      data.resuelto
+                        ? "Gestión registrada. Cliente recuperado — alerta cerrada."
+                        : "Gestión registrada."
+                    );
+                    if (data.resuelto) setRiesgoResuelto(true);
+                    const g = await fetch(`/api/tickets/${id}/riesgo-baja/gestion`, {
+                      cache: "no-store",
+                    }).then((r) => r.json());
+                    setGestiones(g.gestiones || []);
+                    setGestionObs("");
+                  }}
+                  className="px-3 py-1.5 rounded-lg bg-red-700 text-white text-sm font-medium disabled:opacity-50"
+                >
+                  {guardandoGestion ? "Guardando…" : "Registrar gestión"}
+                </button>
+              </div>
+            )}
+            {gestiones.length > 0 && (
+              <ul className="text-xs space-y-1 border-t border-red-100 pt-2">
+                {gestiones.map((g) => (
+                  <li key={g.id} className="text-slate-700">
+                    <strong>{g.resultado}</strong> · {g.usuarioNombre} · {g.createdAt}
+                    {g.observaciones ? ` — ${g.observaciones}` : ""}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
         )}
 
         <form onSubmit={handleSubmit} className="bg-white rounded-xl border p-4 space-y-4">
@@ -353,11 +556,17 @@ export default function EditarTicketPage() {
                 value={form.prioridad}
                 onChange={(e) => setForm({ ...form, prioridad: e.target.value })}
                 className="w-full px-3 py-2 border rounded-lg text-sm mt-0.5"
+                disabled={riesgoBaja && !riesgoResuelto}
               >
                 <option value="ALTA">Alta (SLA 4h)</option>
                 <option value="MEDIA">Media (SLA 8h)</option>
                 <option value="BAJA">Baja (SLA 24h)</option>
               </select>
+              {riesgoBaja && !riesgoResuelto && (
+                <p className="text-xs text-red-700 mt-1">
+                  Riesgo de baja activo: prioridad fijada en ALTA.
+                </p>
+              )}
             </div>
           </div>
 
@@ -471,15 +680,28 @@ export default function EditarTicketPage() {
             />
           </div>
 
-          <div>
-            <label className="text-xs text-slate-500">Motivo</label>
-            <input
-              type="text"
-              value={form.motivo}
-              onChange={(e) => setForm({ ...form, motivo: e.target.value })}
-              className={`w-full px-3 py-2 border rounded-lg text-sm mt-0.5 ${inputMayusculasClass}`}
+          {tieneMotivoEstructurado ? (
+            <MotivoTecnicoForm
+              value={motivoForm}
+              onChange={setMotivoForm}
+              mostrarSituacionCliente={false}
+              autoPrioridadAltaEnRiesgo={false}
             />
-          </div>
+          ) : (
+            <div>
+              <label className="text-xs text-slate-500">Motivo (legacy)</label>
+              <input
+                type="text"
+                value={form.motivo}
+                onChange={(e) => setForm({ ...form, motivo: e.target.value })}
+                className={`w-full px-3 py-2 border rounded-lg text-sm mt-0.5 ${inputMayusculasClass}`}
+              />
+              <p className="text-[11px] text-slate-400 mt-1">
+                Solo se guarda si modifica este campo. Los tickets nuevos usan motivo
+                técnico estructurado.
+              </p>
+            </div>
+          )}
 
           <div>
             <label className="text-xs text-slate-500">Descripción</label>
