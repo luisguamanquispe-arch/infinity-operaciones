@@ -471,167 +471,174 @@ export default function SupervisorDashboard() {
             .
           </p>
           <div className="bg-white rounded-xl border overflow-hidden">
-            <table className="w-full text-sm">
-              <thead className="bg-slate-50">
-                <tr>
-                  <th className="text-left p-3">Ticket</th>
-                  <th className="text-left p-3">Cliente</th>
-                  <th className="text-left p-3">Motivo del ticket</th>
-                  <th className="text-left p-3 hidden sm:table-cell">Técnicos</th>
-                  <th className="text-left p-3">Prioridad</th>
-                  <th className="text-left p-3">Estado</th>
-                  <th className="text-left p-3">Tiempo de atención</th>
-                  <th className="text-left p-3">Tiempo</th>
-                  <th className="text-left p-3 hidden md:table-cell">Última actividad</th>
-                  <th className="text-left p-3"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.tickets.map((t) => {
-                  const ref = {
-                    createdAt: t.createdAt || new Date().toISOString(),
-                    programadoEn: t.programadoEn,
-                  };
-                  const faseT = faseSemaforoTiempo(ref);
-                  const diasT = diasDesdeReferencia(ref);
-                  return (
-                  <tr
-                    key={t.id}
-                    className={`border-t ${t.novedadPendiente ? "bg-amber-50/80" : ""}`}
-                  >
-                    <td className="p-3">
-                      <div className="flex items-center gap-2">
-                        {t.novedadPendiente && (
-                          <Link
-                            href="/supervisor/novedades"
-                            title={t.novedadLabel || "Novedad de soporte pendiente"}
-                            className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-500 text-white text-sm font-bold shrink-0 hover:bg-amber-600"
-                            aria-label={`Novedad: ${t.novedadLabel || "pendiente de revisión"}`}
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm min-w-[64rem]">
+                <thead className="bg-slate-50 text-xs text-slate-600">
+                  <tr>
+                    <th className="text-left px-2.5 py-2.5 whitespace-nowrap">Ticket</th>
+                    <th className="text-left px-2.5 py-2.5 whitespace-nowrap">Cliente</th>
+                    <th className="text-left px-2.5 py-2.5 whitespace-nowrap">Motivo del ticket</th>
+                    <th className="text-left px-2.5 py-2.5 hidden sm:table-cell whitespace-nowrap">Técnicos</th>
+                    <th className="text-left px-2.5 py-2.5 whitespace-nowrap">Prioridad</th>
+                    <th className="text-left px-2.5 py-2.5 whitespace-nowrap">Estado</th>
+                    <th className="text-left px-2.5 py-2.5 whitespace-nowrap">Tiempo de atención</th>
+                    <th className="text-left px-2.5 py-2.5 whitespace-nowrap">Tiempo</th>
+                    <th className="text-left px-2.5 py-2.5 hidden lg:table-cell whitespace-nowrap">Última actividad</th>
+                    <th className="text-right px-2.5 py-2.5 whitespace-nowrap sticky right-0 z-10 bg-slate-50 border-l border-slate-200/80">
+                      Acciones
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.tickets.map((t) => {
+                    const ref = {
+                      createdAt: t.createdAt || new Date().toISOString(),
+                      programadoEn: t.programadoEn,
+                    };
+                    const faseT = faseSemaforoTiempo(ref);
+                    const diasT = diasDesdeReferencia(ref);
+                    const stickyCellBg = t.novedadPendiente ? "bg-amber-50" : "bg-white";
+                    return (
+                    <tr
+                      key={t.id}
+                      className={`border-t align-top ${t.novedadPendiente ? "bg-amber-50/80" : "bg-white"}`}
+                    >
+                      <td className="px-2.5 py-2.5 whitespace-nowrap">
+                        <div className="flex items-center gap-1.5">
+                          {t.novedadPendiente && (
+                            <Link
+                              href="/supervisor/novedades"
+                              title={t.novedadLabel || "Novedad de soporte pendiente"}
+                              className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-500 text-white text-sm font-bold shrink-0 hover:bg-amber-600"
+                              aria-label={`Novedad: ${t.novedadLabel || "pendiente de revisión"}`}
+                            >
+                              !
+                            </Link>
+                          )}
+                          <span className="font-semibold text-infinity-600">{t.codigo}</span>
+                        </div>
+                      </td>
+                      <td className="px-2.5 py-2.5 max-w-[11rem] min-w-[8.5rem]">
+                        <div className="min-w-0">
+                          <p
+                            className="truncate text-slate-800 font-medium"
+                            title={t.cliente.nombre}
                           >
-                            !
-                          </Link>
-                        )}
-                        <span className="font-semibold text-infinity-600">{t.codigo}</span>
-                      </div>
-                    </td>
-                    <td className="p-3 max-w-[10rem] sm:max-w-[14rem] min-w-0">
-                      <div className="min-w-0">
-                        <p
-                          className="truncate text-slate-800 font-medium"
-                          title={t.cliente.nombre}
-                        >
-                          {t.cliente.nombre}
-                        </p>
-                        <p
-                          className="text-[11px] text-slate-400 truncate"
-                          title={
-                            t.cliente.sector
-                              ? `Sector: ${t.cliente.sector}`
-                              : "Sector no especificado"
-                          }
-                        >
-                          {t.cliente.sector
-                            ? `Sector: ${t.cliente.sector}`
-                            : "Sector no especificado"}
-                        </p>
-                      </div>
-                    </td>
-                    <td className="p-3 max-w-[14rem] sm:max-w-[18rem] min-w-0">
-                      {t.motivo ? (
-                        <span
-                          className="block min-w-0 truncate text-slate-700"
-                          title={t.motivo}
-                        >
-                          {t.motivo}
-                        </span>
-                      ) : (
-                        <span className="text-slate-400">Sin motivo especificado</span>
-                      )}
-                    </td>
-                    <td className="p-3 hidden sm:table-cell text-xs leading-snug">
-                      {t.tecnicosLabel}
-                    </td>
-                    <td className="p-3">
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        <span
-                          className={
-                            t.prioridad === "ALTA"
-                              ? "text-red-700 font-semibold"
-                              : undefined
-                          }
-                        >
-                          {PRIORIDAD_LABELS[t.prioridad]}
-                        </span>
-                        {t.prioridad === "ALTA" && (
-                          <span className="text-[10px] font-semibold tracking-wide px-1.5 py-0.5 rounded-full bg-red-100 text-red-800 border border-red-200 whitespace-nowrap">
-                            ALTA
-                          </span>
-                        )}
-                        {t.clienteRiesgoBaja && (
-                          <span className="text-[10px] font-bold tracking-wide px-1.5 py-0.5 rounded bg-red-600 text-white whitespace-nowrap">
-                            Riesgo baja
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="p-3">
-                      <TicketSemaforo estado={t.estado} />
-                    </td>
-                    <td className="p-3">
-                      {t.cronometroAtencion ? (
-                        <TiempoAtencionCell
-                          ticketId={t.id}
-                          cronometro={t.cronometroAtencion}
-                          clockOffsetMs={clockOffsetMs}
-                          puedeIniciarLectura={Boolean(t.puedeIniciarLectura)}
-                        />
-                      ) : (
-                        <span className="text-xs text-slate-400">—</span>
-                      )}
-                    </td>
-                    <td className="p-3">
-                      <SemaforoTiempo fase={faseT} dias={diasT} />
-                    </td>
-                    <td className="p-3 hidden md:table-cell max-w-[12rem] min-w-0">
-                      {t.ultimaActividad ? (
-                        <div
-                          className="min-w-0"
-                          title={`${t.ultimaActividad.descripcion} · ${formatDateTime(t.ultimaActividad.fecha)}`}
-                        >
-                          <p className="truncate text-slate-700 capitalize">
-                            {t.ultimaActividad.descripcion.toLowerCase()}
+                            {t.cliente.nombre}
                           </p>
-                          <p className="text-[11px] text-slate-400 truncate">
-                            {formatDateTime(t.ultimaActividad.fecha)}
+                          <p
+                            className="text-[11px] text-slate-400 truncate"
+                            title={
+                              t.cliente.sector
+                                ? `Sector: ${t.cliente.sector}`
+                                : "Sector no especificado"
+                            }
+                          >
+                            {t.cliente.sector
+                              ? `Sector: ${t.cliente.sector}`
+                              : "Sector no especificado"}
                           </p>
                         </div>
-                      ) : (
-                        <span className="text-slate-400">Sin actividad registrada</span>
-                      )}
-                    </td>
-                    <td className="p-3">
-                      <div className="flex flex-wrap items-center gap-2">
-                        {t.novedadPendiente && (
-                          <Link
-                            href="/supervisor/novedades"
-                            className="text-xs font-medium text-amber-700 hover:underline whitespace-nowrap"
+                      </td>
+                      <td className="px-2.5 py-2.5 max-w-[13rem] min-w-[9rem]">
+                        {t.motivo ? (
+                          <span
+                            className="block min-w-0 truncate text-slate-700"
+                            title={t.motivo}
                           >
-                            Revisar novedad
-                          </Link>
+                            {t.motivo}
+                          </span>
+                        ) : (
+                          <span className="text-slate-400">Sin motivo especificado</span>
                         )}
-                        <Link
-                          href={`/supervisor/tickets/${t.id}/editar`}
-                          className="text-xs font-medium text-infinity-600 hover:underline whitespace-nowrap"
-                        >
-                          Editar →
-                        </Link>
-                      </div>
-                    </td>
-                  </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                      </td>
+                      <td className="px-2.5 py-2.5 hidden sm:table-cell text-xs leading-snug max-w-[9rem] truncate" title={t.tecnicosLabel}>
+                        {t.tecnicosLabel}
+                      </td>
+                      <td className="px-2.5 py-2.5 whitespace-nowrap">
+                        <div className="flex flex-wrap items-center gap-1">
+                          <span
+                            className={
+                              t.prioridad === "ALTA"
+                                ? "text-red-700 font-semibold"
+                                : undefined
+                            }
+                          >
+                            {PRIORIDAD_LABELS[t.prioridad]}
+                          </span>
+                          {t.prioridad === "ALTA" && (
+                            <span className="text-[10px] font-semibold tracking-wide px-1.5 py-0.5 rounded-full bg-red-100 text-red-800 border border-red-200 whitespace-nowrap">
+                              ALTA
+                            </span>
+                          )}
+                          {t.clienteRiesgoBaja && (
+                            <span className="text-[10px] font-bold tracking-wide px-1.5 py-0.5 rounded bg-red-600 text-white whitespace-nowrap">
+                              Riesgo baja
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-2.5 py-2.5 whitespace-nowrap">
+                        <TicketSemaforo estado={t.estado} />
+                      </td>
+                      <td className="px-2.5 py-2.5 min-w-[9.5rem]">
+                        {t.cronometroAtencion ? (
+                          <TiempoAtencionCell
+                            ticketId={t.id}
+                            cronometro={t.cronometroAtencion}
+                            clockOffsetMs={clockOffsetMs}
+                            puedeIniciarLectura={Boolean(t.puedeIniciarLectura)}
+                          />
+                        ) : (
+                          <span className="text-xs text-slate-400">—</span>
+                        )}
+                      </td>
+                      <td className="px-2.5 py-2.5 whitespace-nowrap">
+                        <SemaforoTiempo fase={faseT} dias={diasT} />
+                      </td>
+                      <td className="px-2.5 py-2.5 hidden lg:table-cell max-w-[10.5rem] min-w-0">
+                        {t.ultimaActividad ? (
+                          <div
+                            className="min-w-0"
+                            title={`${t.ultimaActividad.descripcion} · ${formatDateTime(t.ultimaActividad.fecha)}`}
+                          >
+                            <p className="truncate text-slate-700 capitalize">
+                              {t.ultimaActividad.descripcion.toLowerCase()}
+                            </p>
+                            <p className="text-[11px] text-slate-400 truncate">
+                              {formatDateTime(t.ultimaActividad.fecha)}
+                            </p>
+                          </div>
+                        ) : (
+                          <span className="text-slate-400">Sin actividad registrada</span>
+                        )}
+                      </td>
+                      <td
+                        className={`px-2.5 py-2.5 text-right whitespace-nowrap sticky right-0 z-10 border-l border-slate-100 ${stickyCellBg}`}
+                      >
+                        <div className="flex flex-col items-end gap-1">
+                          <Link
+                            href={`/supervisor/tickets/${t.id}/editar`}
+                            className="inline-flex items-center px-2 py-1 rounded-md text-xs font-semibold text-infinity-700 bg-infinity-50 hover:bg-infinity-100 border border-infinity-200 whitespace-nowrap"
+                          >
+                            Editar →
+                          </Link>
+                          {t.novedadPendiente && (
+                            <Link
+                              href="/supervisor/novedades"
+                              className="text-[11px] font-medium text-amber-700 hover:underline whitespace-nowrap"
+                            >
+                              Revisar novedad
+                            </Link>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         </section>
       </main>
