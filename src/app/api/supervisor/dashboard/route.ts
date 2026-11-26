@@ -2,11 +2,15 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getFullSession } from "@/lib/auth";
 
-import { nombresTecnicosTicket, ticketIncludeTecnicos } from "@/lib/ticket-tecnicos";
+import { nombresTecnicosTicket, tecnicoAsignadoAlTicket, ticketIncludeTecnicos } from "@/lib/ticket-tecnicos";
 import { whereTicketActivoEnLista, whereTicketNoAtendido } from "@/lib/ticket-antiguedad";
 import { TIPO_NOVEDAD_LABELS } from "@/lib/novedad-ticket";
 import { obtenerSiKpis } from "@/lib/soporte-infraestructura/stats";
 import { alertaRiesgoBajaActiva } from "@/lib/motivo-tecnico/riesgo-baja";
+import {
+  derivarEstadoCronometroAtencion,
+  ticketAdmiteCronometroAtencion,
+} from "@/lib/cronometro-atencion/estado";
 
 export async function GET() {
   const session = await getFullSession();
@@ -55,6 +59,12 @@ export async function GET() {
           orderBy: { createdAt: "desc" },
           take: 1,
           select: { accion: true, createdAt: true },
+        },
+        cronometroAtencion: {
+          include: {
+            iniciadoPor: { select: { nombre: true } },
+            tecnico: { include: { usuario: { select: { nombre: true } } } },
+          },
         },
       },
       // Prioridad enum: ALTA < MEDIA < BAJA → asc = mayor prioridad primero.
@@ -114,6 +124,7 @@ export async function GET() {
   const novedadPorTicket = new Map(novedadesPendientes.map((n) => [n.ticketId, n.tipo]));
 
   return NextResponse.json({
+    serverNow: now.toISOString(),
     kpis: {
       abiertos,
       cerrados,
@@ -168,9 +179,29 @@ export async function GET() {
       const tipoNovedad = novedadPorTicket.get(t.id);
       const motivoTexto = (t.motivo || t.descripcion || "").trim();
       const ultimoEvento = t.eventos[0] ?? null;
+      const admiteAtencion = ticketAdmiteCronometroAtencion(t.tipo);
+      const cronAtencion = admiteAtencion
+        ? derivarEstadoCronometroAtencion(
+            t.cronometroAtencion
+              ? {
+                  iniciadoEn: t.cronometroAtencion.iniciadoEn,
+                  finalizadoEn: t.cronometroAtencion.finalizadoEn,
+                  duracionSegundos: t.cronometroAtencion.duracionSegundos,
+                  iniciadoPorNombre: t.cronometroAtencion.iniciadoPor?.nombre ?? null,
+                  tecnicoNombre: t.cronometroAtencion.tecnico?.usuario?.nombre ?? null,
+                }
+              : null,
+            now.getTime()
+          )
+        : null;
+      const puedeIniciarLectura =
+        admiteAtencion &&
+        cronAtencion?.estado === "PENDIENTE_LECTURA" &&
+        Boolean(session.tecnicoId && tecnicoAsignadoAlTicket(t, session.tecnicoId));
       return {
         id: t.id,
         codigo: t.codigo,
+        tipo: t.tipo,
         prioridad: t.prioridad,
         estado: t.estado,
         clienteRiesgoBaja: alertaRiesgoBajaActiva({
@@ -186,6 +217,8 @@ export async function GET() {
               fecha: ultimoEvento.createdAt.toISOString(),
             }
           : null,
+        cronometroAtencion: cronAtencion,
+        puedeIniciarLectura,
         cliente: {
           nombre: t.cliente.nombre,
           sector: (t.cliente.sector || "").trim() || null,

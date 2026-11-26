@@ -53,6 +53,9 @@ type Detalle = {
     horaInicio: string | null;
     horaFin: string | null;
     duracionSegundos: number;
+    lecturaIniciadaEn?: string | null;
+    lecturaFinalizadaEn?: string | null;
+    atencionDuracionSegundos?: number | null;
     problemaReportado: string | null;
     diagnostico: string | null;
     trabajoRealizado: string | null;
@@ -183,6 +186,14 @@ export default function DetalleSoporteClientePage() {
                   value={
                     data.atencion.duracionSegundos > 0
                       ? formatDuration(data.atencion.duracionSegundos)
+                      : "—"
+                  }
+                />
+                <Campo
+                  label="Tiempo de atención (lectura → informe)"
+                  value={
+                    data.atencion.atencionDuracionSegundos != null
+                      ? formatDuration(data.atencion.atencionDuracionSegundos)
                       : "—"
                   }
                 />

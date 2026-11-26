@@ -30,6 +30,7 @@
     "test:parque-automotor": "tsx --test src/lib/parque-automotor/reglas.test.ts",
     "test:recordatorios": "tsx --test src/lib/recordatorios/reglas.test.ts src/lib/recordatorios/lock.test.ts src/lib/recordatorios/suscripcion.test.ts",
     "test:motivo-tecnico": "tsx --test src/lib/motivo-tecnico/validacion.test.ts src/lib/motivo-tecnico/reglas-patch.test.ts src/lib/motivo-tecnico/concurrencia.test.ts",
+    "test:cronometro-atencion": "tsx --test src/lib/cronometro-atencion/cronometro-atencion.test.ts",
     "test:recordatorios:itest": "tsx scripts/recordatorios.integration.ts",
     "test:equipos-materiales": "tsx --test src/lib/equipos-materiales-ot.test.ts",
     "test:satisfaccion": "tsx --test src/lib/satisfaccion/reglas.test.ts"

@@ -14,6 +14,8 @@ import { SystemDateTimeBar } from "@/components/SystemDateTimeBar";
 import { ESTADO_TECNICO_LABELS, PRIORIDAD_LABELS, formatDateTime } from "@/lib/utils";
 import { fetchJson } from "@/lib/fetch-json-client";
 import { faseSemaforoTiempo, diasDesdeReferencia } from "@/lib/ticket-antiguedad";
+import { TiempoAtencionCell } from "@/components/TiempoAtencionCell";
+import type { CronometroAtencionView } from "@/lib/cronometro-atencion/estado";
 
 const MapInner = dynamic(() => import("@/components/MapInner"), {
   ssr: false,
@@ -36,6 +38,7 @@ interface RiesgoBajaDash {
 }
 
 interface DashboardData {
+  serverNow?: string;
   kpis: {
     abiertos: number;
     cerrados: number;
@@ -73,6 +76,8 @@ interface DashboardData {
     programadoEn?: string | null;
     motivo?: string | null;
     ultimaActividad?: { descripcion: string; fecha: string } | null;
+    cronometroAtencion?: CronometroAtencionView | null;
+    puedeIniciarLectura?: boolean;
     cliente: { nombre: string; sector: string | null };
     tecnicosLabel: string;
     novedadPendiente?: boolean;
@@ -89,6 +94,7 @@ function formatMinutosTranscurridos(min: number): string {
 
 export default function SupervisorDashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
+  const [clockOffsetMs, setClockOffsetMs] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [gpsLive, setGpsLive] = useState<
@@ -116,6 +122,10 @@ export default function SupervisorDashboard() {
         setData(null);
       } else {
         setData(json);
+        if (json.serverNow) {
+          const srv = new Date(json.serverNow).getTime();
+          if (!Number.isNaN(srv)) setClockOffsetMs(srv - Date.now());
+        }
         setError("");
       }
       setLoading(false);
@@ -124,7 +134,13 @@ export default function SupervisorDashboard() {
 
     const interval = setInterval(async () => {
       const { data: json } = await fetchJson<DashboardData>("/api/supervisor/dashboard");
-      if (json?.kpis) setData(json);
+      if (json?.kpis) {
+        setData(json);
+        if (json.serverNow) {
+          const srv = new Date(json.serverNow).getTime();
+          if (!Number.isNaN(srv)) setClockOffsetMs(srv - Date.now());
+        }
+      }
     }, 30000);
 
     return () => clearInterval(interval);
@@ -464,6 +480,7 @@ export default function SupervisorDashboard() {
                   <th className="text-left p-3 hidden sm:table-cell">Técnicos</th>
                   <th className="text-left p-3">Prioridad</th>
                   <th className="text-left p-3">Estado</th>
+                  <th className="text-left p-3">Tiempo de atención</th>
                   <th className="text-left p-3">Tiempo</th>
                   <th className="text-left p-3 hidden md:table-cell">Última actividad</th>
                   <th className="text-left p-3"></th>
@@ -559,6 +576,18 @@ export default function SupervisorDashboard() {
                     </td>
                     <td className="p-3">
                       <TicketSemaforo estado={t.estado} />
+                    </td>
+                    <td className="p-3">
+                      {t.cronometroAtencion ? (
+                        <TiempoAtencionCell
+                          ticketId={t.id}
+                          cronometro={t.cronometroAtencion}
+                          clockOffsetMs={clockOffsetMs}
+                          puedeIniciarLectura={Boolean(t.puedeIniciarLectura)}
+                        />
+                      ) : (
+                        <span className="text-xs text-slate-400">—</span>
+                      )}
                     </td>
                     <td className="p-3">
                       <SemaforoTiempo fase={faseT} dias={diasT} />

@@ -44,6 +44,13 @@ const ticketLiteInclude = {
     include: { tecnico: { include: { usuario: { select: { nombre: true } } } } },
     orderBy: { asignadoEn: "asc" as const },
   },
+  cronometroAtencion: {
+    select: {
+      iniciadoEn: true,
+      finalizadoEn: true,
+      duracionSegundos: true,
+    },
+  },
   orden: {
     select: {
       iniciadoEn: true,
@@ -154,6 +161,9 @@ export function mapTicketListado(t: TicketHistorialRow) {
     finalizadoEn: t.orden?.finalizadoEn?.toISOString() ?? null,
     asignadoEn: t.tecnicos[0]?.asignadoEn?.toISOString() ?? null,
     duracionSegundos,
+    atencionIniciadoEn: t.cronometroAtencion?.iniciadoEn?.toISOString() ?? null,
+    atencionFinalizadoEn: t.cronometroAtencion?.finalizadoEn?.toISOString() ?? null,
+    atencionDuracionSegundos: t.cronometroAtencion?.duracionSegundos ?? null,
     resultado: resultadoSoporteLabel({
       estado: t.estado,
       estadoRevision: t.estadoRevision,
@@ -309,6 +319,13 @@ export async function obtenerDetalleSoporteCliente(clienteId: string, ticketId: 
         include: { tecnico: { include: { usuario: { select: { nombre: true } } } } },
         orderBy: { asignadoEn: "asc" },
       },
+      cronometroAtencion: {
+        select: {
+          iniciadoEn: true,
+          finalizadoEn: true,
+          duracionSegundos: true,
+        },
+      },
       orden: {
         include: {
           cronometro: true,
@@ -401,6 +418,9 @@ export async function obtenerDetalleSoporteCliente(clienteId: string, ticketId: 
       horaInicio: orden?.cronometro?.inicio?.toISOString() ?? orden?.iniciadoEn?.toISOString() ?? null,
       horaFin: orden?.finalizadoEn?.toISOString() ?? orden?.cronometro?.fin?.toISOString() ?? null,
       duracionSegundos,
+      lecturaIniciadaEn: ticket.cronometroAtencion?.iniciadoEn?.toISOString() ?? null,
+      lecturaFinalizadaEn: ticket.cronometroAtencion?.finalizadoEn?.toISOString() ?? null,
+      atencionDuracionSegundos: ticket.cronometroAtencion?.duracionSegundos ?? null,
       problemaReportado: ticket.motivo,
       diagnostico: ticket.diagnosticoInfra || ticket.descripcion,
       trabajoRealizado: orden?.resumenTrabajo || ticket.trabajoRealizadoInfra,

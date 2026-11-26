@@ -204,6 +204,8 @@ model Usuario {
   ticketsRiesgoBajaActivados Ticket[] @relation("TicketRiesgoBajaActivadoPor")
   ticketsRiesgoBajaResueltos Ticket[] @relation("TicketRiesgoBajaResueltoPor")
   gestionesRiesgoBaja        TicketGestionRiesgoBaja[]
+  cronometrosAtencionIniciados   TicketCronometroAtencion[] @relation("CronometroAtencionIniciadoPor")
+  cronometrosAtencionFinalizados TicketCronometroAtencion[] @relation("CronometroAtencionFinalizadoPor")
 }
 
 model Tecnico {
@@ -234,6 +236,8 @@ model Tecnico {
   encuestasSatisfaccion   CustomerSatisfactionSurvey[]
   notificacionesTarea     NotificacionTecnico[]
   pushSubscriptions       TecnicoPushSubscription[]
+  cronometrosAtencion            TicketCronometroAtencion[] @relation("CronometroAtencionTecnico")
+  cronometrosAtencionFinalizados TicketCronometroAtencion[] @relation("CronometroAtencionFinalizadoPorTecnico")
 }
 
 model Cliente {
@@ -408,6 +412,7 @@ model Ticket {
   encuestaSatisfaccion    CustomerSatisfactionSurvey?
   notificacionesTarea     NotificacionTecnico[]
   gestionesRiesgoBaja     TicketGestionRiesgoBaja[]
+  cronometroAtencion      TicketCronometroAtencion?
   clienteRiesgoBajaActivadoPor Usuario? @relation("TicketRiesgoBajaActivadoPor", fields: [clienteRiesgoBajaActivadoPorId], references: [id], onDelete: SetNull)
   clienteRiesgoBajaResueltoPor Usuario? @relation("TicketRiesgoBajaResueltoPor", fields: [clienteRiesgoBajaResueltoPorId], references: [id], onDelete: SetNull)
 
@@ -432,6 +437,29 @@ model TicketGestionRiesgoBaja {
   usuario        Usuario?                   @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
 
   @@index([ticketId, createdAt])
+}
+
+/// Cronómetro de lectura y atención de ticket de soporte (desde Iniciar lectura hasta envío de informe).
+model TicketCronometroAtencion {
+  id                     String    @id @default(cuid())
+  ticketId               String    @unique
+  tecnicoId              String
+  iniciadoPorUsuarioId   String
+  iniciadoEn             DateTime
+  finalizadoEn           DateTime?
+  finalizadoPorUsuarioId String?
+  finalizadoPorTecnicoId String?
+  duracionSegundos       Int?
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+  ticket                 Ticket    @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  tecnico                Tecnico   @relation("CronometroAtencionTecnico", fields: [tecnicoId], references: [id], onDelete: Cascade)
+  iniciadoPor            Usuario   @relation("CronometroAtencionIniciadoPor", fields: [iniciadoPorUsuarioId], references: [id], onDelete: Cascade)
+  finalizadoPor          Usuario?  @relation("CronometroAtencionFinalizadoPor", fields: [finalizadoPorUsuarioId], references: [id], onDelete: SetNull)
+  finalizadoPorTecnico   Tecnico?  @relation("CronometroAtencionFinalizadoPorTecnico", fields: [finalizadoPorTecnicoId], references: [id], onDelete: SetNull)
+
+  @@index([tecnicoId, iniciadoEn])
+  @@index([finalizadoEn])
 }
 
 /// Cierre con justificación técnica (trabajo no ejecutado); requiere aprobación del supervisor.

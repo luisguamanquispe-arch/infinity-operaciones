@@ -21,6 +21,8 @@ import { fetchWithRetry } from "@/lib/compress-image";
 import { leerGpsActual } from "@/lib/gps-client";
 import { useTecnicoGpsTracking } from "@/hooks/useTecnicoGpsTracking";
 import { TicketSemaforo } from "@/components/TicketSemaforo";
+import { TiempoAtencionCell } from "@/components/TiempoAtencionCell";
+import type { CronometroAtencionView } from "@/lib/cronometro-atencion/estado";
 import {
   agruparInventarioCliente,
   etiquetasDetalleMaterial,
@@ -215,6 +217,8 @@ interface OrdenData {
     }[];
   };
   duracionSegundos: number;
+  serverNow?: string;
+  cronometroAtencion?: CronometroAtencionView | null;
   inventario: { id: string; nombre: string; unidad: string; stock: number; tipo: TipoInventario }[];
   reporte?: {
     multiTecnico: boolean;
@@ -865,6 +869,29 @@ export default function OrdenPage() {
       </header>
 
       <main className="max-w-3xl mx-auto p-4 space-y-4">
+        {!esInfra && data.cronometroAtencion && (
+          <section className="rounded-xl border border-slate-200 bg-white p-4 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-semibold text-slate-800">
+                Tiempo de atención (lectura → informe)
+              </h2>
+              <p className="text-xs text-slate-500">
+                Se detiene automáticamente al guardar el informe técnico.
+              </p>
+            </div>
+            <TiempoAtencionCell
+              ticketId={ticket.id}
+              cronometro={data.cronometroAtencion}
+              clockOffsetMs={
+                data.serverNow ? new Date(data.serverNow).getTime() - Date.now() : 0
+              }
+              puedeIniciarLectura={!cerrado && puedeEditar}
+              onIniciado={(next) =>
+                setData((prev) => (prev ? { ...prev, cronometroAtencion: next } : prev))
+              }
+            />
+          </section>
+        )}
         {porCorregir && (
           <section className="rounded-xl border border-amber-300 bg-amber-50 text-amber-950 p-4">
             <p className="font-semibold">Reporte devuelto para corrección</p>

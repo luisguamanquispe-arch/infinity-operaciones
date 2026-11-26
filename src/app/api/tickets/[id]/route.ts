@@ -36,6 +36,10 @@ import {
   validarPrioridadConRiesgoActivo,
 } from "@/lib/motivo-tecnico/reglas-patch";
 import { ACCION_PRIORIDAD_CAMBIADA } from "@/lib/motivo-tecnico/riesgo-baja";
+import {
+  derivarEstadoCronometroAtencion,
+  ticketAdmiteCronometroAtencion,
+} from "@/lib/cronometro-atencion/estado";
 
 export async function GET(
   _request: Request,
@@ -50,6 +54,12 @@ export async function GET(
     where: { id },
     include: {
       ...ticketIncludeTecnicos,
+      cronometroAtencion: {
+        include: {
+          iniciadoPor: { select: { nombre: true } },
+          tecnico: { include: { usuario: { select: { nombre: true } } } },
+        },
+      },
       orden: {
         include: {
           cronometro: true,
@@ -90,6 +100,12 @@ export async function GET(
       where: { id },
       include: {
         ...ticketIncludeTecnicos,
+        cronometroAtencion: {
+          include: {
+            iniciadoPor: { select: { nombre: true } },
+            tecnico: { include: { usuario: { select: { nombre: true } } } },
+          },
+        },
         orden: {
           include: {
             cronometro: true,
@@ -197,8 +213,22 @@ export async function GET(
       : null;
 
   const novedadPendiente = await novedadPendienteTicket(ticketData.id);
+  const cronometroAtencion = ticketAdmiteCronometroAtencion(ticketData.tipo)
+    ? derivarEstadoCronometroAtencion(
+        ticketData.cronometroAtencion
+          ? {
+              iniciadoEn: ticketData.cronometroAtencion.iniciadoEn,
+              finalizadoEn: ticketData.cronometroAtencion.finalizadoEn,
+              duracionSegundos: ticketData.cronometroAtencion.duracionSegundos,
+              iniciadoPorNombre: ticketData.cronometroAtencion.iniciadoPor?.nombre ?? null,
+              tecnicoNombre: ticketData.cronometroAtencion.tecnico?.usuario?.nombre ?? null,
+            }
+          : null
+      )
+    : null;
 
   return NextResponse.json({
+    serverNow: new Date().toISOString(),
     ticket: {
       ...ticketRespuesta,
       tecnicoIds: tecnicoIdsFromTicket(ticketData),
@@ -214,6 +244,7 @@ export async function GET(
     },
     orden: ordenConFotos,
     duracionSegundos,
+    cronometroAtencion,
     inventario,
     reporte,
     esResponsableInfra:

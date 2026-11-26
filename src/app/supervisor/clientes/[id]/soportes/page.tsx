@@ -21,6 +21,7 @@ type Item = {
   iniciadoEn: string | null;
   finalizadoEn: string | null;
   duracionSegundos: number;
+  atencionDuracionSegundos?: number | null;
   resultado: string;
   tecnicosLabel: string;
 };
@@ -251,6 +252,7 @@ export default function HistorialSoportesClientePage() {
                     <th className="p-3">Inicio</th>
                     <th className="p-3">Fin</th>
                     <th className="p-3">Tiempo</th>
+                    <th className="p-3">Tiempo atención</th>
                     <th className="p-3">Resultado</th>
                     <th className="p-3"></th>
                   </tr>
@@ -271,6 +273,11 @@ export default function HistorialSoportesClientePage() {
                       </td>
                       <td className="p-3">
                         {item.duracionSegundos > 0 ? formatDuration(item.duracionSegundos) : "—"}
+                      </td>
+                      <td className="p-3 font-mono text-xs">
+                        {item.atencionDuracionSegundos != null
+                          ? formatDuration(item.atencionDuracionSegundos)
+                          : "—"}
                       </td>
                       <td className="p-3">{item.resultado}</td>
                       <td className="p-3">

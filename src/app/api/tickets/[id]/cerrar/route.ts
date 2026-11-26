@@ -16,6 +16,7 @@ import { ordenServicioCerrada } from "@/lib/ticket-cerrado";
 import { registrarSiHistorial } from "@/lib/soporte-infraestructura/historial";
 import { registrarRevisionHistorial } from "@/lib/revision-reporte";
 import { FLUJO_TICKET, logFlujoTicket } from "@/lib/ticket-flujo-log";
+import { detenerCronometroAtencionEnTx } from "@/lib/cronometro-atencion/servicio";
 
 export async function POST(
   request: Request,
@@ -132,27 +133,33 @@ export async function POST(
 
   const now = new Date();
 
-  await prisma.$transaction([
-    prisma.ordenServicio.update({
+  await prisma.$transaction(async (tx) => {
+    await tx.ordenServicio.update({
       where: { id: ordenFresh.id },
       data: {
         finalizadoEn: now,
         reportadoPorTecnicoId: ordenFresh.reportadoPorTecnicoId ?? session.tecnicoId,
         reportadoEn: ordenFresh.reportadoEn ?? now,
       },
-    }),
-    prisma.ticket.update({
+    });
+    await tx.ticket.update({
       where: { id },
       data: {
         estado: "FINALIZADO",
         estadoRevision: "PENDIENTE_REVISION",
       },
-    }),
-    prisma.tecnico.updateMany({
+    });
+    await tx.tecnico.updateMany({
       where: { id: { in: tecnicoIdsFromTicket(ticket) } },
       data: { estadoActual: "DISPONIBLE" },
-    }),
-  ]);
+    });
+    await detenerCronometroAtencionEnTx(tx, {
+      ticketId: id,
+      usuarioId: session.id,
+      tecnicoId: session.tecnicoId!,
+      ahora: now,
+    });
+  });
 
   // WhatsApp al cliente solo cuando el supervisor apruebe el reporte.
 

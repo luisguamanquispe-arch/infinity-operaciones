@@ -14,6 +14,7 @@ import {
 import { esTicketInfraestructura } from "@/lib/ticket-infraestructura";
 import { registrarSiHistorial } from "@/lib/soporte-infraestructura/historial";
 import { enMayusculasGuardar } from "@/lib/mayusculas";
+import { detenerCronometroAtencionEnTx } from "@/lib/cronometro-atencion/servicio";
 
 /**
  * Cierre por justificación técnica: no exige checklist/fotos/firma.
@@ -136,6 +137,13 @@ export async function POST(
       usuarioId: session.id,
       usuarioNombre: session.nombre,
       tecnicoId: session.tecnicoId,
+    });
+
+    await detenerCronometroAtencionEnTx(tx, {
+      ticketId: id,
+      usuarioId: session.id,
+      tecnicoId: session.tecnicoId!,
+      ahora: now,
     });
   });
 
