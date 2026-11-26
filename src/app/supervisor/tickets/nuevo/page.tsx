@@ -27,7 +27,16 @@ interface Tecnico {
   estado: string;
 }
 
-const TIPOS = ["SOPORTE", "INSTALACION", "RECONEXION", "CORTE", "MIGRACION", "RETIRO"] as const;
+const TIPOS = [
+  "SOPORTE",
+  "INSTALACION",
+  "RECONEXION",
+  "CORTE",
+  "MIGRACION",
+  "RETIRO",
+  "CAMBIO_DOMICILIO",
+  "MIGRACION_SERVICIO_FIBRA",
+] as const;
 
 export default function NuevoTicketPage() {
   const router = useRouter();

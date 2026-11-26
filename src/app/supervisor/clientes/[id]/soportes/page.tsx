@@ -169,7 +169,16 @@ export default function HistorialSoportesClientePage() {
               className="border rounded-xl px-3 py-2"
             >
               <option value="">Todos los tipos</option>
-              {["SOPORTE", "INSTALACION", "MIGRACION", "RECONEXION", "RETIRO", "CORTE"].map((k) => (
+              {[
+                "SOPORTE",
+                "INSTALACION",
+                "MIGRACION",
+                "RECONEXION",
+                "RETIRO",
+                "CORTE",
+                "CAMBIO_DOMICILIO",
+                "MIGRACION_SERVICIO_FIBRA",
+              ].map((k) => (
                 <option key={k} value={k}>
                   {TIPO_LABELS[k]}
                 </option>

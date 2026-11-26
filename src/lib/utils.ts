@@ -55,6 +55,8 @@ export const TIPO_LABELS: Record<string, string> = {
   RECONEXION: "Reconexión",
   RETIRO: "Retiro de equipo",
   CORTE: "Corte",
+  CAMBIO_DOMICILIO: "Cambio de domicilio",
+  MIGRACION_SERVICIO_FIBRA: "Migración de servicio a fibra",
 };
 
 export const ESTADO_LABELS: Record<string, string> = {

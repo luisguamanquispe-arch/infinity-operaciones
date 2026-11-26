@@ -30,6 +30,8 @@ enum TipoTrabajo {
   RECONEXION
   RETIRO
   CORTE
+  CAMBIO_DOMICILIO
+  MIGRACION_SERVICIO_FIBRA
 }
 
 /// Modalidad de orden de soporte a cliente (completo vs express).

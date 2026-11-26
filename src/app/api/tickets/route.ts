@@ -45,6 +45,8 @@ const TIPOS_VALIDOS: TipoTrabajo[] = [
   "RECONEXION",
   "RETIRO",
   "CORTE",
+  "CAMBIO_DOMICILIO",
+  "MIGRACION_SERVICIO_FIBRA",
 ];
 
 const PRIORIDADES_VALIDAS: Prioridad[] = ["ALTA", "MEDIA", "BAJA"];

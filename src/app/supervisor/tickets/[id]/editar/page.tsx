@@ -37,7 +37,17 @@ interface ClienteBusqueda {
   sector: string;
 }
 
-const TIPOS = ["SOPORTE", "INFRAESTRUCTURA", "INSTALACION", "RECONEXION", "CORTE", "MIGRACION", "RETIRO"];
+const TIPOS = [
+  "SOPORTE",
+  "INFRAESTRUCTURA",
+  "INSTALACION",
+  "RECONEXION",
+  "CORTE",
+  "MIGRACION",
+  "RETIRO",
+  "CAMBIO_DOMICILIO",
+  "MIGRACION_SERVICIO_FIBRA",
+];
 const ESTADOS = ["PENDIENTE", "LEIDO", "EN_PROCESO", "FINALIZADO", "CERRADO", "CANCELADO"];
 
 export default function EditarTicketPage() {

@@ -34,6 +34,8 @@ const TIPOS_HISTORIAL: TipoTrabajo[] = [
   "RECONEXION",
   "RETIRO",
   "CORTE",
+  "CAMBIO_DOMICILIO",
+  "MIGRACION_SERVICIO_FIBRA",
 ];
 
 const ticketLiteInclude = {

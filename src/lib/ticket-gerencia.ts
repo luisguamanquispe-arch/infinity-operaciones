@@ -8,6 +8,8 @@ export const TIPOS_ELIMINABLES_GERENCIA: TipoTrabajo[] = [
   "CORTE",
   "MIGRACION",
   "RETIRO",
+  "CAMBIO_DOMICILIO",
+  "MIGRACION_SERVICIO_FIBRA",
 ];
 
 export const ESTADOS_ACTIVOS_TICKET = ["PENDIENTE", "LEIDO", "EN_PROCESO"] as const;
