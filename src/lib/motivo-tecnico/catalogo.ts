@@ -11,6 +11,7 @@ export const MOTIVO_CATEGORIAS = [
   { id: "TV_STREAMING", label: "Televisión/Streaming" },
   { id: "INSTALACION_CONFIG", label: "Instalación o configuración" },
   { id: "ATENCION_PENDIENTE", label: "Atención técnica pendiente" },
+  { id: "SERVICIO", label: "Servicio" },
   { id: "OTRO", label: "Otro problema técnico" },
 ] as const;
 
@@ -22,8 +23,25 @@ export const MOTIVO_PROBLEMAS = [
   { id: "SIN_SENAL_OPTICA", label: "Equipo sin señal óptica" },
   { id: "COBERTURA_WIFI", label: "Problema de cobertura WiFi" },
   { id: "DANO_CABLEADO", label: "Daño físico de cableado" },
+  { id: "CAMBIO_DOMICILIO", label: "Cambio de domicilio" },
+  { id: "MIGRACION_SERVICIO_FIBRA", label: "Migración de servicio a fibra" },
   { id: "OTRO", label: "Otro" },
 ] as const;
+
+const PROBLEMAS_SERVICIO_IDS = new Set<string>([
+  "CAMBIO_DOMICILIO",
+  "MIGRACION_SERVICIO_FIBRA",
+]);
+
+/** Opciones de «Problema reportado» según la categoría seleccionada. */
+export function problemasParaCategoria(categoria: string | null | undefined) {
+  if (categoria === "SERVICIO") {
+    return MOTIVO_PROBLEMAS.filter(
+      (p) => PROBLEMAS_SERVICIO_IDS.has(p.id) || p.id === "OTRO"
+    );
+  }
+  return MOTIVO_PROBLEMAS.filter((p) => !PROBLEMAS_SERVICIO_IDS.has(p.id));
+}
 
 export const MOTIVO_IMPACTOS = [
   { id: "SIN_IMPACTO_MAYOR", label: "Inconveniente menor sin interrupción significativa" },

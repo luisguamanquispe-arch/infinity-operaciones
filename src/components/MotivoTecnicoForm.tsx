@@ -4,7 +4,7 @@ import {
   CLIENTE_SITUACIONES,
   MOTIVO_CATEGORIAS,
   MOTIVO_IMPACTOS,
-  MOTIVO_PROBLEMAS,
+  problemasParaCategoria,
 } from "@/lib/motivo-tecnico/catalogo";
 import { inputMayusculasClass } from "@/lib/mayusculas";
 
@@ -38,6 +38,13 @@ export function MotivoTecnicoForm({
 }: Props) {
   const set = (patch: Partial<MotivoTecnicoFormState>) => {
     const next = { ...value, ...patch };
+    if (patch.motivoCategoria !== undefined) {
+      const permitidos = problemasParaCategoria(patch.motivoCategoria);
+      if (next.motivoProblema && !permitidos.some((p) => p.id === next.motivoProblema)) {
+        next.motivoProblema = "";
+        next.motivoProblemaOtro = "";
+      }
+    }
     if (
       autoPrioridadAltaEnRiesgo &&
       patch.clienteSituacion === "INTENCION_CANCELAR"
@@ -47,6 +54,7 @@ export function MotivoTecnicoForm({
     onChange(next);
   };
 
+  const problemasDisponibles = problemasParaCategoria(value.motivoCategoria);
   const riesgo = value.clienteSituacion === "INTENCION_CANCELAR";
 
   return (
@@ -95,7 +103,7 @@ export function MotivoTecnicoForm({
           required
         >
           <option value="">Seleccione…</option>
-          {MOTIVO_PROBLEMAS.map((c) => (
+          {problemasDisponibles.map((c) => (
             <option key={c.id} value={c.id}>
               {c.label}
             </option>

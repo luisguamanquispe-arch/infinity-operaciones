@@ -7,7 +7,7 @@ import {
   validarClienteSituacion,
   validarMotivoEstructurado,
 } from "./validacion";
-import { esTextoGenerico } from "./catalogo";
+import { esTextoGenerico, problemasParaCategoria } from "./catalogo";
 
 describe("motivo técnico estructurado", () => {
   it("acepta motivo completo y genera texto descriptivo", () => {
@@ -68,6 +68,52 @@ describe("motivo técnico estructurado", () => {
     });
     assert.equal(r.ok, false);
     if (!r.ok) assert.ok(r.faltantes.length >= 2);
+  });
+
+  it("expone Cambio de domicilio y Migración de servicio a fibra en categoría Servicio", () => {
+    const opciones = problemasParaCategoria("SERVICIO");
+    const ids = opciones.map((o) => o.id);
+    const labels = opciones.map((o) => o.label);
+    assert.ok(ids.includes("CAMBIO_DOMICILIO"));
+    assert.ok(ids.includes("MIGRACION_SERVICIO_FIBRA"));
+    assert.ok(labels.includes("Cambio de domicilio"));
+    assert.ok(labels.includes("Migración de servicio a fibra"));
+
+    const otras = problemasParaCategoria("INTERNET_SIN_SERVICIO").map((o) => o.id);
+    assert.equal(otras.includes("CAMBIO_DOMICILIO"), false);
+    assert.equal(otras.includes("MIGRACION_SERVICIO_FIBRA"), false);
+  });
+
+  it("valida y genera motivo para Servicio → Cambio de domicilio", () => {
+    const r = validarMotivoEstructurado({
+      categoria: "SERVICIO",
+      problema: "CAMBIO_DOMICILIO",
+      detalle: "Cliente solicita traslado de acometida a nueva direccion en sector sur",
+      impacto: "SIN_IMPACTO_MAYOR",
+    });
+    assert.equal(r.ok, true);
+    if (r.ok) {
+      assert.equal(r.categoria, "SERVICIO");
+      assert.equal(r.problema, "CAMBIO_DOMICILIO");
+      assert.match(r.motivoGenerado, /Servicio/);
+      assert.match(r.motivoGenerado, /Cambio de domicilio/);
+    }
+  });
+
+  it("valida y genera motivo para Servicio → Migración de servicio a fibra", () => {
+    const r = validarMotivoEstructurado({
+      categoria: "SERVICIO",
+      problema: "MIGRACION_SERVICIO_FIBRA",
+      detalle: "Cliente con enlace inalambrico solicita migracion a fibra optica FTTH",
+      impacto: "PARCIAL",
+    });
+    assert.equal(r.ok, true);
+    if (r.ok) {
+      assert.equal(r.categoria, "SERVICIO");
+      assert.equal(r.problema, "MIGRACION_SERVICIO_FIBRA");
+      assert.match(r.motivoGenerado, /Servicio/);
+      assert.match(r.motivoGenerado, /Migración de servicio a fibra/);
+    }
   });
 });
 
