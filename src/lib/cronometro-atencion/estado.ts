@@ -32,12 +32,25 @@ export interface CronometroAtencionView {
   alerta: NivelAlertaAtencion;
   iniciadoPorNombre: string | null;
   tecnicoNombre: string | null;
+  /** True cuando el ticket ya está EN_PROCESO pero no tiene registro TicketCronometroAtencion (solo detección, sin mutar). */
+  sinCronometroEnProceso?: boolean;
 }
 
 /** Aplica a tickets de soporte de cliente en el flujo técnico (no infraestructura). */
 export function ticketAdmiteCronometroAtencion(tipo: string | null | undefined): boolean {
   if (!tipo) return false;
   return tipo !== "INFRAESTRUCTURA";
+}
+
+/** Detecta un ticket ya EN_PROCESO sin registro de cronómetro de atención (solo lectura). */
+export function detectarEnProcesoSinCronometro(
+  ticket: { estado: string; tipo?: string | null },
+  registro: RegistroCronometroAtencionLike | null | undefined
+): boolean {
+  if (ticket.tipo !== undefined && !ticketAdmiteCronometroAtencion(ticket.tipo)) {
+    return false;
+  }
+  return ticket.estado === "EN_PROCESO" && (!registro || !registro.iniciadoEn);
 }
 
 export function toIsoOrNull(v: Date | string | null | undefined): string | null {
@@ -77,7 +90,8 @@ export function nivelAlertaAtencion(
 
 export function derivarEstadoCronometroAtencion(
   registro: RegistroCronometroAtencionLike | null | undefined,
-  ahoraMs: number = Date.now()
+  ahoraMs: number = Date.now(),
+  ticketEstado?: string | null
 ): CronometroAtencionView {
   if (!registro || !registro.iniciadoEn) {
     return {
@@ -88,6 +102,7 @@ export function derivarEstadoCronometroAtencion(
       alerta: "NORMAL",
       iniciadoPorNombre: null,
       tecnicoNombre: null,
+      sinCronometroEnProceso: ticketEstado === "EN_PROCESO",
     };
   }
 
@@ -110,6 +125,7 @@ export function derivarEstadoCronometroAtencion(
     alerta: nivelAlertaAtencion(estado, duracionSegundos),
     iniciadoPorNombre: registro.iniciadoPorNombre ?? null,
     tecnicoNombre: registro.tecnicoNombre ?? null,
+    sinCronometroEnProceso: false,
   };
 }
 

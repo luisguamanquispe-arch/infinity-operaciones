@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   calcularDuracionAtencionSegundos,
   derivarEstadoCronometroAtencion,
+  detectarEnProcesoSinCronometro,
   formatHHMMSS,
   ticketAdmiteCronometroAtencion,
   UMBRAL_ATENCION_CRITICA_SEG,
@@ -12,6 +13,8 @@ import {
   autorizarInicioLectura,
   detenerCronometroAtencionEnTx,
   iniciarLecturaAtencion,
+  sincronizarCronometroEnLectura,
+  sincronizarCronometroEnProceso,
   type CronometroAtencionDbLike,
 } from "./servicio";
 
@@ -29,7 +32,7 @@ type Row = {
 
 function crearDbEnMemoria(opts?: { simularCarreraP2002?: boolean }) {
   const rows = new Map<string, Row>();
-  const eventos: { ticketId: string; accion: string }[] = [];
+  const eventos: { ticketId: string; accion: string; metadata?: string }[] = [];
   let seq = 0;
 
   const db: CronometroAtencionDbLike = {
@@ -72,7 +75,11 @@ function crearDbEnMemoria(opts?: { simularCarreraP2002?: boolean }) {
     },
     eventoTicket: {
       async create({ data }) {
-        eventos.push({ ticketId: data.ticketId, accion: data.accion });
+        eventos.push({
+          ticketId: data.ticketId,
+          accion: data.accion,
+          metadata: data.metadata,
+        });
       },
     },
   };
@@ -353,5 +360,189 @@ describe("autorización de técnico y compatibilidad con tickets antiguos", () =
     });
     assert.equal(stopLegacy.detenido, false);
     assert.equal(stopLegacy.duracionSegundos, null);
+  });
+});
+
+describe("sincronización lectura (LEIDO) → EN_PROCESO y detección sin mutación", () => {
+  it("1) al marcar LEIDO (apertura) inicia el cronómetro de atención y registra auditoría", async () => {
+    const { db, rows, eventos } = crearDbEnMemoria();
+    const t0 = new Date("2026-11-26T16:00:00.000Z");
+
+    const res = await sincronizarCronometroEnLectura({
+      ticket: { id: "t_sr_new", tipo: "SOPORTE", estado: "PENDIENTE" },
+      tecnicoId: "tec_1",
+      usuarioId: "usr_1",
+      ahora: t0,
+      db,
+    });
+
+    assert.equal(res.ejecutado, true);
+    assert.equal(res.creado, true);
+    assert.equal(res.yaIniciado, false);
+    assert.equal(res.cronometro?.estado, "EN_ATENCION");
+    assert.equal(res.cronometro?.iniciadoEn, t0.toISOString());
+    assert.equal(rows.size, 1);
+    assert.equal(eventos.length, 1);
+    assert.equal(eventos[0].accion, "LECTURA_ATENCION_INICIADA");
+    assert.match(eventos[0].metadata ?? "", /lectura_ticket/);
+  });
+
+  it("2) al pasar directo a EN_PROCESO asegura el cronómetro activo", async () => {
+    const { db, rows, eventos } = crearDbEnMemoria();
+    const t0 = new Date("2026-11-26T16:05:00.000Z");
+
+    const res = await sincronizarCronometroEnProceso({
+      ticket: { id: "t_sr_proc", tipo: "SOPORTE", estadoAnterior: "PENDIENTE" },
+      cronometroTrabajoYaIniciado: false,
+      tecnicoId: "tec_1",
+      usuarioId: "usr_1",
+      ahora: t0,
+      db,
+    });
+
+    assert.equal(res.ejecutado, true);
+    assert.equal(res.creado, true);
+    assert.equal(res.cronometro?.estado, "EN_ATENCION");
+    assert.equal(rows.size, 1);
+    assert.match(eventos[0].metadata ?? "", /inicio_en_proceso/);
+  });
+
+  it("3) al refrescar la página persiste el inicio y sigue contando desde la BD", async () => {
+    const { db, rows } = crearDbEnMemoria();
+    const t0 = new Date("2026-11-26T16:00:00.000Z");
+
+    await sincronizarCronometroEnLectura({
+      ticket: { id: "t_refresh", tipo: "SOPORTE", estado: "PENDIENTE" },
+      tecnicoId: "tec_1",
+      usuarioId: "usr_1",
+      ahora: t0,
+      db,
+    });
+
+    // Simula recarga 7 minutos y 15 segundos después (435s)
+    const guardado = rows.get("t_refresh")!;
+    const tRecarga = t0.getTime() + 435_000;
+    const vista = derivarEstadoCronometroAtencion(guardado, tRecarga, "EN_PROCESO");
+
+    assert.equal(vista.estado, "EN_ATENCION");
+    assert.equal(vista.duracionSegundos, 435);
+    assert.equal(formatHHMMSS(vista.duracionSegundos), "00:07:15");
+    assert.equal(vista.sinCronometroEnProceso, false);
+  });
+
+  it("4) evita inicio duplicado entre apertura (LEIDO), paso a EN_PROCESO y acción manual", async () => {
+    const { db, rows, eventos } = crearDbEnMemoria();
+    const t0 = new Date("2026-11-26T16:00:00.000Z");
+    const t1 = new Date("2026-11-26T16:02:00.000Z");
+    const t2 = new Date("2026-11-26T16:04:00.000Z");
+
+    const rLectura = await sincronizarCronometroEnLectura({
+      ticket: { id: "t_nodup", tipo: "SOPORTE", estado: "PENDIENTE" },
+      tecnicoId: "tec_1",
+      usuarioId: "usr_1",
+      ahora: t0,
+      db,
+    });
+    const rProceso = await sincronizarCronometroEnProceso({
+      ticket: { id: "t_nodup", tipo: "SOPORTE", estadoAnterior: "LEIDO" },
+      cronometroTrabajoYaIniciado: false,
+      tecnicoId: "tec_1",
+      usuarioId: "usr_1",
+      ahora: t1,
+      db,
+    });
+    const rManual = await iniciarLecturaAtencion({
+      ticketId: "t_nodup",
+      tecnicoId: "tec_1",
+      usuarioId: "usr_1",
+      origen: "manual_tecnico",
+      ahora: t2,
+      db,
+    });
+
+    assert.equal(rLectura.creado, true);
+    assert.equal(rProceso.creado, false);
+    assert.equal(rProceso.yaIniciado, true);
+    assert.equal(rManual.creado, false);
+    assert.equal(rManual.yaIniciado, true);
+    assert.equal(rows.size, 1);
+    assert.equal(eventos.length, 1);
+    assert.equal(rows.get("t_nodup")?.iniciadoEn.toISOString(), t0.toISOString());
+    assert.equal(rProceso.cronometro?.duracionSegundos, 120);
+  });
+
+  it("5) la columna de lectura y el cronómetro reflejan el mismo flujo real", async () => {
+    const { db, rows } = crearDbEnMemoria();
+    const t0 = new Date("2026-11-26T16:00:00.000Z");
+
+    // Antes de abrir: PENDIENTE sin registro
+    const antes = derivarEstadoCronometroAtencion(null, t0.getTime(), "PENDIENTE");
+    assert.equal(antes.estado, "PENDIENTE_LECTURA");
+    assert.equal(antes.sinCronometroEnProceso, false);
+    assert.equal(antes.duracionSegundos, 0);
+
+    // Después de abrir (LEIDO) y pasar a EN_PROCESO
+    await sincronizarCronometroEnLectura({
+      ticket: { id: "t_sync", tipo: "SOPORTE", estado: "PENDIENTE" },
+      tecnicoId: "tec_1",
+      usuarioId: "usr_1",
+      ahora: t0,
+      db,
+    });
+    const despues = derivarEstadoCronometroAtencion(
+      rows.get("t_sync"),
+      t0.getTime() + 90_000,
+      "EN_PROCESO"
+    );
+    assert.equal(despues.estado, "EN_ATENCION");
+    assert.equal(despues.sinCronometroEnProceso, false);
+    assert.equal(despues.duracionSegundos, 90);
+    assert.equal(formatHHMMSS(despues.duracionSegundos), "00:01:30");
+  });
+
+  it("6) ticket ya EN_PROCESO sin cronómetro se detecta sin alterar datos reales y permite recuperación auditable", async () => {
+    const { db, rows, eventos } = crearDbEnMemoria();
+    const t0 = new Date("2026-11-26T17:00:00.000Z");
+
+    // Detección en solo lectura (como GET /api/supervisor/dashboard o GET /api/tickets/[id])
+    assert.equal(
+      detectarEnProcesoSinCronometro({ estado: "EN_PROCESO", tipo: "SOPORTE" }, null),
+      true
+    );
+    assert.equal(
+      detectarEnProcesoSinCronometro({ estado: "EN_PROCESO", tipo: "INFRAESTRUCTURA" }, null),
+      false
+    );
+    const vistaSupervisor = derivarEstadoCronometroAtencion(null, t0.getTime(), "EN_PROCESO");
+    assert.equal(vistaSupervisor.estado, "PENDIENTE_LECTURA");
+    assert.equal(vistaSupervisor.sinCronometroEnProceso, true);
+    assert.equal(vistaSupervisor.duracionSegundos, 0);
+
+    // Reabrir una orden que ya estaba EN_PROCESO NO muta automáticamente el registro
+    const reapertura = await sincronizarCronometroEnLectura({
+      ticket: { id: "t_sr_1002_sim", tipo: "SOPORTE", estado: "EN_PROCESO" },
+      tecnicoId: "tec_1",
+      usuarioId: "usr_1",
+      ahora: t0,
+      db,
+    });
+    assert.equal(reapertura.ejecutado, false);
+    assert.equal(rows.size, 0);
+    assert.equal(eventos.length, 0);
+
+    // Recuperación explícita y auditable por el técnico asignado
+    const recuperacion = await iniciarLecturaAtencion({
+      ticketId: "t_sr_1002_sim",
+      tecnicoId: "tec_1",
+      usuarioId: "usr_1",
+      origen: "recuperacion_en_proceso",
+      ahora: t0,
+      db,
+    });
+    assert.equal(recuperacion.creado, true);
+    assert.equal(recuperacion.cronometro.estado, "EN_ATENCION");
+    assert.equal(recuperacion.cronometro.sinCronometroEnProceso, false);
+    assert.equal(eventos.length, 1);
+    assert.match(eventos[0].metadata ?? "", /recuperacion_en_proceso/);
   });
 });

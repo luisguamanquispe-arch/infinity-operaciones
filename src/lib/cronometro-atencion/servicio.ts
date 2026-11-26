@@ -128,6 +128,12 @@ function esErrorUnicidadPrisma(err: unknown): boolean {
   return code === "P2002";
 }
 
+export type OrigenInicioLecturaAtencion =
+  | "lectura_ticket"
+  | "inicio_en_proceso"
+  | "manual_tecnico"
+  | "recuperacion_en_proceso";
+
 /**
  * Inicia el cronómetro de lectura y atención de forma idempotente y segura ante concurrencia.
  * Nunca crea dos inicios para el mismo ticket (índice único en ticketId + manejo de P2002).
@@ -136,6 +142,7 @@ export async function iniciarLecturaAtencion(params: {
   ticketId: string;
   tecnicoId: string;
   usuarioId: string;
+  origen?: OrigenInicioLecturaAtencion;
   ahora?: Date;
   db?: CronometroAtencionDbLike;
 }): Promise<{
@@ -175,6 +182,7 @@ export async function iniciarLecturaAtencion(params: {
           metadata: JSON.stringify({
             tecnicoId: params.tecnicoId,
             iniciadoEn: ahora.toISOString(),
+            origen: params.origen ?? "manual_tecnico",
           }),
         },
       });
@@ -199,6 +207,88 @@ export async function iniciarLecturaAtencion(params: {
     }
     throw err;
   }
+}
+
+/**
+ * Sincroniza el inicio del cronómetro de lectura y atención al marcar LEIDO (apertura de orden).
+ * Solo actúa si el ticket admite cronómetro de atención y está en PENDIENTE o LEIDO.
+ * No altera automáticamente tickets que ya estaban EN_PROCESO sin cronómetro.
+ */
+export async function sincronizarCronometroEnLectura(params: {
+  ticket: { id: string; tipo: string; estado: string };
+  tecnicoId: string;
+  usuarioId: string;
+  ahora?: Date;
+  db?: CronometroAtencionDbLike;
+}): Promise<{
+  ejecutado: boolean;
+  creado: boolean;
+  yaIniciado: boolean;
+  cronometro: CronometroAtencionView | null;
+}> {
+  if (!ticketAdmiteCronometroAtencion(params.ticket.tipo)) {
+    return { ejecutado: false, creado: false, yaIniciado: false, cronometro: null };
+  }
+  if (params.ticket.estado !== "PENDIENTE" && params.ticket.estado !== "LEIDO") {
+    return { ejecutado: false, creado: false, yaIniciado: false, cronometro: null };
+  }
+  const res = await iniciarLecturaAtencion({
+    ticketId: params.ticket.id,
+    tecnicoId: params.tecnicoId,
+    usuarioId: params.usuarioId,
+    origen: "lectura_ticket",
+    ahora: params.ahora,
+    db: params.db,
+  });
+  return {
+    ejecutado: true,
+    creado: res.creado,
+    yaIniciado: res.yaIniciado,
+    cronometro: res.cronometro,
+  };
+}
+
+/**
+ * Asegura que el cronómetro de atención esté iniciado al pasar el ticket a EN_PROCESO
+ * (por ejemplo si el técnico pulsó Iniciar trabajo directamente). Idempotente.
+ */
+export async function sincronizarCronometroEnProceso(params: {
+  ticket: { id: string; tipo: string; estadoAnterior: string };
+  cronometroTrabajoYaIniciado?: boolean;
+  tecnicoId: string;
+  usuarioId: string;
+  ahora?: Date;
+  db?: CronometroAtencionDbLike;
+}): Promise<{
+  ejecutado: boolean;
+  creado: boolean;
+  yaIniciado: boolean;
+  cronometro: CronometroAtencionView | null;
+}> {
+  if (!ticketAdmiteCronometroAtencion(params.ticket.tipo)) {
+    return { ejecutado: false, creado: false, yaIniciado: false, cronometro: null };
+  }
+  const transicionAEnProceso =
+    params.ticket.estadoAnterior === "PENDIENTE" ||
+    params.ticket.estadoAnterior === "LEIDO" ||
+    params.cronometroTrabajoYaIniciado === false;
+  if (!transicionAEnProceso) {
+    return { ejecutado: false, creado: false, yaIniciado: false, cronometro: null };
+  }
+  const res = await iniciarLecturaAtencion({
+    ticketId: params.ticket.id,
+    tecnicoId: params.tecnicoId,
+    usuarioId: params.usuarioId,
+    origen: "inicio_en_proceso",
+    ahora: params.ahora,
+    db: params.db,
+  });
+  return {
+    ejecutado: true,
+    creado: res.creado,
+    yaIniciado: res.yaIniciado,
+    cronometro: res.cronometro,
+  };
 }
 
 /**

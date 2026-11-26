@@ -191,7 +191,8 @@ export async function GET() {
                   tecnicoNombre: t.cronometroAtencion.tecnico?.usuario?.nombre ?? null,
                 }
               : null,
-            now.getTime()
+            now.getTime(),
+            t.estado
           )
         : null;
       const puedeIniciarLectura =

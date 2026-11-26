@@ -213,6 +213,7 @@ export async function GET(
       : null;
 
   const novedadPendiente = await novedadPendienteTicket(ticketData.id);
+  const nowTicket = new Date();
   const cronometroAtencion = ticketAdmiteCronometroAtencion(ticketData.tipo)
     ? derivarEstadoCronometroAtencion(
         ticketData.cronometroAtencion
@@ -223,12 +224,14 @@ export async function GET(
               iniciadoPorNombre: ticketData.cronometroAtencion.iniciadoPor?.nombre ?? null,
               tecnicoNombre: ticketData.cronometroAtencion.tecnico?.usuario?.nombre ?? null,
             }
-          : null
+          : null,
+        nowTicket.getTime(),
+        ticketData.estado
       )
     : null;
 
   return NextResponse.json({
-    serverNow: new Date().toISOString(),
+    serverNow: nowTicket.toISOString(),
     ticket: {
       ...ticketRespuesta,
       tecnicoIds: tecnicoIdsFromTicket(ticketData),

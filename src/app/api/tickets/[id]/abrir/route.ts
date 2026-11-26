@@ -5,10 +5,12 @@ import { tecnicoAsignadoAlTicket } from "@/lib/ticket-tecnicos";
 import { asegurarColaboracionOrden, infoReporteOrden } from "@/lib/ticket-reporte";
 import { verificarTicketEditable } from "@/lib/ticket-cerrado";
 import { FLUJO_TICKET, logFlujoTicket } from "@/lib/ticket-flujo-log";
+import { sincronizarCronometroEnLectura } from "@/lib/cronometro-atencion/servicio";
 
 /**
- * Al abrir la orden: marca LEIDO (semáforo). F5/E4: no reclama reportador.
- * No inicia el cronómetro: eso pasa al pulsar Iniciar (→ EN_PROCESO).
+ * Al abrir la orden: marca LEIDO (semáforo) e inicia el cronómetro de lectura/atención
+ * (idempotente, solo tickets de soporte de cliente en PENDIENTE o LEIDO).
+ * F5/E4: no reclama reportador. El cronómetro de trabajo en campo inicia al pulsar Iniciar (→ EN_PROCESO).
  */
 export async function POST(
   request: Request,
@@ -85,6 +87,18 @@ export async function POST(
 
   const reporte = await infoReporteOrden(id, session.tecnicoId);
 
+  let cronometroAtencion = null;
+  try {
+    const syncRes = await sincronizarCronometroEnLectura({
+      ticket: { id: ticket.id, tipo: ticket.tipo, estado: ticket.estado },
+      tecnicoId: session.tecnicoId,
+      usuarioId: session.id,
+    });
+    cronometroAtencion = syncRes.cronometro;
+  } catch (err) {
+    console.error("[abrir] No se pudo iniciar cronómetro de atención:", err);
+  }
+
   logFlujoTicket(FLUJO_TICKET.TICKET_RECEIVED_BY_TECHNICIAN, {
     ticketId: id,
     codigo: ticket.codigo,
@@ -98,5 +112,6 @@ export async function POST(
     ok: true,
     reporte,
     estado: ticket.estado === "PENDIENTE" ? "LEIDO" : ticket.estado,
+    ...(cronometroAtencion ? { cronometroAtencion } : {}),
   });
 }

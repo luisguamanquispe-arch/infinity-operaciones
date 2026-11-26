@@ -6,6 +6,7 @@ import { iniciarCronometroTicket } from "@/lib/cronometro";
 import { tecnicoAsignadoAlTicket } from "@/lib/ticket-tecnicos";
 import { asegurarColaboracionOrden } from "@/lib/ticket-reporte";
 import { verificarTicketEditable } from "@/lib/ticket-cerrado";
+import { sincronizarCronometroEnProceso } from "@/lib/cronometro-atencion/servicio";
 
 export async function POST(
   request: Request,
@@ -44,13 +45,23 @@ export async function POST(
   const now = new Date();
 
   if (accion === "iniciar") {
-    await iniciarCronometroTicket({
+    const resCron = await iniciarCronometroTicket({
       ticketId: id,
       tecnicoId: session.tecnicoId,
       usuarioId: session.id,
       lat,
       lng,
     });
+    try {
+      await sincronizarCronometroEnProceso({
+        ticket: { id: ticket.id, tipo: ticket.tipo, estadoAnterior: ticket.estado },
+        cronometroTrabajoYaIniciado: resCron.yaIniciado,
+        tecnicoId: session.tecnicoId,
+        usuarioId: session.id,
+      });
+    } catch (err) {
+      console.error("[cronometro] No se pudo sincronizar cronómetro de atención:", err);
+    }
   } else if (accion === "pausar") {
     const cron = await prisma.cronometro.findUnique({ where: { ordenId: orden.id } });
     if (!cron?.activo) {

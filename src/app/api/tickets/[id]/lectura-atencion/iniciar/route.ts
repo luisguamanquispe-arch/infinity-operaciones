@@ -45,6 +45,7 @@ export async function POST(
     ticketId: id,
     tecnicoId: auth.tecnicoId,
     usuarioId: session.id,
+    origen: ticket?.estado === "EN_PROCESO" ? "recuperacion_en_proceso" : "manual_tecnico",
   });
 
   return NextResponse.json({

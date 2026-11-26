@@ -79,12 +79,23 @@ export function TiempoAtencionCell({
   }
 
   if (estado === "PENDIENTE_LECTURA") {
+    const enProcesoSinCronometro = Boolean(localCron?.sinCronometroEnProceso);
     return (
       <div className="space-y-1">
-        <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 whitespace-nowrap">
-          <Clock className="w-3 h-3" />
-          {ESTADO_CRONOMETRO_ATENCION_LABELS.PENDIENTE_LECTURA}
-        </span>
+        {enProcesoSinCronometro ? (
+          <span
+            className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200 whitespace-nowrap"
+            title="El ticket ya figura En proceso sin registro previo de cronómetro de atención. No se altera automáticamente; el técnico asignado puede iniciarlo explícitamente."
+          >
+            <AlertTriangle className="w-3 h-3" />
+            En proceso sin cronómetro
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 whitespace-nowrap">
+            <Clock className="w-3 h-3" />
+            {ESTADO_CRONOMETRO_ATENCION_LABELS.PENDIENTE_LECTURA}
+          </span>
+        )}
         <div className="font-mono text-xs text-slate-400">00:00:00</div>
         {puedeIniciarLectura && (
           <button
@@ -94,7 +105,11 @@ export function TiempoAtencionCell({
             className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-md bg-infinity-600 text-white hover:bg-infinity-700 disabled:opacity-50 whitespace-nowrap"
           >
             <Play className="w-3 h-3" />
-            {iniciando ? "Iniciando…" : "Iniciar lectura"}
+            {iniciando
+              ? "Iniciando…"
+              : enProcesoSinCronometro
+                ? "Iniciar cronómetro"
+                : "Iniciar lectura"}
           </button>
         )}
         {errorMsg && <p className="text-[11px] text-red-600">{errorMsg}</p>}
