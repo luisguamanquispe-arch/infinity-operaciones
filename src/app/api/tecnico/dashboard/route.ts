@@ -5,9 +5,12 @@ import { calcularDuracionCronometro } from "@/lib/tickets";
 import { diaKey } from "@/lib/calendario";
 import {
   diasDesdeReferencia,
-  whereTicketActivoEnLista,
   whereTicketNoAtendido,
 } from "@/lib/ticket-antiguedad";
+import {
+  rangoDiaActualEcuador,
+  whereTicketsTecnicoHoyEcuador,
+} from "@/lib/tecnico-fecha-hoy";
 
 export const runtime = "nodejs";
 
@@ -35,10 +38,8 @@ export async function GET() {
 
   // F3/E6 + F4/E5: GET solo lectura (sin sync de asignaciones ni cierres en masa).
 
-  const hoy = new Date();
-  hoy.setHours(0, 0, 0, 0);
-  const finHoy = new Date(hoy);
-  finHoy.setHours(23, 59, 59, 999);
+  const ahoraDate = new Date();
+  const rangoHoy = rangoDiaActualEcuador(ahoraDate);
 
   const tecnicoId = session.tecnicoId;
 
@@ -56,7 +57,7 @@ export async function GET() {
       },
     }),
     prisma.ticket.findMany({
-      where: whereTicketActivoEnLista(asignadoAMi),
+      where: whereTicketsTecnicoHoyEcuador(tecnicoId, ahoraDate),
       include: {
         cliente: clienteSelect,
         orden: {
@@ -71,7 +72,7 @@ export async function GET() {
       take: 80,
     }),
     prisma.ticket.findMany({
-      where: whereTicketNoAtendido(asignadoAMi),
+      where: whereTicketNoAtendido(asignadoAMi, ahoraDate),
       include: {
         cliente: clienteSelect,
         orden: {
@@ -89,7 +90,7 @@ export async function GET() {
       where: {
         AND: [
           { estado: { in: ["FINALIZADO", "CERRADO"] } },
-          { updatedAt: { gte: hoy, lte: finHoy } },
+          { updatedAt: { gte: rangoHoy.inicio, lt: rangoHoy.finExclusivo } },
           asignadoAMi,
         ],
       },
@@ -97,7 +98,7 @@ export async function GET() {
   ]);
 
   const programadasHoy = activos.filter(
-    (t) => t.programadoEn && diaKey(t.programadoEn) === diaKey(new Date())
+    (t) => t.programadoEn && diaKey(t.programadoEn) === rangoHoy.fechaLocal
   ).length;
 
   const pendientes = activos.filter(
@@ -172,7 +173,8 @@ export async function GET() {
   return NextResponse.json(
     {
       resumen: {
-        fecha: new Date().toISOString(),
+        fecha: ahoraDate.toISOString(),
+        fechaLocalEcuador: rangoHoy.fechaLocal,
         tecnico: tecnico?.usuario.nombre,
         ubicacion:
           tecnico?.lat && tecnico?.lng ? { lat: tecnico.lat, lng: tecnico.lng } : null,
