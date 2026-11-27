@@ -23,6 +23,7 @@ import type { OrdenPendiente } from "@/components/tecnico/TecnicoOrdenesPendient
 import { TecnicoMiVehiculoResumen } from "@/components/tecnico/TecnicoMiVehiculoResumen";
 import { TecnicoAgenda } from "@/components/TecnicoAgenda";
 import { TecnicoDashboardSkeleton } from "@/components/tecnico/TecnicoDashboardSkeleton";
+import type { ConfirmacionVisitaView } from "@/lib/confirmacion-visita/reglas";
 import { formatDate } from "@/lib/utils";
 import { fetchWithRetry } from "@/lib/compress-image";
 import { useTecnicoGpsTracking } from "@/hooks/useTecnicoGpsTracking";
@@ -58,6 +59,7 @@ interface AgendaTicket {
   estado: string;
   programadoEn: string;
   motivo?: string | null;
+  confirmacionVisita?: ConfirmacionVisitaView | null;
   cliente: {
     nombre: string;
     sector: string;
@@ -255,7 +257,7 @@ export default function TecnicoDashboard() {
           <StatCard label="Finalizadas hoy" value={resumen?.finalizadas ?? 0} color="green" />
         </div>
 
-        <TecnicoAgenda tickets={agenda} proximaOrden={proximaOrden} />
+        <TecnicoAgenda tickets={agenda} proximaOrden={proximaOrden} onUpdated={() => void cargar()} />
 
         <div className="flex items-center gap-2 text-sm text-slate-600 bg-white rounded-xl border p-3">
           <Clock className="w-4 h-4" />

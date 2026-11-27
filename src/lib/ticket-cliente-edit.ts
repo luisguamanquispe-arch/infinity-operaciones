@@ -26,7 +26,8 @@ export type ResultadoCambiosCliente =
 export async function aplicarCambiosClienteTicket(
   ticket: { id: string; clienteId: string; tipo: string },
   cambios: CambiosClienteTicket,
-  usuarioId?: string
+  usuarioId?: string,
+  tx?: { ticket: Pick<typeof prisma.ticket, "update"> }
 ): Promise<ResultadoCambiosCliente> {
   let clienteId = ticket.clienteId;
   let clienteReasignado = false;
@@ -52,7 +53,8 @@ export async function aplicarCambiosClienteTicket(
         error: "No se puede asignar el cliente interno de infraestructura",
       };
     }
-    await prisma.ticket.update({
+    const ticketDb = tx?.ticket ?? prisma.ticket;
+    await ticketDb.update({
       where: { id: ticket.id },
       data: { clienteId: cambios.clienteId },
     });

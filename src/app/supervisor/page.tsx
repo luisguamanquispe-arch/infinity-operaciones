@@ -16,6 +16,8 @@ import { fetchJson } from "@/lib/fetch-json-client";
 import { faseSemaforoTiempo, diasDesdeReferencia } from "@/lib/ticket-antiguedad";
 import { TiempoAtencionCell } from "@/components/TiempoAtencionCell";
 import type { CronometroAtencionView } from "@/lib/cronometro-atencion/estado";
+import { ConfirmacionVisitaBadge } from "@/components/ConfirmacionVisitaBadge";
+import type { ConfirmacionVisitaView } from "@/lib/confirmacion-visita/reglas";
 
 const MapInner = dynamic(() => import("@/components/MapInner"), {
   ssr: false,
@@ -78,6 +80,7 @@ interface DashboardData {
     ultimaActividad?: { descripcion: string; fecha: string } | null;
     cronometroAtencion?: CronometroAtencionView | null;
     puedeIniciarLectura?: boolean;
+    confirmacionVisita?: ConfirmacionVisitaView | null;
     cliente: { nombre: string; sector: string | null };
     tecnicosLabel: string;
     novedadPendiente?: boolean;
@@ -457,6 +460,12 @@ export default function SupervisorDashboard() {
                 ! Novedades pendientes
               </span>
             )}
+            <Link
+              href="/supervisor/confirmaciones"
+              className="ml-auto text-xs font-semibold px-3 py-1.5 rounded-lg bg-infinity-50 text-infinity-700 border border-infinity-200 hover:bg-infinity-100"
+            >
+              Confirmaciones de visita →
+            </Link>
           </h2>
           <p className="text-xs text-slate-500 mb-3">
             Semáforo de estado: amarillo leído · azul en proceso · verde terminado. Semáforo de
@@ -517,6 +526,15 @@ export default function SupervisorDashboard() {
                           )}
                           <span className="font-semibold text-infinity-600">{t.codigo}</span>
                         </div>
+                        {t.confirmacionVisita &&
+                          t.confirmacionVisita.estado !== "HISTORICO_SIN_CONTROL" && (
+                            <div className="mt-1">
+                              <ConfirmacionVisitaBadge
+                                confirmacion={t.confirmacionVisita}
+                                compact
+                              />
+                            </div>
+                          )}
                       </td>
                       <td className="px-2.5 py-2.5 max-w-[11rem] min-w-[8.5rem]">
                         <div className="min-w-0">

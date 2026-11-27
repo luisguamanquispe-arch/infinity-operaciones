@@ -17,6 +17,8 @@ const publicPaths = [
   "/api/cliente/auth/refresh",
   "/satisfaccion",
   "/api/satisfaccion/public",
+  "/confirmar-visita",
+  "/api/confirmacion-visita/public",
 ];
 
 const ROLES_HELP_DESK = ["ADMIN", "SUPERVISOR", "HELP_DESK"];

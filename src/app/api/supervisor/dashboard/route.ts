@@ -11,6 +11,7 @@ import {
   derivarEstadoCronometroAtencion,
   ticketAdmiteCronometroAtencion,
 } from "@/lib/cronometro-atencion/estado";
+import { derivarVistaConfirmacionVisita } from "@/lib/confirmacion-visita/reglas";
 
 export async function GET() {
   const session = await getFullSession();
@@ -66,6 +67,7 @@ export async function GET() {
             tecnico: { include: { usuario: { select: { nombre: true } } } },
           },
         },
+        confirmacionVisita: true,
       },
       // Prioridad enum: ALTA < MEDIA < BAJA → asc = mayor prioridad primero.
       orderBy: [{ prioridad: "asc" }, { updatedAt: "desc" }, { id: "asc" }],
@@ -220,6 +222,7 @@ export async function GET() {
           : null,
         cronometroAtencion: cronAtencion,
         puedeIniciarLectura,
+        confirmacionVisita: derivarVistaConfirmacionVisita(t, t.confirmacionVisita, now),
         cliente: {
           nombre: t.cliente.nombre,
           sector: (t.cliente.sector || "").trim() || null,

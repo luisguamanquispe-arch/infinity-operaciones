@@ -20,6 +20,18 @@ interface BackupMeta {
   restoreConfirmPhrase: string;
 }
 
+interface BackupPreviewAnalisis {
+  formatVersion: number;
+  exportedAt: string;
+  includeMedia: boolean;
+  totalRowsInBackup: number;
+  tablasFaltantes: string[];
+  faltaConfirmacionVisita: boolean;
+  confirmacionesEnBackup: number | null;
+  requiereConfirmacionBackupAntiguo: boolean;
+  advertenciasPreRestauracion: string[];
+}
+
 export default function GerenciaBackupPage() {
   const [meta, setMeta] = useState<BackupMeta | null>(null);
   const [loadingMeta, setLoadingMeta] = useState(true);
@@ -27,6 +39,13 @@ export default function GerenciaBackupPage() {
   const [includeMedia, setIncludeMedia] = useState(true);
   const [file, setFile] = useState<File | null>(null);
   const [confirmPhrase, setConfirmPhrase] = useState("");
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewData, setPreviewData] = useState<{
+    analisis: BackupPreviewAnalisis;
+    confirmacionesActualesEnBd: number;
+  } | null>(null);
+  const [ackReemplazoCompleto, setAckReemplazoCompleto] = useState(false);
+  const [ackBackupAntiguo, setAckBackupAntiguo] = useState(false);
   const [restoring, setRestoring] = useState(false);
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
@@ -88,19 +107,68 @@ export default function GerenciaBackupPage() {
     }
   }
 
-  async function restaurar() {
+  async function prepararRestauracion() {
     if (!file) {
       setErr("Seleccione un archivo .json o .json.gz");
       return;
     }
     if (confirmPhrase !== "RESTAURAR") {
-      setErr('Escriba exactamente RESTAURAR para confirmar');
+      setErr("Escriba exactamente RESTAURAR para confirmar");
       return;
     }
-    const ok = window.confirm(
-      "ADVERTENCIA: Esto BORRARÁ todos los datos actuales de la base y los reemplazará con el backup.\n\n¿Continuar?"
-    );
-    if (!ok) return;
+
+    setPreviewLoading(true);
+    setErr("");
+    setMsg("");
+    setRestoreResult(null);
+    setPreviewData(null);
+    setAckReemplazoCompleto(false);
+    setAckBackupAntiguo(false);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      form.append("preview", "1");
+      const res = await fetch("/api/gerencia/backup/restore?preview=1", {
+        method: "POST",
+        body: form,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "No se pudo inspeccionar el backup");
+      setPreviewData({
+        analisis: data.analisis,
+        confirmacionesActualesEnBd: Number(data.confirmacionesActualesEnBd ?? 0),
+      });
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Error al inspeccionar el archivo");
+    } finally {
+      setPreviewLoading(false);
+    }
+  }
+
+  function cancelarConfirmacion() {
+    setPreviewData(null);
+    setAckReemplazoCompleto(false);
+    setAckBackupAntiguo(false);
+  }
+
+  async function ejecutarRestauracionConfirmada() {
+    if (!file || !previewData) return;
+    if (confirmPhrase !== "RESTAURAR") {
+      setErr("Escriba exactamente RESTAURAR para confirmar");
+      return;
+    }
+    if (!ackReemplazoCompleto) {
+      setErr(
+        "Debe marcar la aceptación explícita de reemplazo completo antes de iniciar la restauración."
+      );
+      return;
+    }
+    if (previewData.analisis.requiereConfirmacionBackupAntiguo && !ackBackupAntiguo) {
+      setErr(
+        "Debe marcar la confirmación explícita de que entiende la eliminación de las confirmaciones de visita actuales."
+      );
+      return;
+    }
 
     setRestoring(true);
     setErr("");
@@ -110,6 +178,10 @@ export default function GerenciaBackupPage() {
       const form = new FormData();
       form.append("file", file);
       form.append("confirmPhrase", confirmPhrase);
+      form.append("confirmarReemplazoCompleto", "true");
+      if (previewData.analisis.requiereConfirmacionBackupAntiguo) {
+        form.append("confirmarBackupAntiguo", "true");
+      }
       const res = await fetch("/api/gerencia/backup/restore", {
         method: "POST",
         body: form,
@@ -124,6 +196,9 @@ export default function GerenciaBackupPage() {
       setMsg(data.mensaje || "Restauración completada");
       setConfirmPhrase("");
       setFile(null);
+      setPreviewData(null);
+      setAckReemplazoCompleto(false);
+      setAckBackupAntiguo(false);
       await cargarMeta();
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Error al restaurar");
@@ -237,13 +312,18 @@ export default function GerenciaBackupPage() {
             Restaurar backup
           </h2>
           <p className="text-xs text-red-700/90">
-            Operación destructiva. Solo use en recuperación ante desastre o migración a una BD
-            nueva vacía/errónea.
+            Operación destructiva de <strong>reemplazo completo</strong> (no combina datos). Solo
+            use en recuperación ante desastre o migración a una BD nueva vacía/errónea.
           </p>
           <input
             type="file"
             accept=".json,.gz,application/gzip,application/json"
-            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+            onChange={(e) => {
+              setFile(e.target.files?.[0] ?? null);
+              setPreviewData(null);
+              setAckReemplazoCompleto(false);
+              setAckBackupAntiguo(false);
+            }}
             className="block w-full text-sm"
           />
           <div>
@@ -259,19 +339,117 @@ export default function GerenciaBackupPage() {
               autoComplete="off"
             />
           </div>
-          <button
-            type="button"
-            onClick={restaurar}
-            disabled={restoring || !file}
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium disabled:opacity-50"
-          >
-            {restoring ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Upload className="w-4 h-4" />
-            )}
-            Restaurar y reemplazar datos
-          </button>
+
+          {!previewData ? (
+            <button
+              type="button"
+              onClick={prepararRestauracion}
+              disabled={previewLoading || restoring || !file}
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium disabled:opacity-50"
+            >
+              {previewLoading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Upload className="w-4 h-4" />
+              )}
+              Revisar backup antes de restaurar
+            </button>
+          ) : (
+            <div className="rounded-xl border-2 border-red-300 bg-red-50/70 p-4 space-y-3 text-sm">
+              <div className="flex items-start gap-2 text-red-900">
+                <ShieldAlert className="w-5 h-5 shrink-0 text-red-700 mt-0.5" />
+                <div className="space-y-1">
+                  <p className="font-semibold">
+                    Confirmación obligatoria antes de reemplazar la base de datos
+                  </p>
+                  <p className="text-xs text-red-900/90">
+                    Fecha del backup:{" "}
+                    <span className="font-mono">{previewData.analisis.exportedAt || "N/D"}</span> ·
+                    Filas en backup:{" "}
+                    <span className="font-semibold">{previewData.analisis.totalRowsInBackup}</span>{" "}
+                    · Confirmaciones actuales en BD:{" "}
+                    <span className="font-semibold">{previewData.confirmacionesActualesEnBd}</span>
+                  </p>
+                </div>
+              </div>
+
+              <ul className="list-disc pl-5 text-xs text-red-950 space-y-1">
+                {previewData.analisis.advertenciasPreRestauracion.map((adv) => (
+                  <li key={adv}>{adv}</li>
+                ))}
+              </ul>
+
+              <label className="flex items-start gap-2 rounded-lg border border-red-200 bg-white p-3 text-xs text-red-950 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={ackReemplazoCompleto}
+                  onChange={(e) => setAckReemplazoCompleto(e.target.checked)}
+                  className="mt-0.5 rounded"
+                />
+                <span>
+                  {previewData.analisis.confirmacionesEnBackup === 0 ? (
+                    <>
+                      Entiendo que esta operación es un <strong>reemplazo completo</strong> (no
+                      combina datos) y que la tabla <code>TicketConfirmacionVisita</code> del backup
+                      está vacía (<strong>0 registros</strong>), por lo que las confirmaciones
+                      actuales ({previewData.confirmacionesActualesEnBd}) serán eliminadas y
+                      reemplazadas por cero registros.
+                    </>
+                  ) : (
+                    <>
+                      Entiendo que esta operación es un <strong>reemplazo completo</strong> (no
+                      combina datos) y autorizo borrar los datos actuales de la base para
+                      reemplazarlos según el contenido de este backup.
+                    </>
+                  )}
+                </span>
+              </label>
+
+              {previewData.analisis.requiereConfirmacionBackupAntiguo && (
+                <label className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-950 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={ackBackupAntiguo}
+                    onChange={(e) => setAckBackupAntiguo(e.target.checked)}
+                    className="mt-0.5 rounded"
+                  />
+                  <span>
+                    Entiendo que este backup es antiguo y <strong>no contiene confirmaciones de visita</strong>;
+                    autorizo eliminar las confirmaciones actuales ({previewData.confirmacionesActualesEnBd}) y
+                    acepto que los enlaces de confirmación vigentes dejarán de funcionar.
+                  </span>
+                </label>
+              )}
+
+              <div className="flex flex-wrap gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={cancelarConfirmacion}
+                  disabled={restoring}
+                  className="px-4 py-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-800 text-xs font-medium"
+                >
+                  Cancelar (no modificar datos)
+                </button>
+                <button
+                  type="button"
+                  onClick={ejecutarRestauracionConfirmada}
+                  disabled={
+                    restoring ||
+                    !ackReemplazoCompleto ||
+                    (previewData.analisis.requiereConfirmacionBackupAntiguo && !ackBackupAntiguo)
+                  }
+                  className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-red-700 hover:bg-red-800 text-white rounded-lg text-xs font-semibold disabled:opacity-50"
+                >
+                  {restoring ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Upload className="w-4 h-4" />
+                  )}
+                  Confirmar y reemplazar datos ahora
+                </button>
+              </div>
+            </div>
+          )}
 
           {restoreResult && (
             <div className="rounded-lg bg-slate-50 border p-3 text-xs space-y-2">

@@ -1,5 +1,9 @@
 import { prisma } from "@/lib/prisma";
 import { generarCodigoTicket, slaHorasPorPrioridad } from "@/lib/tickets";
+import {
+  asegurarSolicitudConfirmacionVisita,
+  type ConfirmacionVisitaDbLike,
+} from "@/lib/confirmacion-visita/servicio";
 import type { ClienteSession } from "./auth";
 
 export const CATEGORIAS_SOPORTE_CLIENTE = [
@@ -77,32 +81,44 @@ export async function crearTicketCliente(opts: {
   const slaHoras = slaHorasPorPrioridad("MEDIA");
   const slaVenceEn = new Date(Date.now() + slaHoras * 60 * 60 * 1000);
 
-  const ticket = await prisma.ticket.create({
-    data: {
-      codigo,
-      clienteId: opts.session.clienteId,
-      tipo: "SOPORTE",
-      prioridad: "MEDIA",
-      estado: "PENDIENTE",
-      motivo: cat.label,
-      descripcion: desc,
-      slaHoras,
-      slaVenceEn,
-    },
-  });
+  const ticket = await prisma.$transaction(async (tx) => {
+    const created = await tx.ticket.create({
+      data: {
+        codigo,
+        clienteId: opts.session.clienteId,
+        tipo: "SOPORTE",
+        prioridad: "MEDIA",
+        estado: "PENDIENTE",
+        motivo: cat.label,
+        descripcion: desc,
+        slaHoras,
+        slaVenceEn,
+      },
+    });
 
-  await prisma.eventoTicket.create({
-    data: {
-      ticketId: ticket.id,
+    await asegurarSolicitudConfirmacionVisita({
+      ticketId: created.id,
+      programadoEn: created.programadoEn,
+      tipo: created.tipo,
       usuarioId: opts.session.id,
-      accion: "TICKET_CREADO_APP_CLIENTE",
-      metadata: JSON.stringify({
-        origen: "infinity_connect",
-        categoria: opts.categoria,
-        lat: opts.lat ?? null,
-        lng: opts.lng ?? null,
-      }),
-    },
+      db: tx as unknown as ConfirmacionVisitaDbLike,
+    });
+
+    await tx.eventoTicket.create({
+      data: {
+        ticketId: created.id,
+        usuarioId: opts.session.id,
+        accion: "TICKET_CREADO_APP_CLIENTE",
+        metadata: JSON.stringify({
+          origen: "infinity_connect",
+          categoria: opts.categoria,
+          lat: opts.lat ?? null,
+          lng: opts.lng ?? null,
+        }),
+      },
+    });
+
+    return created;
   });
 
   return ticket;

@@ -3,6 +3,10 @@ import { prisma } from "@/lib/prisma";
 import { getFullSession } from "@/lib/auth";
 import { cuposDisponibles, diaKey, parseProgramadoEn } from "@/lib/calendario";
 import {
+  invalidarConfirmacionPorCambioHorario,
+  type ConfirmacionVisitaDbLike,
+} from "@/lib/confirmacion-visita/servicio";
+import {
   asignarTecnicosTicket,
   notificarTecnicosNuevos,
   tecnicoIdsFromTicket,
@@ -216,7 +220,23 @@ export async function PATCH(request: Request) {
   }
 
   if (Object.keys(updateData).length > 0) {
-    await prisma.ticket.update({ where: { id: ticketId }, data: updateData });
+    await prisma.$transaction(async (tx) => {
+      const prev = await tx.ticket.findUnique({
+        where: { id: ticketId },
+        select: { tipo: true, programadoEn: true },
+      });
+      await tx.ticket.update({ where: { id: ticketId }, data: updateData });
+      if (updateData.programadoEn !== undefined && prev) {
+        await invalidarConfirmacionPorCambioHorario({
+          ticketId,
+          tipo: prev.tipo,
+          programadoEnAnterior: prev.programadoEn,
+          programadoEnNuevo: updateData.programadoEn as Date | null,
+          usuarioId: session.id,
+          db: tx as unknown as ConfirmacionVisitaDbLike,
+        });
+      }
+    });
   }
 
   let idsNuevos = idsAnteriores;

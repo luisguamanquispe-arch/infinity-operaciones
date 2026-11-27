@@ -23,6 +23,8 @@ import { useTecnicoGpsTracking } from "@/hooks/useTecnicoGpsTracking";
 import { TicketSemaforo } from "@/components/TicketSemaforo";
 import { TiempoAtencionCell } from "@/components/TiempoAtencionCell";
 import type { CronometroAtencionView } from "@/lib/cronometro-atencion/estado";
+import { ConfirmacionVisitaBadge } from "@/components/ConfirmacionVisitaBadge";
+import type { ConfirmacionVisitaView } from "@/lib/confirmacion-visita/reglas";
 import {
   agruparInventarioCliente,
   etiquetasDetalleMaterial,
@@ -219,6 +221,7 @@ interface OrdenData {
   duracionSegundos: number;
   serverNow?: string;
   cronometroAtencion?: CronometroAtencionView | null;
+  confirmacionVisita?: ConfirmacionVisitaView | null;
   inventario: { id: string; nombre: string; unidad: string; stock: number; tipo: TipoInventario }[];
   reporte?: {
     multiTecnico: boolean;
@@ -296,6 +299,8 @@ export default function OrdenPage() {
   const [nuevoComentario, setNuevoComentario] = useState("");
   const [enviandoComentario, setEnviandoComentario] = useState(false);
   const [showJustificacion, setShowJustificacion] = useState(false);
+  const [enCaminoLoading, setEnCaminoLoading] = useState(false);
+  const [enCaminoError, setEnCaminoError] = useState("");
 
   const aplicarDatosFormulario = useCallback((d: OrdenData) => {
     if (d.orden.medicion) {
@@ -869,6 +874,101 @@ export default function OrdenPage() {
       </header>
 
       <main className="max-w-3xl mx-auto p-4 space-y-4">
+        {!esInfra && data.confirmacionVisita && data.confirmacionVisita.estado !== "HISTORICO_SIN_CONTROL" && (
+          <section
+            className={`rounded-xl border p-4 space-y-2 ${
+              data.confirmacionVisita.puedeIniciarDesplazamiento
+                ? "bg-emerald-50/70 border-emerald-200"
+                : "bg-amber-50 border-amber-300"
+            }`}
+          >
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="space-y-0.5">
+                <h2 className="text-sm font-semibold text-slate-900">
+                  Disponibilidad del cliente
+                </h2>
+                {ticket.programadoEn && (
+                  <p className="text-xs text-slate-600">
+                    Programado: <strong>{formatDateTime(ticket.programadoEn)}</strong>
+                  </p>
+                )}
+              </div>
+              <ConfirmacionVisitaBadge confirmacion={data.confirmacionVisita} />
+            </div>
+
+            {data.confirmacionVisita.estado === "CONFIRMADO" && (
+              <div className="text-xs text-emerald-900 space-y-0.5">
+                {data.confirmacionVisita.personaRecibe && (
+                  <p>
+                    Persona que recibirá al técnico:{" "}
+                    <strong>{data.confirmacionVisita.personaRecibe}</strong>
+                  </p>
+                )}
+                {data.confirmacionVisita.confirmadoEn && (
+                  <p>
+                    Confirmado el:{" "}
+                    <strong>{formatDateTime(data.confirmacionVisita.confirmadoEn)}</strong>
+                  </p>
+                )}
+              </div>
+            )}
+
+            {!data.confirmacionVisita.puedeIniciarDesplazamiento && (
+              <p className="text-xs font-medium text-amber-900">
+                {data.confirmacionVisita.motivoBloqueo ||
+                  "No iniciar desplazamiento hasta contar con confirmación válida."}
+              </p>
+            )}
+
+            {data.confirmacionVisita.enCaminoEn && (
+              <p className="text-xs font-semibold text-indigo-800">
+                Desplazamiento iniciado el {formatDateTime(data.confirmacionVisita.enCaminoEn)}
+              </p>
+            )}
+
+            {data.confirmacionVisita.puedeIniciarDesplazamiento &&
+              !data.confirmacionVisita.enCaminoEn &&
+              !cerrado &&
+              puedeEditar && (
+                <div className="pt-1">
+                  <button
+                    type="button"
+                    disabled={enCaminoLoading}
+                    onClick={async () => {
+                      setEnCaminoLoading(true);
+                      setEnCaminoError("");
+                      try {
+                        const res = await fetch(`/api/tickets/${ticket.id}/en-camino`, {
+                          method: "POST",
+                        });
+                        const json = await res.json().catch(() => ({}));
+                        if (!res.ok) {
+                          setEnCaminoError(
+                            json.error || "No autorizado para iniciar desplazamiento."
+                          );
+                        } else if (json.confirmacionVisita) {
+                          setData((prev) =>
+                            prev
+                              ? { ...prev, confirmacionVisita: json.confirmacionVisita }
+                              : prev
+                          );
+                        }
+                      } catch {
+                        setEnCaminoError("Error de conexión al registrar EN CAMINO.");
+                      } finally {
+                        setEnCaminoLoading(false);
+                      }
+                    }}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 disabled:opacity-50"
+                  >
+                    {enCaminoLoading ? "Registrando…" : "EN CAMINO"}
+                  </button>
+                </div>
+              )}
+            {enCaminoError && <p className="text-xs text-red-700">{enCaminoError}</p>}
+          </section>
+        )}
+
         {!esInfra && data.cronometroAtencion && (
           <section className="rounded-xl border border-slate-200 bg-white p-4 flex flex-wrap items-center justify-between gap-3">
             <div>

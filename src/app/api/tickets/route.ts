@@ -36,6 +36,10 @@ import {
   validarMotivoEstructurado,
 } from "@/lib/motivo-tecnico/validacion";
 import { activarRiesgoBaja } from "@/lib/motivo-tecnico/riesgo-baja";
+import {
+  asegurarSolicitudConfirmacionVisita,
+  type ConfirmacionVisitaDbLike,
+} from "@/lib/confirmacion-visita/servicio";
 
 const TIPOS_VALIDOS: TipoTrabajo[] = [
   "INSTALACION",
@@ -448,6 +452,16 @@ export async function POST(request: Request) {
         db: tx,
       });
     }
+
+    // Confirmación de visita: siempre atómica en creación (incluso si programadoEn es null),
+    // para que ningún ticket nuevo que requiera presencia quede sin control (fail-closed).
+    await asegurarSolicitudConfirmacionVisita({
+      ticketId: created.id,
+      programadoEn: created.programadoEn,
+      tipo: created.tipo,
+      usuarioId: session.id,
+      db: tx as unknown as ConfirmacionVisitaDbLike,
+    });
 
     return created;
   });

@@ -206,6 +206,9 @@ model Usuario {
   gestionesRiesgoBaja        TicketGestionRiesgoBaja[]
   cronometrosAtencionIniciados   TicketCronometroAtencion[] @relation("CronometroAtencionIniciadoPor")
   cronometrosAtencionFinalizados TicketCronometroAtencion[] @relation("CronometroAtencionFinalizadoPor")
+  confirmacionesVisitaManuales   TicketConfirmacionVisita[] @relation("ConfirmacionVisitaPorUsuario")
+  confirmacionesVisitaExentas    TicketConfirmacionVisita[] @relation("ConfirmacionVisitaExentoPor")
+  desplazamientosIniciados       TicketConfirmacionVisita[] @relation("ConfirmacionVisitaEnCaminoUsuario")
 }
 
 model Tecnico {
@@ -238,6 +241,7 @@ model Tecnico {
   pushSubscriptions       TecnicoPushSubscription[]
   cronometrosAtencion            TicketCronometroAtencion[] @relation("CronometroAtencionTecnico")
   cronometrosAtencionFinalizados TicketCronometroAtencion[] @relation("CronometroAtencionFinalizadoPorTecnico")
+  desplazamientosVisita          TicketConfirmacionVisita[] @relation("ConfirmacionVisitaEnCaminoTecnico")
 }
 
 model Cliente {
@@ -413,6 +417,7 @@ model Ticket {
   notificacionesTarea     NotificacionTecnico[]
   gestionesRiesgoBaja     TicketGestionRiesgoBaja[]
   cronometroAtencion      TicketCronometroAtencion?
+  confirmacionVisita      TicketConfirmacionVisita?
   clienteRiesgoBajaActivadoPor Usuario? @relation("TicketRiesgoBajaActivadoPor", fields: [clienteRiesgoBajaActivadoPorId], references: [id], onDelete: SetNull)
   clienteRiesgoBajaResueltoPor Usuario? @relation("TicketRiesgoBajaResueltoPor", fields: [clienteRiesgoBajaResueltoPorId], references: [id], onDelete: SetNull)
 
@@ -460,6 +465,58 @@ model TicketCronometroAtencion {
 
   @@index([tecnicoId, iniciadoEn])
   @@index([finalizadoEn])
+}
+
+enum EstadoConfirmacionVisita {
+  PENDIENTE_CONFIRMACION
+  CONFIRMADO
+  SOLICITA_REPROGRAMACION
+  NO_DISPONIBLE
+  SIN_RESPUESTA
+  CANCELADO
+  EXENTO
+}
+
+/// Confirmación de disponibilidad del cliente antes del desplazamiento técnico.
+model TicketConfirmacionVisita {
+  id                     String                   @id @default(cuid())
+  ticketId               String                   @unique
+  estado                 EstadoConfirmacionVisita @default(PENDIENTE_CONFIRMACION)
+  requierePresencia      Boolean                  @default(true)
+  exentoMotivo           String?                  @db.Text
+  exentoPorUsuarioId     String?
+  exentoEn               DateTime?
+  token                  String?                  @unique
+  tokenExpiraEn          DateTime?
+  tokenRevocadoEn        DateTime?
+  programadoEnConfirmado DateTime?
+  confirmadoEn           DateTime?
+  confirmadoPorCanal     String?
+  confirmadoPorUsuarioId String?
+  confirmadoPorNombre    String?
+  personaRecibe          String?
+  horarioSolicitado      String?
+  observacionCliente     String?                  @db.Text
+  respondidoEn           DateTime?
+  enCaminoEn             DateTime?
+  enCaminoPorTecnicoId   String?
+  enCaminoPorUsuarioId   String?
+  ultimoEnvioEn          DateTime?
+  ultimoEnvioCanal       String?
+  ultimoEnvioEstado      String?
+  enviosCount            Int                      @default(0)
+  createdAt              DateTime                 @default(now())
+  updatedAt              DateTime                 @updatedAt
+
+  ticket             Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  confirmadoPor      Usuario? @relation("ConfirmacionVisitaPorUsuario", fields: [confirmadoPorUsuarioId], references: [id], onDelete: SetNull)
+  exentoPor          Usuario? @relation("ConfirmacionVisitaExentoPor", fields: [exentoPorUsuarioId], references: [id], onDelete: SetNull)
+  enCaminoPorTecnico Tecnico? @relation("ConfirmacionVisitaEnCaminoTecnico", fields: [enCaminoPorTecnicoId], references: [id], onDelete: SetNull)
+  enCaminoPorUsuario Usuario? @relation("ConfirmacionVisitaEnCaminoUsuario", fields: [enCaminoPorUsuarioId], references: [id], onDelete: SetNull)
+
+  @@index([estado])
+  @@index([tokenExpiraEn])
+  @@index([programadoEnConfirmado])
 }
 
 /// Cierre con justificación técnica (trabajo no ejecutado); requiere aprobación del supervisor.

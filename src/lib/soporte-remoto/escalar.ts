@@ -1,6 +1,10 @@
 import { prisma } from "@/lib/prisma";
 import { generarCodigoTicket, slaHorasPorPrioridad } from "@/lib/tickets";
 import {
+  asegurarSolicitudConfirmacionVisita,
+  type ConfirmacionVisitaDbLike,
+} from "@/lib/confirmacion-visita/servicio";
+import {
   SR_TIPO_SOPORTE_LABELS,
   type SrResultado,
 } from "./labels";
@@ -50,21 +54,6 @@ export async function escalarSrTicketAPresencial(opts: {
 
   const slaHoras = slaHorasPorPrioridad(sr.prioridad);
   const codigo = await generarCodigoTicket("SOPORTE");
-
-  const ticket = await prisma.ticket.create({
-    data: {
-      codigo,
-      clienteId: sr.clienteId,
-      tipo: "SOPORTE",
-      prioridad: sr.prioridad,
-      estado: "PENDIENTE",
-      motivo: `Soporte Remoto ${sr.codigo}: ${tipoLabel}`,
-      descripcion,
-      slaHoras,
-      slaVenceEn: new Date(Date.now() + slaHoras * 60 * 60 * 1000),
-    },
-  });
-
   const horaFin = sr.horaFin || new Date();
   const tiempoMinutos =
     sr.tiempoMinutos ??
@@ -72,13 +61,35 @@ export async function escalarSrTicketAPresencial(opts: {
       ? Math.max(0, Math.round((horaFin.getTime() - sr.horaInicio.getTime()) / 60000))
       : null);
 
-  await prisma.$transaction([
-    prisma.srTicket.update({
+  const ticket = await prisma.$transaction(async (tx) => {
+    const created = await tx.ticket.create({
+      data: {
+        codigo,
+        clienteId: sr.clienteId!,
+        tipo: "SOPORTE",
+        prioridad: sr.prioridad,
+        estado: "PENDIENTE",
+        motivo: `Soporte Remoto ${sr.codigo}: ${tipoLabel}`,
+        descripcion,
+        slaHoras,
+        slaVenceEn: new Date(Date.now() + slaHoras * 60 * 60 * 1000),
+      },
+    });
+
+    await asegurarSolicitudConfirmacionVisita({
+      ticketId: created.id,
+      programadoEn: created.programadoEn,
+      tipo: created.tipo,
+      usuarioId: opts.usuarioId,
+      db: tx as unknown as ConfirmacionVisitaDbLike,
+    });
+
+    await tx.srTicket.update({
       where: { id: sr.id },
       data: {
         estado: "ESCALADO",
         resultado,
-        ticketPresencialId: ticket.id,
+        ticketPresencialId: created.id,
         horaFin,
         tiempoMinutos,
         historial: {
@@ -93,10 +104,11 @@ export async function escalarSrTicketAPresencial(opts: {
           },
         },
       },
-    }),
-    prisma.eventoTicket.create({
+    });
+
+    await tx.eventoTicket.create({
       data: {
-        ticketId: ticket.id,
+        ticketId: created.id,
         usuarioId: opts.usuarioId,
         accion: "ESCALADO_DESDE_SOPORTE_REMOTO",
         metadata: JSON.stringify({
@@ -105,8 +117,10 @@ export async function escalarSrTicketAPresencial(opts: {
           resultado,
         }),
       },
-    }),
-  ]);
+    });
+
+    return created;
+  });
 
   return { ticket, codigo, srTicketId: sr.id };
 }

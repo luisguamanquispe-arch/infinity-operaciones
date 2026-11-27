@@ -1,5 +1,9 @@
 import { prisma } from "./prisma";
 import { parseProgramadoEn } from "./calendario";
+import {
+  invalidarConfirmacionPorCambioHorario,
+  type ConfirmacionVisitaDbLike,
+} from "./confirmacion-visita/servicio";
 import { getOrCreateOrden } from "./tickets";
 import { notificarTecnicosNuevos, tecnicoIdsFromTicket, ticketIncludeTecnicos } from "./ticket-tecnicos";
 import type { EstadoNovedadTicket, TipoNovedadTicket } from "@prisma/client";
@@ -187,6 +191,11 @@ export async function resolverNovedadTicket(opts: {
     throw new Error("Fecha de reprogramación inválida");
   }
   await prisma.$transaction(async (tx) => {
+    const ticketActual = await tx.ticket.findUnique({
+      where: { id: novedad.ticketId },
+      select: { tipo: true, programadoEn: true },
+    });
+
     await tx.novedadTicket.update({
       where: { id: opts.novedadId },
       data: {
@@ -217,6 +226,17 @@ export async function resolverNovedadTicket(opts: {
       include: { tecnicos: { select: { tecnicoId: true } }, cliente: true },
     });
 
+    // Comparación contra el horario real inmediatamente anterior del ticket (no contra novedad.programadoEnAnterior)
+    // y ejecución atómica dentro de la misma transacción.
+    await invalidarConfirmacionPorCambioHorario({
+      ticketId: novedad.ticketId,
+      tipo: ticketActual?.tipo ?? ticket.tipo,
+      programadoEnAnterior: ticketActual?.programadoEn ?? null,
+      programadoEnNuevo: nuevaFecha,
+      usuarioId: opts.usuarioId,
+      db: tx as unknown as ConfirmacionVisitaDbLike,
+    });
+
     await tx.eventoTicket.create({
       data: {
         ticketId: novedad.ticketId,
@@ -224,7 +244,7 @@ export async function resolverNovedadTicket(opts: {
         accion: "NOVEDAD_REPROGRAMADA",
         metadata: JSON.stringify({
           novedadId: novedad.id,
-          programadoEnAnterior: novedad.programadoEnAnterior?.toISOString(),
+          programadoEnAnterior: ticketActual?.programadoEn?.toISOString() ?? null,
           programadoEnNuevo: nuevaFecha.toISOString(),
           nota: opts.notaSupervisor,
         }),

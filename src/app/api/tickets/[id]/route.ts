@@ -40,6 +40,11 @@ import {
   derivarEstadoCronometroAtencion,
   ticketAdmiteCronometroAtencion,
 } from "@/lib/cronometro-atencion/estado";
+import { derivarVistaConfirmacionVisita } from "@/lib/confirmacion-visita/reglas";
+import {
+  sincronizarConfirmacionPorCambioTicket,
+  type ConfirmacionVisitaDbLike,
+} from "@/lib/confirmacion-visita/servicio";
 
 export async function GET(
   _request: Request,
@@ -60,6 +65,7 @@ export async function GET(
           tecnico: { include: { usuario: { select: { nombre: true } } } },
         },
       },
+      confirmacionVisita: true,
       orden: {
         include: {
           cronometro: true,
@@ -106,6 +112,7 @@ export async function GET(
             tecnico: { include: { usuario: { select: { nombre: true } } } },
           },
         },
+        confirmacionVisita: true,
         orden: {
           include: {
             cronometro: true,
@@ -230,6 +237,17 @@ export async function GET(
       )
     : null;
 
+  const confirmacionVisita = derivarVistaConfirmacionVisita(
+    {
+      tipo: ticketData.tipo,
+      estado: ticketData.estado,
+      programadoEn: ticketData.programadoEn,
+      createdAt: ticketData.createdAt,
+    },
+    ticketData.confirmacionVisita,
+    nowTicket
+  );
+
   return NextResponse.json({
     serverNow: nowTicket.toISOString(),
     ticket: {
@@ -248,6 +266,7 @@ export async function GET(
     orden: ordenConFotos,
     duracionSegundos,
     cronometroAtencion,
+    confirmacionVisita,
     inventario,
     reporte,
     esResponsableInfra:
@@ -482,34 +501,97 @@ export async function PATCH(
     }
   }
 
-  let resultadoCliente:
-    | { clienteId: string; nombreActualizado: boolean; clienteReasignado: boolean }
-    | null = null;
-
-  if (solicitaCambioCliente) {
-    const resCliente = await aplicarCambiosClienteTicket(ticket, cambiosCliente, session.id);
-    if (!resCliente.ok) {
-      return NextResponse.json({ error: resCliente.error }, { status: resCliente.status });
-    }
-    if (resCliente.clienteReasignado || resCliente.nombreActualizado) {
-      resultadoCliente = {
-        clienteId: resCliente.clienteId,
-        nombreActualizado: resCliente.nombreActualizado,
-        clienteReasignado: resCliente.clienteReasignado,
-      };
+  class ErrorValidacionCliente extends Error {
+    status: number;
+    constructor(status: number, message: string) {
+      super(message);
+      this.status = status;
     }
   }
 
-  if (
-    Object.keys(updateData).length === 0 &&
-    tecnicoIdsInput === undefined &&
-    !resultadoCliente
-  ) {
-    return NextResponse.json({ error: "Sin cambios" }, { status: 400 });
-  }
+  type ResultadoClienteEdit = {
+    clienteId: string;
+    nombreActualizado: boolean;
+    clienteReasignado: boolean;
+  };
+  let resultadoCliente: ResultadoClienteEdit | null = null;
 
-  if (Object.keys(updateData).length > 0) {
-    await prisma.ticket.update({ where: { id }, data: updateData });
+  try {
+    resultadoCliente = await prisma.$transaction(async (tx): Promise<ResultadoClienteEdit | null> => {
+      // D-3a: leer estado real del ticket dentro de la transacción inmediatamente antes de actualizar
+      const prevTx = await tx.ticket.findUnique({
+        where: { id },
+        select: { id: true, tipo: true, programadoEn: true, clienteId: true },
+      });
+      if (!prevTx) {
+        throw new ErrorValidacionCliente(404, "Ticket no encontrado");
+      }
+
+      let resClienteTx: ResultadoClienteEdit | null = null;
+      if (solicitaCambioCliente) {
+        const resCliente = await aplicarCambiosClienteTicket(
+          prevTx,
+          cambiosCliente,
+          session.id,
+          tx
+        );
+        if (!resCliente.ok) {
+          throw new ErrorValidacionCliente(resCliente.status, resCliente.error);
+        }
+        if (resCliente.clienteReasignado || resCliente.nombreActualizado) {
+          resClienteTx = {
+            clienteId: resCliente.clienteId,
+            nombreActualizado: resCliente.nombreActualizado,
+            clienteReasignado: resCliente.clienteReasignado,
+          };
+        }
+      }
+
+      if (
+        Object.keys(updateData).length === 0 &&
+        tecnicoIdsInput === undefined &&
+        !resClienteTx
+      ) {
+        throw new ErrorValidacionCliente(400, "Sin cambios");
+      }
+
+      if (Object.keys(updateData).length > 0) {
+        await tx.ticket.update({ where: { id }, data: updateData });
+      }
+
+      const tipoNuevoTx =
+        typeof updateData.tipo === "string" ? (updateData.tipo as string) : prevTx.tipo;
+      const programadoEnNuevo =
+        updateData.programadoEn !== undefined
+          ? (updateData.programadoEn as Date | null)
+          : prevTx.programadoEn;
+      const clienteIdNuevo = resClienteTx?.clienteId ?? prevTx.clienteId;
+
+      if (
+        updateData.programadoEn !== undefined ||
+        tipoNuevoTx !== prevTx.tipo ||
+        clienteIdNuevo !== prevTx.clienteId
+      ) {
+        await sincronizarConfirmacionPorCambioTicket({
+          ticketId: id,
+          tipoAnterior: prevTx.tipo,
+          tipoNuevo: tipoNuevoTx,
+          programadoEnAnterior: prevTx.programadoEn,
+          programadoEnNuevo,
+          clienteIdAnterior: prevTx.clienteId,
+          clienteIdNuevo,
+          usuarioId: session.id,
+          db: tx as unknown as ConfirmacionVisitaDbLike,
+        });
+      }
+
+      return resClienteTx;
+    });
+  } catch (e) {
+    if (e instanceof ErrorValidacionCliente) {
+      return NextResponse.json({ error: e.message }, { status: e.status });
+    }
+    throw e;
   }
 
   let idsNuevos = idsAnteriores;

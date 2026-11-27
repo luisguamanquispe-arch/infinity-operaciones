@@ -3,6 +3,10 @@ import { prisma } from "@/lib/prisma";
 import { getFullSession } from "@/lib/auth";
 import { parseProgramadoEn } from "@/lib/calendario";
 import {
+  invalidarConfirmacionPorCambioHorario,
+  type ConfirmacionVisitaDbLike,
+} from "@/lib/confirmacion-visita/servicio";
+import {
   asignarTecnicosTicket,
   nombresTecnicosTicket,
   notificarTecnicosNuevos,
@@ -155,13 +159,29 @@ export async function PATCH(request: Request) {
 
   const idsAnteriores = tecnicoIdsFromTicket(ticket);
 
-  await prisma.ticket.update({
-    where: { id: ticketId },
-    data: {
-      programadoEn,
-      // Reinicia atención operativa para que el técnico lo vea como pendiente.
-      estado: ticket.estado === "EN_PROCESO" ? "EN_PROCESO" : "PENDIENTE",
-    },
+  await prisma.$transaction(async (tx) => {
+    const prev = await tx.ticket.findUnique({
+      where: { id: ticketId },
+      select: { tipo: true, programadoEn: true, estado: true },
+    });
+    await tx.ticket.update({
+      where: { id: ticketId },
+      data: {
+        programadoEn,
+        // Reinicia atención operativa para que el técnico lo vea como pendiente.
+        estado: (prev?.estado ?? ticket.estado) === "EN_PROCESO" ? "EN_PROCESO" : "PENDIENTE",
+      },
+    });
+    if (prev) {
+      await invalidarConfirmacionPorCambioHorario({
+        ticketId,
+        tipo: prev.tipo,
+        programadoEnAnterior: prev.programadoEn,
+        programadoEnNuevo: programadoEn,
+        usuarioId: session.id,
+        db: tx as unknown as ConfirmacionVisitaDbLike,
+      });
+    }
   });
 
   let idsNuevos = idsAnteriores;

@@ -11,6 +11,7 @@ import {
   rangoDiaActualEcuador,
   whereTicketsTecnicoHoyEcuador,
 } from "@/lib/tecnico-fecha-hoy";
+import { derivarVistaConfirmacionVisita } from "@/lib/confirmacion-visita/reglas";
 
 export const runtime = "nodejs";
 
@@ -60,6 +61,7 @@ export async function GET() {
       where: whereTicketsTecnicoHoyEcuador(tecnicoId, ahoraDate),
       include: {
         cliente: clienteSelect,
+        confirmacionVisita: true,
         orden: {
           select: {
             cronometro: {
@@ -75,6 +77,7 @@ export async function GET() {
       where: whereTicketNoAtendido(asignadoAMi, ahoraDate),
       include: {
         cliente: clienteSelect,
+        confirmacionVisita: true,
         orden: {
           select: {
             cronometro: {
@@ -112,13 +115,22 @@ export async function GET() {
 
   const ahora = Date.now();
   const proxima =
-    agendaRaw.find(
-      (t) =>
+    agendaRaw.find((t) => {
+      const conf = derivarVistaConfirmacionVisita(t, t.confirmacionVisita, ahoraDate);
+      return (
+        conf.puedeIniciarDesplazamiento &&
         (t.estado === "PENDIENTE" || t.estado === "LEIDO") &&
         t.programadoEn!.getTime() >= ahora - 15 * 60 * 1000
-    ) ??
-    agendaRaw.find((t) => t.estado === "PENDIENTE" || t.estado === "LEIDO") ??
-    agendaRaw.find((t) => t.estado === "EN_PROCESO") ??
+      );
+    }) ??
+    agendaRaw.find((t) => {
+      const conf = derivarVistaConfirmacionVisita(t, t.confirmacionVisita, ahoraDate);
+      return conf.puedeIniciarDesplazamiento && (t.estado === "PENDIENTE" || t.estado === "LEIDO");
+    }) ??
+    agendaRaw.find((t) => {
+      const conf = derivarVistaConfirmacionVisita(t, t.confirmacionVisita, ahoraDate);
+      return conf.puedeIniciarDesplazamiento && t.estado === "EN_PROCESO";
+    }) ??
     null;
 
   const serializeTicket = (t: (typeof activos)[0]) => ({
@@ -130,6 +142,7 @@ export async function GET() {
     motivo: t.motivo,
     programadoEn: t.programadoEn?.toISOString() ?? null,
     cliente: t.cliente,
+    confirmacionVisita: derivarVistaConfirmacionVisita(t, t.confirmacionVisita, ahoraDate),
     duracionSegundos: t.orden?.cronometro
       ? calcularDuracionCronometro(
           t.orden.cronometro.inicio,
@@ -147,6 +160,7 @@ export async function GET() {
     estado: t.estado,
     motivo: t.motivo,
     programadoEn: t.programadoEn!.toISOString(),
+    confirmacionVisita: derivarVistaConfirmacionVisita(t, t.confirmacionVisita, ahoraDate),
     cliente: {
       nombre: t.cliente.nombre,
       sector: t.cliente.sector,

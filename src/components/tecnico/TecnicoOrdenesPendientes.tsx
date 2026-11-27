@@ -4,6 +4,8 @@ import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { PRIORIDAD_LABELS, TIPO_LABELS, formatDateTime } from "@/lib/utils";
 import { TicketSemaforo } from "@/components/TicketSemaforo";
+import { ConfirmacionVisitaBadge } from "@/components/ConfirmacionVisitaBadge";
+import type { ConfirmacionVisitaView } from "@/lib/confirmacion-visita/reglas";
 
 export interface OrdenPendiente {
   id: string;
@@ -14,6 +16,7 @@ export interface OrdenPendiente {
   programadoEn?: string | null;
   cliente: { nombre: string; sector: string };
   diasSinAtencion?: number;
+  confirmacionVisita?: ConfirmacionVisitaView | null;
 }
 
 interface Props {
@@ -63,6 +66,15 @@ export function TecnicoOrdenesPendientes({ ordenes, emptyLabel }: Props) {
                   <td className="p-3">
                     <span className="text-infinity-600 font-semibold">{t.codigo}</span>
                     <p className="text-xs text-slate-400 sm:hidden">{TIPO_LABELS[t.tipo]}</p>
+                    {t.confirmacionVisita &&
+                      t.confirmacionVisita.estado !== "HISTORICO_SIN_CONTROL" && (
+                        <div className="mt-1">
+                          <ConfirmacionVisitaBadge
+                            confirmacion={t.confirmacionVisita}
+                            compact
+                          />
+                        </div>
+                      )}
                     {typeof t.diasSinAtencion === "number" && (
                       <p className="text-[11px] text-red-700">{t.diasSinAtencion} días sin atención</p>
                     )}
