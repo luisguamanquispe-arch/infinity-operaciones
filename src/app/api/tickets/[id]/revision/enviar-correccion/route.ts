@@ -15,6 +15,15 @@ import { registrarRevisionHistorial } from "@/lib/revision-reporte";
 import { notificarSupervisorCorreccion } from "@/lib/notificaciones-revision";
 import { registrarSiHistorial } from "@/lib/soporte-infraestructura/historial";
 import { enMayusculasGuardar } from "@/lib/mayusculas";
+import { validarFinalizacionNuevaInstalacion } from "@/lib/nueva-instalacion";
+
+class CorreccionValidationError extends Error {
+  status: number;
+  constructor(message: string, status = 400) {
+    super(message);
+    this.status = status;
+  }
+}
 
 /** Técnico: reenvía reporte corregido → CORREGIDO. */
 export async function POST(
@@ -29,7 +38,11 @@ export async function POST(
   const { id } = await params;
   const ticket = await prisma.ticket.findUnique({
     where: { id },
-    include: { tecnicos: { select: { tecnicoId: true } }, orden: true },
+    include: {
+      tecnicos: { select: { tecnicoId: true } },
+      orden: true,
+      materialesInstalacion: { orderBy: [{ orden: "asc" }, { createdAt: "asc" }] },
+    },
   });
 
   if (!ticket || !tecnicoAsignadoAlTicket(ticket, session.tecnicoId)) {
@@ -109,6 +122,15 @@ export async function POST(
     }
   }
 
+  const valNuevaInst = validarFinalizacionNuevaInstalacion({
+    tipo: ticket.tipo,
+    numeroContratoInstalar: ticket.numeroContratoInstalar,
+    materialesInstalacion: ticket.materialesInstalacion,
+  });
+  if (!valNuevaInst.ok) {
+    return NextResponse.json({ error: valNuevaInst.error }, { status: 400 });
+  }
+
   const ordenFresh = await getOrCreateOrden(id);
   const validacion = validarCierreOrden(ordenFresh, {
     esInfraestructura: esTicketInfraestructura(ticket.tipo),
@@ -124,25 +146,63 @@ export async function POST(
   }
 
   const now = new Date();
-  await prisma.$transaction(async (tx) => {
-    await tx.ordenServicio.update({
-      where: { id: ordenFresh.id },
-      data: { finalizadoEn: now },
+  try {
+    await prisma.$transaction(async (tx) => {
+      const ticketTx = await tx.ticket.findUnique({
+        where: { id },
+        select: {
+          tipo: true,
+          estadoRevision: true,
+          numeroContratoInstalar: true,
+          materialesInstalacion: { orderBy: [{ orden: "asc" }, { createdAt: "asc" }] },
+        },
+      });
+      if (!ticketTx || ticketTx.estadoRevision !== "DEVUELTO_CORRECCION") {
+        throw new CorreccionValidationError(
+          "Solo se puede reenviar un reporte devuelto para corrección",
+          409
+        );
+      }
+      const valTx = validarFinalizacionNuevaInstalacion({
+        tipo: ticketTx.tipo,
+        numeroContratoInstalar: ticketTx.numeroContratoInstalar,
+        materialesInstalacion: ticketTx.materialesInstalacion,
+      });
+      if (!valTx.ok) {
+        throw new CorreccionValidationError(valTx.error, 400);
+      }
+
+      const ticketUpdated = await tx.ticket.updateMany({
+        where: { id, estadoRevision: "DEVUELTO_CORRECCION" },
+        data: { estado: "FINALIZADO", estadoRevision: "CORREGIDO" },
+      });
+      if (ticketUpdated.count === 0) {
+        throw new CorreccionValidationError(
+          "Solo se puede reenviar un reporte devuelto para corrección",
+          409
+        );
+      }
+
+      await tx.ordenServicio.update({
+        where: { id: ordenFresh.id },
+        data: { finalizadoEn: now },
+      });
+      await registrarRevisionHistorial(tx, {
+        ticketId: id,
+        accion: "CORRECCION_ENVIADA",
+        estadoAnterior: "DEVUELTO_CORRECCION",
+        estadoNuevo: "CORREGIDO",
+        usuarioId: session.id,
+        usuarioNombre: session.nombre,
+        tecnicoId: session.tecnicoId,
+      });
     });
-    await tx.ticket.update({
-      where: { id },
-      data: { estado: "FINALIZADO", estadoRevision: "CORREGIDO" },
-    });
-    await registrarRevisionHistorial(tx, {
-      ticketId: id,
-      accion: "CORRECCION_ENVIADA",
-      estadoAnterior: "DEVUELTO_CORRECCION",
-      estadoNuevo: "CORREGIDO",
-      usuarioId: session.id,
-      usuarioNombre: session.nombre,
-      tecnicoId: session.tecnicoId,
-    });
-  });
+  } catch (err) {
+    if (err instanceof CorreccionValidationError) {
+      return NextResponse.json({ error: err.message }, { status: err.status });
+    }
+    throw err;
+  }
 
   if (esTicketInfraestructura(ticket.tipo)) {
     await registrarSiHistorial(prisma, {

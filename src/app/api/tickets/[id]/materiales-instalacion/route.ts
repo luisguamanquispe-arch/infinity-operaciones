@@ -2,11 +2,19 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getFullSession } from "@/lib/auth";
 import { tecnicoAsignadoAlTicket } from "@/lib/ticket-tecnicos";
-import { ordenServicioCerrada } from "@/lib/ticket-cerrado";
+import { ticketPermiteEdicion } from "@/lib/ticket-cerrado";
 import {
   TIPO_NUEVA_INSTALACION,
   validarMaterialesInstalacion,
 } from "@/lib/nueva-instalacion";
+
+class MaterialesInstalacionError extends Error {
+  status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.status = status;
+  }
+}
 
 /**
  * GET /api/tickets/[id]/materiales-instalacion
@@ -101,12 +109,7 @@ export async function PUT(
     return NextResponse.json({ error: "No autorizado" }, { status: 403 });
   }
 
-  if (
-    !esSupervisor &&
-    ticket.orden &&
-    ordenServicioCerrada(ticket.orden) &&
-    ticket.estadoRevision !== "DEVUELTO_CORRECCION"
-  ) {
+  if (!esSupervisor && !ticketPermiteEdicion(ticket, ticket.orden)) {
     return NextResponse.json(
       { error: "La orden ya fue finalizada y no puede modificarse." },
       { status: 409 }
@@ -121,32 +124,74 @@ export async function PUT(
     return NextResponse.json({ error: val.error }, { status: 400 });
   }
 
-  const guardados = await prisma.$transaction(async (tx) => {
-    await tx.ticketMaterialInstalacion.deleteMany({
-      where: { ticketId: id },
+  try {
+    const guardados = await prisma.$transaction(async (tx) => {
+      const ticketTx = await tx.ticket.findUnique({
+        where: { id },
+        select: {
+          tipo: true,
+          estado: true,
+          estadoRevision: true,
+          orden: { select: { finalizadoEn: true } },
+        },
+      });
+
+      if (!ticketTx) {
+        throw new MaterialesInstalacionError("Ticket no encontrado", 404);
+      }
+
+      if (ticketTx.tipo !== TIPO_NUEVA_INSTALACION) {
+        throw new MaterialesInstalacionError(
+          "Esta sección aplica únicamente a tickets de tipo Nueva instalación.",
+          400
+        );
+      }
+
+      if (!esSupervisor && !ticketPermiteEdicion(ticketTx, ticketTx.orden)) {
+        throw new MaterialesInstalacionError(
+          "La orden ya fue finalizada y no puede modificarse.",
+          409
+        );
+      }
+
+      await tx.ticketMaterialInstalacion.deleteMany({
+        where: { ticketId: id },
+      });
+
+      await tx.ticketMaterialInstalacion.createMany({
+        data: val.items.map((item, idx) => ({
+          ticketId: id,
+          categoria: item.categoria,
+          item: item.item,
+          cantidad: item.cantidad,
+          unidad: item.unidad,
+          marca: item.marca,
+          series: item.series,
+          orden: idx,
+        })),
+      });
+
+      return tx.ticketMaterialInstalacion.findMany({
+        where: { ticketId: id },
+        orderBy: [{ orden: "asc" }, { createdAt: "asc" }],
+      });
     });
 
-    await tx.ticketMaterialInstalacion.createMany({
-      data: val.items.map((item, idx) => ({
-        ticketId: id,
-        categoria: item.categoria,
-        item: item.item,
-        cantidad: item.cantidad,
-        unidad: item.unidad,
-        marca: item.marca,
-        series: item.series,
-        orden: idx,
-      })),
+    return NextResponse.json({
+      ok: true,
+      materialesInstalacion: guardados,
     });
-
-    return tx.ticketMaterialInstalacion.findMany({
-      where: { ticketId: id },
-      orderBy: [{ orden: "asc" }, { createdAt: "asc" }],
-    });
-  });
-
-  return NextResponse.json({
-    ok: true,
-    materialesInstalacion: guardados,
-  });
+  } catch (err) {
+    if (err instanceof MaterialesInstalacionError) {
+      return NextResponse.json({ error: err.message }, { status: err.status });
+    }
+    console.error(
+      "[materiales-instalacion][PUT]",
+      err instanceof Error ? err.message : "Error de base de datos"
+    );
+    return NextResponse.json(
+      { error: "No se pudieron guardar los materiales." },
+      { status: 500 }
+    );
+  }
 }

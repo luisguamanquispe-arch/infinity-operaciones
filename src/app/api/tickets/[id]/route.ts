@@ -67,6 +67,7 @@ export async function GET(
         },
       },
       confirmacionVisita: true,
+      materialesInstalacion: { orderBy: [{ orden: "asc" }, { createdAt: "asc" }] },
       orden: {
         include: {
           cronometro: true,

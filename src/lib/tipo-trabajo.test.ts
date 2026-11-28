@@ -6,11 +6,13 @@ import { ticketEliminableEnGerencia } from "./ticket-gerencia";
 import {
   EQUIPOS_INSTALACION,
   MATERIALES_CONSUMIBLES_INSTALACION,
+  formatearLineasNuevaInstalacionPdf,
   normalizarNumeroContratoInstalar,
   validarFinalizacionNuevaInstalacion,
   validarMaterialesInstalacion,
   validarNumeroContratoInstalar,
 } from "./nueva-instalacion";
+import { ticketPermiteEdicion } from "./ticket-cerrado";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
@@ -250,5 +252,195 @@ describe("Nueva instalación — Materiales y equipos utilizados (sin Kardex)", 
     );
     assert.equal(/prisma\.inventario\./.test(routeCode), false);
     assert.equal(/materialUtilizado/i.test(routeCode), false);
+  });
+});
+
+describe("Nueva instalación — Regresiones de revisión técnica (PR #3)", () => {
+  it("impide evadir marca y seriales enviando un equipo del catálogo con categoría MATERIAL", () => {
+    for (const equipo of ["Router", "Bridge", "ONU/ONT", "router", "onu/ont"]) {
+      const manipulacion = validarMaterialesInstalacion([
+        {
+          categoria: "MATERIAL",
+          item: equipo,
+          cantidad: 1,
+          unidad: "unidades",
+        },
+      ]);
+      assert.equal(
+        manipulacion.ok,
+        false,
+        `${equipo} con categoría MATERIAL no debe evadir la validación de equipo`
+      );
+    }
+
+    // Si incluye marca y serie válida, se normaliza a categoría EQUIPO
+    const normalizado = validarMaterialesInstalacion([
+      {
+        categoria: "MATERIAL",
+        item: "Router",
+        cantidad: 1,
+        unidad: "unidades",
+        marca: "Huawei",
+        series: ["HW-001"],
+      },
+    ]);
+    assert.equal(normalizado.ok, true);
+    if (normalizado.ok) {
+      assert.equal(normalizado.items[0].categoria, "EQUIPO");
+      assert.equal(normalizado.items[0].marca, "Huawei");
+      assert.deepEqual(normalizado.items[0].series, ["HW-001"]);
+    }
+  });
+
+  it("rechaza los nombres genéricos Otros materiales/equipos utilizados y exige nombre específico", () => {
+    for (const generico of [
+      "Otros materiales utilizados",
+      "Otros equipos utilizados",
+      "  otros equipos utilizados  ",
+    ]) {
+      const res = validarMaterialesInstalacion([
+        {
+          categoria: "MATERIAL",
+          item: generico,
+          cantidad: 1,
+          unidad: "unidades",
+        },
+      ]);
+      assert.equal(res.ok, false);
+    }
+
+    const especifico = validarMaterialesInstalacion([
+      {
+        categoria: "EQUIPO",
+        item: "Switch 8 puertos",
+        cantidad: 1,
+        unidad: "unidades",
+        marca: "TP-Link",
+        series: ["SW-8899"],
+      },
+      {
+        categoria: "MATERIAL",
+        item: "Cinta aislante",
+        cantidad: 2,
+        unidad: "rollos",
+      },
+    ]);
+    assert.equal(especifico.ok, true);
+  });
+
+  it("formatea contrato y materiales en el informe/PDF solo para NUEVA_INSTALACION", () => {
+    const nuevaInst = formatearLineasNuevaInstalacionPdf({
+      tipo: "NUEVA_INSTALACION",
+      numeroContratoInstalar: "  CTR-2026-9901  ",
+      materialesInstalacion: [
+        {
+          categoria: "MATERIAL",
+          item: "Fibra óptica",
+          cantidad: 85,
+          unidad: "metros",
+          marca: null,
+          series: [],
+        },
+        {
+          categoria: "EQUIPO",
+          item: "Router",
+          cantidad: 1,
+          unidad: "unidades",
+          marca: "Huawei",
+          series: ["SN-9901"],
+        },
+      ],
+    });
+    assert.equal(nuevaInst.lineaContrato, "Número de contrato a instalar: CTR-2026-9901");
+    assert.equal(nuevaInst.lineasMateriales.length, 2);
+    assert.match(nuevaInst.lineasMateriales[0], /Fibra óptica.*85 metros/);
+    assert.match(nuevaInst.lineasMateriales[1], /Router.*Marca: Huawei.*Serie\(s\): SN-9901/);
+
+    const otroTipo = formatearLineasNuevaInstalacionPdf({
+      tipo: "SOPORTE",
+      numeroContratoInstalar: "CTR-IGNORAR",
+      materialesInstalacion: [
+        {
+          categoria: "MATERIAL",
+          item: "Fibra óptica",
+          cantidad: 10,
+          unidad: "metros",
+          marca: null,
+          series: [],
+        },
+      ],
+    });
+    assert.equal(otroTipo.lineaContrato, null);
+    assert.deepEqual(otroTipo.lineasMateriales, []);
+  });
+
+  it("bloquea edición en tickets CERRADO o FINALIZADO incluso sin orden y permite DEVUELTO_CORRECCION", () => {
+    assert.equal(ticketPermiteEdicion({ estado: "CERRADO", estadoRevision: null }, null), false);
+    assert.equal(
+      ticketPermiteEdicion({ estado: "FINALIZADO", estadoRevision: "PENDIENTE_REVISION" }, null),
+      false
+    );
+    assert.equal(
+      ticketPermiteEdicion(
+        { estado: "FINALIZADO", estadoRevision: "DEVUELTO_CORRECCION" },
+        { finalizadoEn: new Date() }
+      ),
+      true
+    );
+    assert.equal(
+      ticketPermiteEdicion({ estado: "EN_PROCESO", estadoRevision: null }, { finalizadoEn: null }),
+      true
+    );
+  });
+
+  it("verifica contratos de endpoints: enviar-correccion, reporte/PDF, GET supervisor/admin, cerrar y materiales-instalacion", () => {
+    const readSrc = (...parts: string[]) =>
+      readFileSync(path.join(process.cwd(), "src", ...parts), "utf8");
+
+    const enviarCorreccion = readSrc(
+      "app",
+      "api",
+      "tickets",
+      "[id]",
+      "revision",
+      "enviar-correccion",
+      "route.ts"
+    );
+    assert.match(enviarCorreccion, /materialesInstalacion:/);
+    assert.match(enviarCorreccion, /validarFinalizacionNuevaInstalacion/);
+
+    const getTicketRoute = readSrc("app", "api", "tickets", "[id]", "route.ts");
+    const matchesMatInTicketGet = getTicketRoute.match(/materialesInstalacion:\s*\{/g) ?? [];
+    assert.ok(
+      matchesMatInTicketGet.length >= 2,
+      "GET /api/tickets/[id] debe incluir materialesInstalacion tanto para SUPERVISOR/ADMIN como para TECNICO"
+    );
+
+    const reporteRoute = readSrc("app", "api", "reportes", "[id]", "route.ts");
+    assert.match(reporteRoute, /materialesInstalacion:/);
+
+    const reportePdf = readSrc("lib", "reporte-pdf.ts");
+    assert.match(reportePdf, /materialesInstalacion:/);
+    assert.match(reportePdf, /formatearLineasNuevaInstalacionPdf/);
+
+    const reporteDetalle = readSrc("components", "reportes", "ReporteDetalle.tsx");
+    assert.match(reporteDetalle, /numeroContratoInstalar/);
+    assert.match(reporteDetalle, /Materiales y equipos utilizados en la instalación/);
+
+    const cerrarRoute = readSrc("app", "api", "tickets", "[id]", "cerrar", "route.ts");
+    assert.match(cerrarRoute, /tx\.ordenServicio\.updateMany\(\{\s*where:\s*\{\s*id:\s*ordenFresh\.id,\s*finalizadoEn:\s*null\s*\}/);
+    assert.match(cerrarRoute, /tx\.ticket\.findUnique/);
+
+    const matRoute = readSrc(
+      "app",
+      "api",
+      "tickets",
+      "[id]",
+      "materiales-instalacion",
+      "route.ts"
+    );
+    assert.match(matRoute, /ticketPermiteEdicion/);
+    assert.match(matRoute, /No se pudieron guardar los materiales\./);
+    assert.match(matRoute, /tx\.ticket\.findUnique/);
   });
 });

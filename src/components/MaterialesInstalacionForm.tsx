@@ -5,6 +5,7 @@ import { Plus, Trash2, Save, CheckCircle2, Package } from "lucide-react";
 import {
   CATALOGO_MATERIALES_INSTALACION,
   EQUIPOS_INSTALACION,
+  LABELS_OTROS_GENERICOS,
   MATERIALES_CONSUMIBLES_INSTALACION,
   UNIDADES_MATERIAL_INSTALACION,
   validarMaterialesInstalacion,
@@ -15,16 +16,25 @@ export interface MaterialInstalacionRow {
   id?: string;
   categoria: CategoriaMaterialInstalacion;
   item: string;
+  esOtro: boolean;
   cantidad: string;
   unidad: string;
   marca: string;
   series: string[];
 }
 
+function esItemOtroCatalogo(item: string): boolean {
+  const limpio = item.trim();
+  if (!limpio) return true;
+  if (LABELS_OTROS_GENERICOS.has(limpio.toLowerCase())) return true;
+  return !CATALOGO_MATERIALES_INSTALACION.some((c) => c.label === limpio);
+}
+
 function crearFilaInicial(): MaterialInstalacionRow {
   return {
     categoria: "MATERIAL",
     item: "Fibra óptica",
+    esOtro: false,
     cantidad: "1",
     unidad: "metros",
     marca: "",
@@ -46,15 +56,19 @@ function normalizarFilasDesdeProps(
     | undefined
 ): MaterialInstalacionRow[] {
   if (!inicial || inicial.length === 0) return [crearFilaInicial()];
-  return inicial.map((m) => ({
-    id: m.id,
-    categoria: m.categoria === "EQUIPO" ? "EQUIPO" : "MATERIAL",
-    item: m.item,
-    cantidad: String(m.cantidad),
-    unidad: m.unidad,
-    marca: m.marca ?? "",
-    series: Array.isArray(m.series) ? [...m.series] : [],
-  }));
+  return inicial.map((m) => {
+    const esOtro = esItemOtroCatalogo(m.item);
+    return {
+      id: m.id,
+      categoria: m.categoria === "EQUIPO" ? "EQUIPO" : "MATERIAL",
+      item: LABELS_OTROS_GENERICOS.has(m.item.trim().toLowerCase()) ? "" : m.item,
+      esOtro,
+      cantidad: String(m.cantidad),
+      unidad: m.unidad,
+      marca: m.marca ?? "",
+      series: Array.isArray(m.series) ? [...m.series] : [],
+    };
+  });
 }
 
 export function MaterialesInstalacionForm({
@@ -105,10 +119,20 @@ export function MaterialesInstalacionForm({
         if (i !== idx) return row;
         const next = { ...row, ...patch };
         if (next.categoria === "EQUIPO") {
-          const cantInt = Math.max(1, Math.floor(Number(next.cantidad) || 1));
-          const series = [...next.series];
-          while (series.length < cantInt) series.push("");
-          next.series = series.slice(0, cantInt);
+          const rawCant = next.cantidad.trim();
+          if (rawCant === "") {
+            // Mantener las series ya ingresadas mientras el usuario borra temporalmente la cantidad
+            next.series = next.series.length > 0 ? [...next.series] : [""];
+          } else {
+            const parsed = Number(rawCant);
+            if (Number.isInteger(parsed) && parsed >= 1) {
+              const series = [...next.series];
+              while (series.length < parsed) series.push("");
+              next.series = series.slice(0, parsed);
+            } else {
+              next.series = next.series.length > 0 ? [...next.series] : [""];
+            }
+          }
         } else {
           next.marca = "";
           next.series = [];
@@ -121,15 +145,29 @@ export function MaterialesInstalacionForm({
   function seleccionarCatalogo(idx: number, label: string) {
     const found = CATALOGO_MATERIALES_INSTALACION.find((c) => c.label === label);
     if (!found) {
-      actualizarFila(idx, { item: label });
+      actualizarFila(idx, { item: label, esOtro: true });
       return;
     }
+    const esOtro = LABELS_OTROS_GENERICOS.has(found.label.toLowerCase());
+    const currentRow = rows[idx];
+    const preserveSeries =
+      found.categoria === "EQUIPO" && currentRow?.categoria === "EQUIPO" && currentRow.series.length > 0
+        ? currentRow.series
+        : found.categoria === "EQUIPO"
+          ? [""]
+          : [];
     actualizarFila(idx, {
-      item: found.label,
+      item: esOtro ? "" : found.label,
+      esOtro,
       categoria: found.categoria,
       unidad: found.unidadDefault,
-      cantidad: found.categoria === "EQUIPO" ? "1" : rows[idx]?.cantidad || "1",
-      series: found.categoria === "EQUIPO" ? [""] : [],
+      cantidad:
+        found.categoria === "EQUIPO"
+          ? currentRow?.categoria === "EQUIPO" && currentRow.cantidad.trim() !== ""
+            ? currentRow.cantidad
+            : "1"
+          : currentRow?.cantidad || "1",
+      series: preserveSeries,
     });
   }
 
@@ -256,10 +294,7 @@ export function MaterialesInstalacionForm({
       <div className="space-y-3">
         {rows.map((row, idx) => {
           const esEquipo = row.categoria === "EQUIPO";
-          const esOtro =
-            row.item === "Otros materiales utilizados" ||
-            row.item === "Otros equipos utilizados" ||
-            !CATALOGO_MATERIALES_INSTALACION.some((c) => c.label === row.item);
+          const esOtro = row.esOtro;
           return (
             <div
               key={idx}
@@ -286,11 +321,11 @@ export function MaterialesInstalacionForm({
                   <label className="text-xs text-slate-500">Material o equipo *</label>
                   <select
                     value={
-                      CATALOGO_MATERIALES_INSTALACION.some((c) => c.label === row.item)
-                        ? row.item
-                        : esEquipo
+                      esOtro
+                        ? esEquipo
                           ? "Otros equipos utilizados"
                           : "Otros materiales utilizados"
+                        : row.item
                     }
                     onChange={(e) => seleccionarCatalogo(idx, e.target.value)}
                     className="w-full px-2.5 py-2 border rounded-lg text-sm bg-white mt-0.5"
@@ -347,14 +382,10 @@ export function MaterialesInstalacionForm({
                   </label>
                   <input
                     type="text"
+                    required
                     placeholder={esEquipo ? "Ej. Switch 8 puertos" : "Ej. Cinta aislante"}
-                    value={
-                      row.item === "Otros materiales utilizados" ||
-                      row.item === "Otros equipos utilizados"
-                        ? ""
-                        : row.item
-                    }
-                    onChange={(e) => actualizarFila(idx, { item: e.target.value })}
+                    value={row.item}
+                    onChange={(e) => actualizarFila(idx, { item: e.target.value, esOtro: true })}
                     className="w-full px-2.5 py-2 border rounded-lg text-sm bg-white mt-0.5"
                   />
                 </div>

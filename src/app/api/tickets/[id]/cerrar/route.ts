@@ -19,6 +19,14 @@ import { FLUJO_TICKET, logFlujoTicket } from "@/lib/ticket-flujo-log";
 import { detenerCronometroAtencionEnTx } from "@/lib/cronometro-atencion/servicio";
 import { validarFinalizacionNuevaInstalacion } from "@/lib/nueva-instalacion";
 
+class CierreValidationError extends Error {
+  status: number;
+  constructor(message: string, status = 400) {
+    super(message);
+    this.status = status;
+  }
+}
+
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -147,33 +155,76 @@ export async function POST(
 
   const now = new Date();
 
-  await prisma.$transaction(async (tx) => {
-    await tx.ordenServicio.update({
-      where: { id: ordenFresh.id },
-      data: {
-        finalizadoEn: now,
-        reportadoPorTecnicoId: ordenFresh.reportadoPorTecnicoId ?? session.tecnicoId,
-        reportadoEn: ordenFresh.reportadoEn ?? now,
-      },
+  let txResult: { yaCerrado: boolean };
+  try {
+    txResult = await prisma.$transaction(async (tx) => {
+      const ticketTx = await tx.ticket.findUnique({
+        where: { id },
+        select: {
+          tipo: true,
+          estado: true,
+          estadoRevision: true,
+          numeroContratoInstalar: true,
+          materialesInstalacion: { orderBy: [{ orden: "asc" }, { createdAt: "asc" }] },
+        },
+      });
+      if (!ticketTx) {
+        throw new CierreValidationError("Ticket no encontrado", 404);
+      }
+
+      const valNuevaInstTx = validarFinalizacionNuevaInstalacion({
+        tipo: ticketTx.tipo,
+        numeroContratoInstalar: ticketTx.numeroContratoInstalar,
+        materialesInstalacion: ticketTx.materialesInstalacion,
+      });
+      if (!valNuevaInstTx.ok) {
+        throw new CierreValidationError(valNuevaInstTx.error, 400);
+      }
+
+      // Actualización condicional atómica para evitar cierres concurrentes duplicados
+      const ordenUpdated = await tx.ordenServicio.updateMany({
+        where: { id: ordenFresh.id, finalizadoEn: null },
+        data: {
+          finalizadoEn: now,
+          reportadoPorTecnicoId: ordenFresh.reportadoPorTecnicoId ?? session.tecnicoId,
+          reportadoEn: ordenFresh.reportadoEn ?? now,
+        },
+      });
+
+      if (ordenUpdated.count === 0) {
+        return { yaCerrado: true };
+      }
+
+      await tx.ticket.update({
+        where: { id },
+        data: {
+          estado: "FINALIZADO",
+          estadoRevision: "PENDIENTE_REVISION",
+        },
+      });
+      await tx.tecnico.updateMany({
+        where: { id: { in: tecnicoIdsFromTicket(ticket) } },
+        data: { estadoActual: "DISPONIBLE" },
+      });
+      await detenerCronometroAtencionEnTx(tx, {
+        ticketId: id,
+        usuarioId: session.id,
+        tecnicoId: session.tecnicoId!,
+        ahora: now,
+      });
+
+      return { yaCerrado: false };
     });
-    await tx.ticket.update({
-      where: { id },
-      data: {
-        estado: "FINALIZADO",
-        estadoRevision: "PENDIENTE_REVISION",
-      },
-    });
-    await tx.tecnico.updateMany({
-      where: { id: { in: tecnicoIdsFromTicket(ticket) } },
-      data: { estadoActual: "DISPONIBLE" },
-    });
-    await detenerCronometroAtencionEnTx(tx, {
-      ticketId: id,
-      usuarioId: session.id,
-      tecnicoId: session.tecnicoId!,
-      ahora: now,
-    });
-  });
+  } catch (err) {
+    if (err instanceof CierreValidationError) {
+      return NextResponse.json({ error: err.message }, { status: err.status });
+    }
+    throw err;
+  }
+
+  if (txResult.yaCerrado) {
+    return NextResponse.json({ ok: true, yaCerrado: true });
+  }
 
   // WhatsApp al cliente solo cuando el supervisor apruebe el reporte.
 

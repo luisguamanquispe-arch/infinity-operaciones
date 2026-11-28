@@ -114,10 +114,17 @@ export type ValidacionMaterialesResult =
   | { ok: true; items: MaterialInstalacionNormalizado[] }
   | { ok: false; error: string };
 
+export const LABELS_OTROS_GENERICOS = new Set([
+  "otros materiales utilizados",
+  "otros equipos utilizados",
+]);
+
 /**
  * Valida y normaliza la lista de materiales y equipos utilizados en una Nueva instalación.
  * - Exige al menos 1 registro válido.
+ * - Rechaza nombres genéricos ("Otros materiales utilizados" / "Otros equipos utilizados").
  * - Cantidad obligatoria > 0 (y entera para equipos).
+ * - Si el ítem pertenece al catálogo oficial, prevalece la categoría del catálogo.
  * - Equipos exigen marca y series individuales (cantidad === series.length).
  * - Materiales consumibles no exigen marca ni serie.
  */
@@ -139,17 +146,18 @@ export function validarMaterialesInstalacion(raw: unknown): ValidacionMateriales
     }
 
     const item = typeof fila.item === "string" ? fila.item.trim().slice(0, 120) : "";
-    if (!item) {
-      return { ok: false, error: `Registro #${num}: debe indicar el material o equipo.` };
+    if (!item || LABELS_OTROS_GENERICOS.has(item.toLowerCase())) {
+      return {
+        ok: false,
+        error: `Registro #${num}: debe indicar el nombre específico del material o equipo.`,
+      };
     }
 
     const catCatalogo = CATALOGO_MATERIALES_INSTALACION.find(
       (c) => c.label.toLowerCase() === item.toLowerCase()
     )?.categoria;
     const categoria: CategoriaMaterialInstalacion =
-      fila.categoria === "EQUIPO" || fila.categoria === "MATERIAL"
-        ? fila.categoria
-        : (catCatalogo ?? "MATERIAL");
+      catCatalogo ?? (fila.categoria === "EQUIPO" ? "EQUIPO" : "MATERIAL");
 
     const cantidadNum =
       typeof fila.cantidad === "number"
@@ -250,4 +258,46 @@ export function validarFinalizacionNuevaInstalacion(params: {
     return { ok: false, error: matVal.error };
   }
   return { ok: true };
+}
+
+export interface MaterialInstalacionResumen {
+  categoria: string;
+  item: string;
+  cantidad: number;
+  unidad: string;
+  marca: string | null;
+  series: string[];
+}
+
+/**
+ * Formatea líneas legibles de materiales/equipos de Nueva instalación para el PDF/reporte.
+ * Para otros tipos de trabajo devuelve arreglo vacío para no alterar reportes existentes.
+ */
+export function formatearLineasNuevaInstalacionPdf(params: {
+  tipo: string | null | undefined;
+  numeroContratoInstalar?: string | null;
+  materialesInstalacion?: MaterialInstalacionResumen[] | null;
+}): {
+  lineaContrato: string | null;
+  lineasMateriales: string[];
+} {
+  if (params.tipo !== TIPO_NUEVA_INSTALACION) {
+    return { lineaContrato: null, lineasMateriales: [] };
+  }
+  const contrato = normalizarNumeroContratoInstalar(params.numeroContratoInstalar);
+  const lineaContrato = contrato ? `Número de contrato a instalar: ${contrato}` : null;
+  const items = Array.isArray(params.materialesInstalacion)
+    ? params.materialesInstalacion
+    : [];
+  const lineasMateriales = items.map((m) => {
+    const tipoLabel = m.categoria === "EQUIPO" ? "Equipo" : "Material";
+    const base = `• [${tipoLabel}] ${m.item}: ${m.cantidad} ${m.unidad}`;
+    if (m.categoria === "EQUIPO") {
+      const marcaTxt = m.marca ? ` | Marca: ${m.marca}` : "";
+      const seriesTxt = m.series?.length ? ` | Serie(s): ${m.series.join(", ")}` : "";
+      return `${base}${marcaTxt}${seriesTxt}`;
+    }
+    return base;
+  });
+  return { lineaContrato, lineasMateriales };
 }
