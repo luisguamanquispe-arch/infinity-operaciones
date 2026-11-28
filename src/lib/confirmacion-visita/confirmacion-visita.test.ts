@@ -1000,7 +1000,21 @@ describe("Confirmación de disponibilidad del cliente — auditoría y reglas co
     assert.equal(tokenConfirmacionValido(tok), true);
     const url = urlConfirmacionVisitaPublica(tok, "https://infinity-operaciones-b3ij.onrender.com");
     assert.equal(url, `https://infinity-operaciones-b3ij.onrender.com/confirmar-visita/${tok}`);
-    assert.ok(mensajeWhatsappConfirmacion(url).includes(url));
+    const msgConHorario = mensajeWhatsappConfirmacion(url, "27 nov 2026, 15:00");
+    assert.ok(msgConHorario.includes("🔔 *INFINITY INTERNET | CONFIRMACIÓN DE VISITA TÉCNICA*"));
+    assert.ok(msgConHorario.includes(`🟦 *CONFIRME AQUÍ SU VISITA* 👇\n\n${url}\n\n`));
+    assert.ok(msgConHorario.includes("📅 *Fecha:* 27 nov 2026\n🕒 *Hora:* 15:00"));
+    assert.ok(msgConHorario.includes("*INFINITY INTERNET*\nConectamos lo que más importa."));
+    assert.equal(/<[^>]+>/.test(msgConHorario), false, "No debe contener HTML");
+
+    const msgConDate = mensajeWhatsappConfirmacion(url, tProgramado);
+    assert.ok(msgConDate.includes(`\n\n${url}\n\n`));
+    assert.ok(msgConDate.includes("📅 *Fecha:* "));
+    assert.ok(msgConDate.includes("🕒 *Hora:* "));
+
+    const msgSinHorario = mensajeWhatsappConfirmacion(url);
+    assert.ok(msgSinHorario.includes(`\n\n${url}\n\n`));
+    assert.equal(msgSinHorario.includes("📅 *Fecha:*"), false);
 
     // Estado principal del ticket NO cambia al hacer EN CAMINO
     const estadoAntes = tk.estado;
