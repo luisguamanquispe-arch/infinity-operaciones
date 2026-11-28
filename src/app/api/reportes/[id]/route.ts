@@ -28,6 +28,7 @@ export async function GET(
     where: { id },
     include: {
       ...ticketIncludeTecnicos,
+      materialesInstalacion: { orderBy: [{ orden: "asc" }, { createdAt: "asc" }] },
       orden: {
         include: {
           cronometro: true,

@@ -22,6 +22,7 @@ import {
 } from "@/components/MotivoTecnicoForm";
 import { validarMotivoEstructurado } from "@/lib/motivo-tecnico/validacion";
 import { validarObservacionesRecuperacion } from "@/lib/motivo-tecnico/reglas-patch";
+import { validarNumeroContratoInstalar } from "@/lib/nueva-instalacion";
 
 interface Tecnico {
   id: string;
@@ -47,6 +48,7 @@ const TIPOS = [
   "RETIRO",
   "CAMBIO_DOMICILIO",
   "MIGRACION_SERVICIO_FIBRA",
+  "NUEVA_INSTALACION",
 ];
 const ESTADOS = ["PENDIENTE", "LEIDO", "EN_PROCESO", "FINALIZADO", "CERRADO", "CANCELADO"];
 
@@ -97,6 +99,7 @@ export default function EditarTicketPage() {
     modalidadSoporte: "COMPLETO" as ModalidadSoporte,
     trabajoExpress: "" as TrabajoExpress | "",
     trabajoExpressOtro: "",
+    numeroContratoInstalar: "",
   });
 
   const [riesgoBaja, setRiesgoBaja] = useState(false);
@@ -178,6 +181,7 @@ export default function EditarTicketPage() {
         modalidadSoporte: t.modalidadSoporte === "EXPRESS" ? "EXPRESS" : "COMPLETO",
         trabajoExpress: (t.trabajoExpress as TrabajoExpress | null) || "",
         trabajoExpressOtro: t.trabajoExpressOtro || "",
+        numeroContratoInstalar: t.numeroContratoInstalar || "",
       });
       setTecnicos(tecData.tecnicos);
       setLoading(false);
@@ -291,6 +295,19 @@ export default function EditarTicketPage() {
 
     const tieneClienteEditableSubmit = form.tipo !== "INFRAESTRUCTURA";
 
+    const contratoCheck = validarNumeroContratoInstalar(
+      form.tipo,
+      form.numeroContratoInstalar
+    );
+    if (!contratoCheck.ok) {
+      setError(contratoCheck.error);
+      setGuardando(false);
+      return;
+    }
+    if (form.tipo === "NUEVA_INSTALACION") {
+      payload.numeroContratoInstalar = contratoCheck.numeroContratoInstalar;
+    }
+
     if (tieneClienteEditableSubmit) {
       if (!clienteNombre.trim()) {
         setError("El nombre del cliente es obligatorio");
@@ -325,6 +342,7 @@ export default function EditarTicketPage() {
 
   const esSoporte = form.tipo === "SOPORTE";
   const esExpress = esSoporte && form.modalidadSoporte === "EXPRESS";
+  const esNuevaInstalacion = form.tipo === "NUEVA_INSTALACION";
   const tieneClienteEditable = form.tipo !== "INFRAESTRUCTURA";
 
   if (loading) {
@@ -579,6 +597,25 @@ export default function EditarTicketPage() {
               )}
             </div>
           </div>
+
+          {esNuevaInstalacion && (
+            <div>
+              <label className="text-xs text-slate-500">
+                Número de contrato a instalar *
+              </label>
+              <input
+                type="text"
+                required
+                maxLength={80}
+                placeholder="Ingrese el número de contrato"
+                value={form.numeroContratoInstalar}
+                onChange={(e) =>
+                  setForm({ ...form, numeroContratoInstalar: e.target.value })
+                }
+                className="w-full px-3 py-2 border rounded-lg text-sm mt-0.5"
+              />
+            </div>
+          )}
 
           {esSoporte && (
             <div className="space-y-2">

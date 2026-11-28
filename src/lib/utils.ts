@@ -57,6 +57,7 @@ export const TIPO_LABELS: Record<string, string> = {
   CORTE: "Corte",
   CAMBIO_DOMICILIO: "Cambio de domicilio",
   MIGRACION_SERVICIO_FIBRA: "Migración de servicio a fibra",
+  NUEVA_INSTALACION: "Nueva instalación",
 };
 
 export const ESTADO_LABELS: Record<string, string> = {

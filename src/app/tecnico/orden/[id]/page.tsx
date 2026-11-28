@@ -17,6 +17,7 @@ import { EnviarReporteSoporte } from "@/components/tecnico/EnviarReporteSoporte"
 import { JustificacionTecnicaModal } from "@/components/tecnico/JustificacionTecnicaModal";
 import { ExpressOrdenPanel } from "@/components/tecnico/ExpressOrdenPanel";
 import { TIPO_LABELS, formatDateTime, formatDuration } from "@/lib/utils";
+import { MaterialesInstalacionForm } from "@/components/MaterialesInstalacionForm";
 import { fetchWithRetry } from "@/lib/compress-image";
 import { leerGpsActual } from "@/lib/gps-client";
 import { useTecnicoGpsTracking } from "@/hooks/useTecnicoGpsTracking";
@@ -137,6 +138,16 @@ interface OrdenData {
     modalidadSoporte?: string | null;
     trabajoExpress?: TrabajoExpress | null;
     trabajoExpressOtro?: string | null;
+    numeroContratoInstalar?: string | null;
+    materialesInstalacion?: Array<{
+      id: string;
+      categoria: string;
+      item: string;
+      cantidad: number;
+      unidad: string;
+      marca: string | null;
+      series: string[];
+    }>;
     motivoInfraestructura: MotivoInfraestructura | null;
     siTipoTrabajo?: SiTipoTrabajo | null;
     siTipoTrabajoOtro?: string | null;
@@ -1163,6 +1174,14 @@ export default function OrdenPage() {
         {/* Info técnica */}
         <section className="bg-white rounded-xl border p-4 space-y-2">
           <h3 className="font-semibold">Información técnica</h3>
+          {ticket.numeroContratoInstalar && (
+            <p className="text-sm rounded-lg bg-infinity-50 border border-infinity-200 px-3 py-2">
+              <span className="text-slate-600">Número de contrato a instalar:</span>{" "}
+              <span className="font-mono font-semibold text-infinity-800">
+                {ticket.numeroContratoInstalar}
+              </span>
+            </p>
+          )}
           <p className="text-sm"><span className="text-slate-500">Motivo:</span> {ticket.motivo}</p>
           <p className="text-sm"><span className="text-slate-500">Descripción:</span> {ticket.descripcion}</p>
           {esExpress && ticket.trabajoExpress && (
@@ -1172,6 +1191,24 @@ export default function OrdenPage() {
             </p>
           )}
         </section>
+
+        {ticket.tipo === "NUEVA_INSTALACION" && (
+          <MaterialesInstalacionForm
+            ticketId={ticket.id}
+            initialItems={ticket.materialesInstalacion}
+            editable={puedeEditar}
+            onSaved={(saved) =>
+              setData((prev) =>
+                prev
+                  ? {
+                      ...prev,
+                      ticket: { ...prev.ticket, materialesInstalacion: saved },
+                    }
+                  : prev
+              )
+            }
+          />
+        )}
 
         {esInfra && puedeEditar && (
           <section className="bg-white rounded-xl border p-4 space-y-3">

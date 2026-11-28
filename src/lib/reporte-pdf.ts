@@ -8,6 +8,7 @@ import {
   MODALIDAD_SOPORTE_LABELS,
   trabajoExpressTexto,
 } from "@/lib/soporte-express";
+import { formatearLineasNuevaInstalacionPdf } from "@/lib/nueva-instalacion";
 
 function bufferFromPdf(doc: PDFKit.PDFDocument): Promise<Buffer> {
   return new Promise((resolve, reject) => {
@@ -29,6 +30,7 @@ export async function generarPdfReporteSoporte(ticketId: string): Promise<{
       cliente: true,
       tecnico: { include: { usuario: { select: { nombre: true } } } },
       tecnicos: { include: { tecnico: { include: { usuario: { select: { nombre: true } } } } } },
+      materialesInstalacion: { orderBy: [{ orden: "asc" }, { createdAt: "asc" }] },
       orden: {
         include: {
           cronometro: true,
@@ -82,6 +84,14 @@ export async function generarPdfReporteSoporte(ticketId: string): Promise<{
   doc.moveDown(0.4);
   doc.fontSize(10);
   doc.text(`Tipo: ${TIPO_LABELS[ticket.tipo] ?? ticket.tipo}`);
+  const resumenNuevaInst = formatearLineasNuevaInstalacionPdf({
+    tipo: ticket.tipo,
+    numeroContratoInstalar: ticket.numeroContratoInstalar,
+    materialesInstalacion: ticket.materialesInstalacion,
+  });
+  if (resumenNuevaInst.lineaContrato) {
+    doc.text(resumenNuevaInst.lineaContrato);
+  }
   if (esSoporteExpress(ticket)) {
     doc.text(`Modalidad: ${MODALIDAD_SOPORTE_LABELS.EXPRESS}`);
     const te = trabajoExpressTexto(ticket.trabajoExpress, ticket.trabajoExpressOtro);
@@ -130,6 +140,18 @@ export async function generarPdfReporteSoporte(ticketId: string): Promise<{
     doc.fontSize(10);
     for (const m of orden.materiales) {
       doc.text(`• ${m.inventario.nombre}: ${m.cantidad} ${m.inventario.unidad}`);
+    }
+    doc.moveDown();
+  }
+
+  if (resumenNuevaInst.lineasMateriales.length > 0) {
+    doc
+      .fontSize(13)
+      .text("Materiales y equipos utilizados en la instalación", { underline: true });
+    doc.moveDown(0.3);
+    doc.fontSize(10);
+    for (const linea of resumenNuevaInst.lineasMateriales) {
+      doc.text(linea);
     }
     doc.moveDown();
   }

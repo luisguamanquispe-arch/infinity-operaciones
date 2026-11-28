@@ -17,6 +17,7 @@ import {
   FileText,
   Camera,
   History,
+  Package,
 } from "lucide-react";
 import { PhotoGallery } from "./PhotoGallery";
 import { FirmaReporte } from "./FirmaReporte";
@@ -80,6 +81,16 @@ interface ReporteData {
     motivoInfraestructura?: MotivoInfraestructura | null;
     nodoAfectado?: string | null;
     zonaInfra?: string | null;
+    numeroContratoInstalar?: string | null;
+    materialesInstalacion?: Array<{
+      id: string;
+      categoria: string;
+      item: string;
+      cantidad: number;
+      unidad: string;
+      marca: string | null;
+      series: string[];
+    }>;
     updatedAt: string;
     cliente: {
       nombre: string;
@@ -436,6 +447,16 @@ export function ReporteDetalle({ backHref, backLabel }: ReporteDetalleProps) {
 
           <ReporteSection title="Trabajo realizado" icon={Wrench} accent="default">
             <InfoRow label="Tipo" value={TIPO_LABELS[ticket.tipo]} />
+            {ticket.tipo === "NUEVA_INSTALACION" && ticket.numeroContratoInstalar && (
+              <InfoRow
+                label="Número de contrato a instalar"
+                value={
+                  <span className="font-mono font-semibold text-infinity-800">
+                    {ticket.numeroContratoInstalar}
+                  </span>
+                }
+              />
+            )}
             {esSoporteExpress(ticket) && (
               <>
                 <InfoRow label="Modalidad" value={MODALIDAD_SOPORTE_LABELS.EXPRESS} />
@@ -523,6 +544,50 @@ export function ReporteDetalle({ backHref, backLabel }: ReporteDetalleProps) {
         )}
 
         <MaterialesReporte materiales={materiales} tipoTicket={ticket.tipo} />
+
+        {ticket.tipo === "NUEVA_INSTALACION" && (
+          <ReporteSection
+            title="Materiales y equipos utilizados en la instalación"
+            subtitle="Registro técnico de la instalación"
+            icon={Package}
+            accent="sky"
+          >
+            {!ticket.materialesInstalacion || ticket.materialesInstalacion.length === 0 ? (
+              <p className="text-sm text-slate-500">Sin materiales ni equipos registrados.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs border-collapse">
+                  <thead>
+                    <tr className="border-b bg-slate-50 text-left text-slate-600">
+                      <th className="py-2 px-2">Categoría</th>
+                      <th className="py-2 px-2">Material / Equipo</th>
+                      <th className="py-2 px-2">Cantidad</th>
+                      <th className="py-2 px-2">Unidad</th>
+                      <th className="py-2 px-2">Marca</th>
+                      <th className="py-2 px-2">Serie(s)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {ticket.materialesInstalacion.map((m) => (
+                      <tr key={m.id}>
+                        <td className="py-2 px-2 font-medium">
+                          {m.categoria === "EQUIPO" ? "Equipo" : "Material"}
+                        </td>
+                        <td className="py-2 px-2">{m.item}</td>
+                        <td className="py-2 px-2 font-mono">{m.cantidad}</td>
+                        <td className="py-2 px-2">{m.unidad}</td>
+                        <td className="py-2 px-2">{m.marca || "—"}</td>
+                        <td className="py-2 px-2 font-mono">
+                          {m.series?.length ? m.series.join(", ") : "—"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </ReporteSection>
+        )}
 
         {orden?.resumenTrabajo && (
           <ReporteSection

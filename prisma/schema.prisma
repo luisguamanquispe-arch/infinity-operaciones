@@ -32,6 +32,7 @@ enum TipoTrabajo {
   CORTE
   CAMBIO_DOMICILIO
   MIGRACION_SERVICIO_FIBRA
+  NUEVA_INSTALACION
 }
 
 /// Modalidad de orden de soporte a cliente (completo vs express).
@@ -364,6 +365,8 @@ model Ticket {
   motivoDetalle        String?                @db.Text
   motivoImpacto        String?
   motivoObservaciones  String?                @db.Text
+  /// Número de contrato a instalar (obligatorio cuando tipo = NUEVA_INSTALACION).
+  numeroContratoInstalar String?
   clienteSituacion     ClienteSituacionTicket?
   /// Alerta explícita: cliente manifiesta intención de cancelar.
   clienteRiesgoBaja    Boolean                @default(false)
@@ -418,6 +421,7 @@ model Ticket {
   gestionesRiesgoBaja     TicketGestionRiesgoBaja[]
   cronometroAtencion      TicketCronometroAtencion?
   confirmacionVisita      TicketConfirmacionVisita?
+  materialesInstalacion   TicketMaterialInstalacion[]
   clienteRiesgoBajaActivadoPor Usuario? @relation("TicketRiesgoBajaActivadoPor", fields: [clienteRiesgoBajaActivadoPorId], references: [id], onDelete: SetNull)
   clienteRiesgoBajaResueltoPor Usuario? @relation("TicketRiesgoBajaResueltoPor", fields: [clienteRiesgoBajaResueltoPorId], references: [id], onDelete: SetNull)
 
@@ -517,6 +521,25 @@ model TicketConfirmacionVisita {
   @@index([estado])
   @@index([tokenExpiraEn])
   @@index([programadoEnConfirmado])
+}
+
+/// Materiales y equipos utilizados en una Nueva instalación (sin integración con Kardex/Inventario).
+model TicketMaterialInstalacion {
+  id        String   @id @default(cuid())
+  ticketId  String
+  categoria String
+  item      String
+  cantidad  Float
+  unidad    String
+  marca     String?
+  series    String[] @default([])
+  orden     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId])
 }
 
 /// Cierre con justificación técnica (trabajo no ejecutado); requiere aprobación del supervisor.
