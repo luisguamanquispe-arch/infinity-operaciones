@@ -40,6 +40,7 @@ import {
   asegurarSolicitudConfirmacionVisita,
   type ConfirmacionVisitaDbLike,
 } from "@/lib/confirmacion-visita/servicio";
+import { validarNumeroContratoInstalar } from "@/lib/nueva-instalacion";
 
 const TIPOS_VALIDOS: TipoTrabajo[] = [
   "INSTALACION",
@@ -51,6 +52,7 @@ const TIPOS_VALIDOS: TipoTrabajo[] = [
   "CORTE",
   "CAMBIO_DOMICILIO",
   "MIGRACION_SERVICIO_FIBRA",
+  "NUEVA_INSTALACION",
 ];
 
 const PRIORIDADES_VALIDAS: Prioridad[] = ["ALTA", "MEDIA", "BAJA"];
@@ -359,6 +361,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: situacionVal.error }, { status: 400 });
   }
 
+  const contratoVal = validarNumeroContratoInstalar(
+    tipo,
+    (body as { numeroContratoInstalar?: unknown }).numeroContratoInstalar
+  );
+  if (!contratoVal.ok) {
+    return NextResponse.json({ error: contratoVal.error }, { status: 400 });
+  }
+
   const riesgoBaja = esIntencionCancelar(situacionVal.situacion);
   const motivoRiesgoRaw = String(
     (body as { clienteRiesgoBajaMotivo?: string }).clienteRiesgoBajaMotivo || ""
@@ -395,6 +405,7 @@ export async function POST(request: Request) {
         modalidadSoporte,
         trabajoExpress,
         trabajoExpressOtro,
+        numeroContratoInstalar: contratoVal.numeroContratoInstalar,
         prioridad: prioridadFinal,
         estado: "PENDIENTE",
         ...datosTicket,

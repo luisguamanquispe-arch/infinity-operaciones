@@ -36,6 +36,7 @@ const TIPOS_HISTORIAL: TipoTrabajo[] = [
   "CORTE",
   "CAMBIO_DOMICILIO",
   "MIGRACION_SERVICIO_FIBRA",
+  "NUEVA_INSTALACION",
 ];
 
 const ticketLiteInclude = {
@@ -326,6 +327,7 @@ export async function obtenerDetalleSoporteCliente(clienteId: string, ticketId: 
           duracionSegundos: true,
         },
       },
+      materialesInstalacion: { orderBy: [{ orden: "asc" }, { createdAt: "asc" }] },
       orden: {
         include: {
           cronometro: true,
@@ -395,6 +397,16 @@ export async function obtenerDetalleSoporteCliente(clienteId: string, ticketId: 
       id: ticket.id,
       codigo: ticket.codigo,
       tipo: ticket.tipo,
+      numeroContratoInstalar: ticket.numeroContratoInstalar ?? null,
+      materialesInstalacion: ticket.materialesInstalacion.map((m) => ({
+        id: m.id,
+        categoria: m.categoria,
+        item: m.item,
+        cantidad: m.cantidad,
+        unidad: m.unidad,
+        marca: m.marca,
+        series: m.series,
+      })),
       modalidadSoporte: ticket.modalidadSoporte,
       prioridad: ticket.prioridad,
       estado: ticket.estado,

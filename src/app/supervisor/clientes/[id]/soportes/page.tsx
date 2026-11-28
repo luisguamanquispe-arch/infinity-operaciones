@@ -179,6 +179,7 @@ export default function HistorialSoportesClientePage() {
                 "CORTE",
                 "CAMBIO_DOMICILIO",
                 "MIGRACION_SERVICIO_FIBRA",
+                "NUEVA_INSTALACION",
               ].map((k) => (
                 <option key={k} value={k}>
                   {TIPO_LABELS[k]}

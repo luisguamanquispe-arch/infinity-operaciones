@@ -45,6 +45,7 @@ import {
   sincronizarConfirmacionPorCambioTicket,
   type ConfirmacionVisitaDbLike,
 } from "@/lib/confirmacion-visita/servicio";
+import { validarNumeroContratoInstalar } from "@/lib/nueva-instalacion";
 
 export async function GET(
   _request: Request,
@@ -113,6 +114,7 @@ export async function GET(
           },
         },
         confirmacionVisita: true,
+        materialesInstalacion: { orderBy: [{ orden: "asc" }, { createdAt: "asc" }] },
         orden: {
           include: {
             cronometro: true,
@@ -298,6 +300,7 @@ const TIPOS_VALIDOS = [
   "CORTE",
   "CAMBIO_DOMICILIO",
   "MIGRACION_SERVICIO_FIBRA",
+  "NUEVA_INSTALACION",
 ];
 const PRIORIDADES_VALIDAS = ["ALTA", "MEDIA", "BAJA"];
 const ESTADOS_VALIDOS = [
@@ -387,6 +390,24 @@ export async function PATCH(
 
   if (typeof body.tipo === "string" && TIPOS_VALIDOS.includes(body.tipo)) {
     updateData.tipo = body.tipo;
+  }
+
+  const tipoEfectivo =
+    typeof updateData.tipo === "string" ? updateData.tipo : ticket.tipo;
+  if (tipoEfectivo === "NUEVA_INSTALACION") {
+    const contratoInput =
+      body.numeroContratoInstalar !== undefined
+        ? body.numeroContratoInstalar
+        : ticket.numeroContratoInstalar;
+    const contratoVal = validarNumeroContratoInstalar(tipoEfectivo, contratoInput);
+    if (!contratoVal.ok) {
+      return NextResponse.json({ error: contratoVal.error }, { status: 400 });
+    }
+    if (body.numeroContratoInstalar !== undefined || updateData.tipo !== undefined) {
+      updateData.numeroContratoInstalar = contratoVal.numeroContratoInstalar;
+    }
+  } else if (typeof updateData.tipo === "string") {
+    updateData.numeroContratoInstalar = null;
   }
   const prioridadAnterior = ticket.prioridad;
   if (typeof body.prioridad === "string" && PRIORIDADES_VALIDAS.includes(body.prioridad)) {

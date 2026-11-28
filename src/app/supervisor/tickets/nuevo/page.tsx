@@ -20,6 +20,7 @@ import {
   type MotivoTecnicoFormState,
 } from "@/components/MotivoTecnicoForm";
 import { validarMotivoEstructurado, validarClienteSituacion } from "@/lib/motivo-tecnico/validacion";
+import { validarNumeroContratoInstalar } from "@/lib/nueva-instalacion";
 
 interface Tecnico {
   id: string;
@@ -36,6 +37,7 @@ const TIPOS = [
   "RETIRO",
   "CAMBIO_DOMICILIO",
   "MIGRACION_SERVICIO_FIBRA",
+  "NUEVA_INSTALACION",
 ] as const;
 
 export default function NuevoTicketPage() {
@@ -54,6 +56,7 @@ export default function NuevoTicketPage() {
     modalidadSoporte: "COMPLETO" as ModalidadSoporte,
     trabajoExpress: "" as TrabajoExpress | "",
     trabajoExpressOtro: "",
+    numeroContratoInstalar: "",
   });
 
   const [motivoForm, setMotivoForm] = useState<MotivoTecnicoFormState>({
@@ -71,6 +74,7 @@ export default function NuevoTicketPage() {
 
   const esSoporte = ticket.tipo === "SOPORTE";
   const esExpress = esSoporte && ticket.modalidadSoporte === "EXPRESS";
+  const esNuevaInstalacion = ticket.tipo === "NUEVA_INSTALACION";
 
   useEffect(() => {
     fetch("/api/tecnicos")
@@ -94,6 +98,14 @@ export default function NuevoTicketPage() {
       ticket.trabajoExpressOtro.trim().length < 3
     ) {
       setError("Indique el detalle del trabajo (Otro)");
+      return;
+    }
+    const contratoCheck = validarNumeroContratoInstalar(
+      ticket.tipo,
+      ticket.numeroContratoInstalar
+    );
+    if (!contratoCheck.ok) {
+      setError(contratoCheck.error);
       return;
     }
     const motivoCheck = validarMotivoEstructurado({
@@ -149,6 +161,9 @@ export default function NuevoTicketPage() {
         motivoObservaciones: motivoForm.motivoObservaciones || null,
         clienteSituacion: motivoForm.clienteSituacion,
         clienteRiesgoBajaMotivo: motivoForm.clienteRiesgoBajaMotivo || null,
+        ...(esNuevaInstalacion
+          ? { numeroContratoInstalar: contratoCheck.numeroContratoInstalar }
+          : {}),
         ...(esExpress
           ? {
               trabajoExpress: ticket.trabajoExpress,
@@ -252,6 +267,25 @@ export default function NuevoTicketPage() {
                 </select>
               </div>
             </div>
+
+            {esNuevaInstalacion && (
+              <div>
+                <label className="text-xs text-slate-500">
+                  Número de contrato a instalar *
+                </label>
+                <input
+                  type="text"
+                  required
+                  maxLength={80}
+                  placeholder="Ingrese el número de contrato"
+                  value={ticket.numeroContratoInstalar}
+                  onChange={(e) =>
+                    setTicket({ ...ticket, numeroContratoInstalar: e.target.value })
+                  }
+                  className="w-full px-3 py-2 border rounded-lg text-sm mt-0.5"
+                />
+              </div>
+            )}
 
             {esSoporte && (
               <div className="space-y-2">

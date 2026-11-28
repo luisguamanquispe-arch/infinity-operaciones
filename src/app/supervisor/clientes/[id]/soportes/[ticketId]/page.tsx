@@ -39,6 +39,16 @@ type Detalle = {
     id: string;
     codigo: string;
     tipo: string;
+    numeroContratoInstalar?: string | null;
+    materialesInstalacion?: Array<{
+      id: string;
+      categoria: string;
+      item: string;
+      cantidad: number;
+      unidad: string;
+      marca: string | null;
+      series: string[];
+    }>;
     prioridad: string;
     estado: string;
     motivo: string | null;
@@ -162,9 +172,60 @@ export default function DetalleSoporteClientePage() {
                   value={data.ticket.asignadoEn ? formatDateTime(data.ticket.asignadoEn) : "—"}
                 />
                 <Campo label="Tipo" value={TIPO_LABELS[data.ticket.tipo] ?? data.ticket.tipo} />
+                {data.ticket.numeroContratoInstalar && (
+                  <Campo
+                    label="Número de contrato a instalar"
+                    value={data.ticket.numeroContratoInstalar}
+                  />
+                )}
                 <Campo label="Resultado" value={data.ticket.resultado} />
               </div>
             </section>
+
+            {data.ticket.tipo === "NUEVA_INSTALACION" && (
+              <section className="bg-white rounded-xl border p-4 space-y-3">
+                <h2 className="font-semibold">
+                  Materiales y equipos utilizados en la instalación
+                </h2>
+                {!data.ticket.materialesInstalacion ||
+                data.ticket.materialesInstalacion.length === 0 ? (
+                  <p className="text-sm text-slate-500">
+                    Sin materiales ni equipos registrados.
+                  </p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs border-collapse">
+                      <thead>
+                        <tr className="border-b bg-slate-50 text-left text-slate-600">
+                          <th className="py-2 px-2">Tipo</th>
+                          <th className="py-2 px-2">Material / Equipo</th>
+                          <th className="py-2 px-2">Cantidad</th>
+                          <th className="py-2 px-2">Unidad</th>
+                          <th className="py-2 px-2">Marca</th>
+                          <th className="py-2 px-2">Serie(s)</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y">
+                        {data.ticket.materialesInstalacion.map((m) => (
+                          <tr key={m.id}>
+                            <td className="py-2 px-2 font-medium">
+                              {m.categoria === "EQUIPO" ? "Equipo" : "Material"}
+                            </td>
+                            <td className="py-2 px-2">{m.item}</td>
+                            <td className="py-2 px-2 font-mono">{m.cantidad}</td>
+                            <td className="py-2 px-2">{m.unidad}</td>
+                            <td className="py-2 px-2">{m.marca || "—"}</td>
+                            <td className="py-2 px-2 font-mono">
+                              {m.series?.length ? m.series.join(", ") : "—"}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </section>
+            )}
 
             <section className="bg-white rounded-xl border p-4 space-y-3">
               <h2 className="font-semibold">Información de atención</h2>

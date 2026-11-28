@@ -17,6 +17,7 @@ import { registrarSiHistorial } from "@/lib/soporte-infraestructura/historial";
 import { registrarRevisionHistorial } from "@/lib/revision-reporte";
 import { FLUJO_TICKET, logFlujoTicket } from "@/lib/ticket-flujo-log";
 import { detenerCronometroAtencionEnTx } from "@/lib/cronometro-atencion/servicio";
+import { validarFinalizacionNuevaInstalacion } from "@/lib/nueva-instalacion";
 
 export async function POST(
   request: Request,
@@ -30,7 +31,11 @@ export async function POST(
   const { id } = await params;
   const ticket = await prisma.ticket.findUnique({
     where: { id },
-    include: { cliente: true, tecnicos: { select: { tecnicoId: true } } },
+    include: {
+      cliente: true,
+      tecnicos: { select: { tecnicoId: true } },
+      materialesInstalacion: { orderBy: [{ orden: "asc" }, { createdAt: "asc" }] },
+    },
   });
 
   if (!ticket || !tecnicoAsignadoAlTicket(ticket, session.tecnicoId)) {
@@ -114,6 +119,15 @@ export async function POST(
         data: { resumenTrabajo: trabajo },
       });
     }
+  }
+
+  const valNuevaInst = validarFinalizacionNuevaInstalacion({
+    tipo: ticket.tipo,
+    numeroContratoInstalar: ticket.numeroContratoInstalar,
+    materialesInstalacion: ticket.materialesInstalacion,
+  });
+  if (!valNuevaInst.ok) {
+    return NextResponse.json({ error: valNuevaInst.error }, { status: 400 });
   }
 
   const ordenFresh = await getOrCreateOrden(id);
