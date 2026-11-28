@@ -540,15 +540,57 @@ export function derivarVistaConfirmacionVisita(
   };
 }
 
+function separarFechaHoraProgramada(
+  programado: Date | string | null | undefined
+): { fecha: string; hora: string | null } | null {
+  if (!programado) return null;
+  if (programado instanceof Date) {
+    if (Number.isNaN(programado.getTime())) return null;
+    const fecha = new Intl.DateTimeFormat("es-EC", {
+      timeZone: "America/Guayaquil",
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    }).format(programado);
+    const hora = new Intl.DateTimeFormat("es-EC", {
+      timeZone: "America/Guayaquil",
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(programado);
+    return { fecha, hora };
+  }
+  const texto = programado.trim();
+  if (!texto) return null;
+  const idxComa = texto.lastIndexOf(",");
+  if (idxComa > 0) {
+    const fecha = texto.slice(0, idxComa).trim();
+    const hora = texto.slice(idxComa + 1).trim();
+    if (fecha && hora) return { fecha, hora };
+  }
+  return { fecha: texto, hora: null };
+}
+
 export function mensajeWhatsappConfirmacion(
   url: string,
-  programadoTexto?: string | null
+  programadoTexto?: Date | string | null
 ): string {
-  const base =
-    "Estimado cliente de INFINITY INTERNET: tenemos programada una visita técnica para atender su solicitud. Para evitar que nuestro técnico llegue y no encuentre a nadie en casa, confirme por favor su disponibilidad aquí: " +
-    url;
-  if (programadoTexto) {
-    return `${base}\n\nHorario programado: ${programadoTexto}`;
-  }
-  return base;
+  const horario = separarFechaHoraProgramada(programadoTexto);
+  const bloqueHorario = horario
+    ? horario.hora
+      ? `📅 *Fecha:* ${horario.fecha}\n🕒 *Hora:* ${horario.hora}\n\n`
+      : `📅 *Fecha:* ${horario.fecha}\n\n`
+    : "";
+
+  return (
+    `🔔 *INFINITY INTERNET | CONFIRMACIÓN DE VISITA TÉCNICA*\n\n` +
+    `Estimado cliente:\n\n` +
+    `Tenemos programada una visita técnica para atender su solicitud.\n\n` +
+    `Para evitar que nuestro técnico llegue y no encuentre a nadie en casa, le solicitamos confirmar su disponibilidad mediante el siguiente enlace:\n\n` +
+    `🟦 *CONFIRME AQUÍ SU VISITA* 👇\n\n` +
+    `${url}\n\n` +
+    bloqueHorario +
+    `Agradecemos su colaboración para brindarle una atención oportuna.\n\n` +
+    `*INFINITY INTERNET*\n` +
+    `Conectamos lo que más importa.`
+  );
 }

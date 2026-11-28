@@ -115,16 +115,22 @@ export default function ConfirmarVisitaPublicPage() {
   }
 
   return (
-    <div className="min-h-dvh bg-slate-50 flex flex-col items-center justify-center p-4">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-        <div className="bg-infinity-600 text-white px-6 py-5">
-          <p className="text-xs font-semibold uppercase tracking-wider text-infinity-100">
-            INFINITY INTERNET
-          </p>
-          <h1 className="text-lg font-bold mt-0.5">Confirmación de visita técnica</h1>
-        </div>
+    <div className="min-h-dvh bg-gradient-to-b from-slate-50 to-slate-100/80 flex flex-col items-center justify-center px-4 py-8 sm:py-12">
+      <div className="w-full max-w-md bg-white rounded-2xl shadow-md shadow-slate-200/70 border border-slate-200/90 overflow-hidden">
+        <div className="h-1.5 w-full bg-infinity-600" />
 
-        <div className="p-6 space-y-5">
+        <header className="px-6 pt-7 pb-5 text-center border-b border-slate-100">
+          <img
+            src="/brand/logo-infinity.png"
+            alt="INFINITY INTERNET"
+            className="h-20 sm:h-24 w-auto object-contain mx-auto select-none"
+          />
+          <h1 className="mt-4 text-xl sm:text-2xl font-bold tracking-tight text-slate-900">
+            Confirmación de visita técnica
+          </h1>
+        </header>
+
+        <div className="p-6 space-y-6">
           {loading ? (
             <div className="py-10 text-center text-sm text-slate-500">
               Verificando información de su visita…
@@ -139,18 +145,20 @@ export default function ConfirmarVisitaPublicPage() {
             </div>
           ) : (
             <>
-              <div className="rounded-xl bg-slate-50 border border-slate-200 p-4 space-y-2 text-sm">
-                <div className="flex items-center justify-between gap-2">
+              <div className="rounded-xl bg-slate-50/90 border border-slate-200/90 divide-y divide-slate-200/70 text-sm">
+                <div className="flex items-center justify-between gap-3 px-4 py-3">
                   <span className="text-slate-500">Orden</span>
                   <span className="font-mono font-semibold text-infinity-700">
                     {data.codigoTicket}
                   </span>
                 </div>
-                <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center justify-between gap-3 px-4 py-3">
                   <span className="text-slate-500">Tipo de visita</span>
-                  <span className="font-medium text-slate-800">{data.tipoServicioLabel}</span>
+                  <span className="font-medium text-slate-900 text-right">
+                    {data.tipoServicioLabel}
+                  </span>
                 </div>
-                <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center justify-between gap-3 px-4 py-3">
                   <span className="text-slate-500">Horario programado</span>
                   <span className="font-semibold text-slate-900 text-right">
                     {data.programadoEn
@@ -212,8 +220,8 @@ export default function ConfirmarVisitaPublicPage() {
               )}
 
               {data.puedeResponder && modo === "elegir" && (
-                <div className="space-y-2.5 pt-1">
-                  <p className="text-xs text-slate-500">
+                <div className="space-y-3 pt-1">
+                  <p className="text-sm font-medium text-slate-700">
                     {data.estado === "CONFIRMADO"
                       ? "¿Necesita cambiar su respuesta?"
                       : "Por favor indíquenos si habrá alguien disponible en el domicilio:"}
@@ -225,10 +233,10 @@ export default function ConfirmarVisitaPublicPage() {
                         setErrorEnvio("");
                         setModo("confirmar");
                       }}
-                      className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-emerald-600 text-white font-semibold text-sm hover:bg-emerald-700"
+                      className="w-full flex items-center justify-center gap-2.5 py-3.5 px-4 rounded-xl bg-emerald-600 text-white font-semibold text-sm shadow-sm hover:bg-emerald-700 active:scale-[0.99] transition"
                     >
-                      <CheckCircle2 className="w-4 h-4" />
-                      Sí, estaremos en casa para recibir al técnico
+                      <CheckCircle2 className="w-4 h-4 shrink-0" />
+                      <span>Sí, estaremos en casa para recibir al técnico</span>
                     </button>
                   )}
                   <button
@@ -237,10 +245,10 @@ export default function ConfirmarVisitaPublicPage() {
                       setErrorEnvio("");
                       setModo("reprogramar");
                     }}
-                    className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-amber-50 text-amber-900 border border-amber-300 font-semibold text-sm hover:bg-amber-100"
+                    className="w-full flex items-center justify-center gap-2.5 py-3.5 px-4 rounded-xl bg-amber-50 text-amber-900 border border-amber-300 font-semibold text-sm hover:bg-amber-100 active:scale-[0.99] transition"
                   >
-                    <CalendarClock className="w-4 h-4" />
-                    Solicitar reprogramación de horario
+                    <CalendarClock className="w-4 h-4 shrink-0" />
+                    <span>Solicitar reprogramación de horario</span>
                   </button>
                   <button
                     type="button"
@@ -248,10 +256,10 @@ export default function ConfirmarVisitaPublicPage() {
                       setErrorEnvio("");
                       setModo("no_disponible");
                     }}
-                    className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-white text-red-700 border border-red-200 font-semibold text-sm hover:bg-red-50"
+                    className="w-full flex items-center justify-center gap-2.5 py-3.5 px-4 rounded-xl bg-white text-rose-700 border border-rose-200 font-semibold text-sm hover:bg-rose-50 active:scale-[0.99] transition"
                   >
-                    <XCircle className="w-4 h-4" />
-                    No estaré disponible en este horario
+                    <XCircle className="w-4 h-4 shrink-0" />
+                    <span>No estaré disponible en este horario</span>
                   </button>
                 </div>
               )}
